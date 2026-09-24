@@ -949,7 +949,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
  const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
  if(mode==='board'||mode==='shop')return;
- if(mode==='menu'){if(!chPrompt)startRun(false);return}
+ if(mode==='menu')return; // only the buttons start a run; tapping empty space does nothing
  if(mode==='over'){if(overDelay<=0)startRun();return}
  if(mode==='paused'){mode='play';return}
  if(mode==='stage'){if(stageT>1.2&&stageT<2.7)stageT=2.7;return}
@@ -1577,7 +1577,7 @@ function drawMenu(){
  text('📦 Pick up  →  follow the dots  →  🏠 Drop off   ·   Fast x2 · No crash x3',cx,580,13,'#dfe5f0','center',700);
  text('8 zones · sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
  text(touchUI?'Drag the left side to move · Tap the right side to dash':'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
- text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap to start':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
+ text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap START DELIVERY to play':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
 }
 function drawOver(){
  ctx.fillStyle='rgba(6,10,24,.82)';ctx.fillRect(0,0,W,H);
