@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#070c1a">
 <title>Dili Delivery</title>
+<meta name="description" content="Deliver, dodge, combo. A fast browser delivery game by Dlicom — 6 zones, trains, ice, meteors and a new Daily Challenge every day.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dili Delivery — can you beat my score?">
+<meta property="og:description" content="Deliver, dodge, combo. 6 zones, trains, ice & meteors. New Daily Challenge every day.">
+<meta property="og:url" content="https://quangdai1321.github.io/Dili-Delivery/">
+<meta property="og:image" content="https://quangdai1321.github.io/Dili-Delivery/assets/dili-hero.webp">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dili Delivery — can you beat my score?">
+<meta name="twitter:description" content="Deliver, dodge, combo. New Daily Challenge every day.">
+<meta name="twitter:image" content="https://quangdai1321.github.io/Dili-Delivery/assets/dili-hero.webp">
 <link rel="icon" id="favicon" href="assets/dlicom-logo.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
@@ -39,7 +49,8 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1152/672;border-radius:
 </div>
 <script>
 'use strict';
-const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const canvas=document.getElementById('game');let ctx=canvas.getContext('2d'); // swapped temporarily when drawing the share card
+const GAME_URL=/^https?:$/.test(location.protocol)?location.origin+location.pathname:'https://quangdai1321.github.io/Dili-Delivery/';
 const T=48,COLS=24,ROWS=13,HUD=48,W=COLS*T,H=HUD+ROWS*T;
 const BRAND={blue:'#2f63e0',bright:'#4c86ff',sky:'#6fa3ff',deep:'#16327a',navy:'#0a1330',ink:'#10214d'};
 
@@ -60,7 +71,7 @@ ZONES.push(
  {name:'MOON BASE',tag:'INSANE',accent:'#35e8ff',alley:.4,park:.14,cars:8,scoot:.5,carSpd:[140,190],barriers:5,route:[16,30],
   road:'#1c1b30',mark:'#35e8ff',walk:'#2e2a45',ground:'#24203a',blds:['#cfd8ea','#aebbd6','#e3e9f5'],parkC:'#3a3552',win:'#35e8ff',winA:.9,dark:.45,style:'moon',meteors:true,lowgrav:true,fireflies:true,flyColor:'53,232,255',carColors:['#e8ecf5','#b9c6de','#9fe7ff','#ffffff']},
 );
-const ZONE_META=[['🏙️','Easy streets — learn the routes'],['🌃','Dark alleys — watch for headlights'],['⛈️','Low visibility — lightning lights up the map'],
+const ZONE_META=[['🏙️','Easy streets — learn the routes'],['🌃','💢 Angry drivers speed up when you are in their lane!'],['⛈️','Low visibility — lightning lights up the map'],
  ['⚓','🚆 Trains cross the tracks — wait for the red signal to pass!'],['❄️','Icy roads — Dili slides, brake early!'],['🌙','☄️ Meteors incoming — dodge the red circles!']];
 ZONES.forEach((z,i)=>{z.icon=ZONE_META[i][0];z.tip=ZONE_META[i][1];z.style=z.style||'city'});
 const ZONE_AT=[0,5,10,16,23,31],LOOP_EVERY=8; // deliveries completed before entering each zone; last zone then loops harder
@@ -80,9 +91,13 @@ const UPGRADES=[
 ];
 
 // ---------- utils ----------
-const rand=(a,b)=>a+Math.random()*(b-a), ri=(a,b)=>Math.floor(rand(a,b+1)), pick=a=>a[Math.floor(Math.random()*a.length)];
+// RNG is swapped for a seeded generator while building daily-challenge maps / orders
+let RNG=Math.random;
+const mulberry32=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+function seeded(seed,fn){if(seed==null)return fn();const prev=RNG;RNG=mulberry32(seed);try{return fn()}finally{RNG=prev}}
+const rand=(a,b)=>a+RNG()*(b-a), ri=(a,b)=>Math.floor(rand(a,b+1)), pick=a=>a[Math.floor(RNG()*a.length)];
 const clamp=(v,a,b)=>v<a?a:v>b?b:v, key=(c,r)=>c+','+r, inb=(c,r)=>c>=0&&r>=0&&c<COLS&&r<ROWS;
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(RNG()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16),f=v=>clamp(Math.round(v+amt*255),0,255);return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
 function rr(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
 const font=(s,w=800)=>`${w} ${s}px Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif`;
@@ -127,6 +142,16 @@ const menuStars=Array.from({length:90},()=>({x:rand(0,W),y:rand(0,H*.8),r:rand(.
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const best=Object.assign({score:0,combo:0,time:null,deliveries:0,runs:0,maxZone:0},store.get('diliDelivery.best',{}));
 {const legacy=Number(store.get('diliDeliveryBest',0))||0;if(legacy>best.score)best.score=legacy}
+// daily challenge: same seeded city + orders for everyone on the same (local) day
+const DAY0=Date.UTC(2026,8,24); // Daily #1
+function today(){const d=new Date(),y=d.getFullYear(),m=d.getMonth(),dd=d.getDate();return{key:y*10000+(m+1)*100+dd,no:Math.round((Date.UTC(y,m,dd)-DAY0)/864e5)+1}}
+function dailyRec(){const t=today(),r=store.get('diliDelivery.daily',null);return r&&r.key===t.key?r:{key:t.key,best:0,tries:0,pace:null}}
+const hashSeed=n=>{n=Math.imul(n^n>>>16,0x45d9f3b);n=Math.imul(n^n>>>16,0x45d9f3b);return(n^n>>>16)>>>0};
+// mobile niceties (all best-effort)
+const buzz=p=>{try{if(touchUI&&navigator.vibrate)navigator.vibrate(p)}catch(e){}};
+let wakeLock=null;
+function keepAwake(on){try{if(on&&!wakeLock&&navigator.wakeLock)navigator.wakeLock.request('screen').then(l=>{wakeLock=l;l.addEventListener('release',()=>{wakeLock=null})}).catch(()=>{});
+ else if(!on&&wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
 
 // ---------- audio: synth SFX + procedural music (no files) ----------
 let actx=null,master=null,noiseBuf=null,muted=!!store.get('diliDelivery.muted',false);
@@ -171,6 +196,9 @@ const SFX={
  whoosh(){noise(.5,.1,1500,0,'bandpass')},
  boom(){noise(.6,.4,500);tone(90,.4,'sine',.2,.4)},
  stage(){[523,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,.14,'square',.06,1,i*.08))},
+ honk(){tone(415,.12,'square',.06);tone(349,.18,'square',.06,1,.14)},
+ close(){noise(.22,.12,3000,0,'bandpass');tone(1200,.08,'triangle',.06,1.5)},
+ drop(){tone(520,.1,'square',.07,.5);tone(260,.2,'triangle',.08,.6,.08)},
 };
 function toggleCam(){camClose=!camClose;store.set('diliDelivery.cam',camClose);
  if(player&&mode!=='menu')floats.push({x:player.x,y:player.y-40,text:camClose?'🔍 CLOSE CAMERA':'🗺️ FULL MAP',color:'#fff',t:1,max:1,size:16})}
@@ -231,6 +259,9 @@ let player=null,order=null,upg={speed:0,dash:0,shield:0,magnet:0};
 let score=0,dispScore=0,combo=0,runBestCombo=0,deliveries=0,shiftTime=60,fastest=null,totalDist=0,newBest=false;
 let resultCard=null,banner=null,hype=null,shake=0,flash=0,flashColor='#fff',comboPulse=0,scorePulse=0,hitStop=0,lastTickSec=99,overDelay=0,runT=0,lightningT=6;
 let pathCache=[],pathTimer=0,upgradeChoices=[],joy=null,touchUI=false,mouse={x:-1,y:-1},buttons=[];
+// daily + rage stats
+let daily=false,dailyNo=0,dailySeed=null,dailyTries=0,crashes=0,crashLost=0,orderCrashes=0,lastCrashBy=null,nearMisses=0,nearCd=0,slowmo=0;
+let runClock=0,paceLog=[],paceRef=null,rage=null,shareFile=null,toast=null;
 const MR=2,mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
 let RS=1,resCap=2.5,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
@@ -284,17 +315,17 @@ function genMap(spawn){
  for(let r=0;r<ROWS;r++){grid.push([]);deco.push([]);
   for(let c=0;c<COLS;c++){grid[r].push(ROAD_ROWS.includes(r)||ROAD_COLS.includes(c)?1:0);deco[r].push(null)}}
  for(const[c0,c1]of BLOCK_C)for(const[r0,r1]of BLOCK_R){ // alleys (value 2 = no traffic)
-  if(Math.random()>=zone.alley)continue;
-  if(Math.random()<.5){const c=c0+Math.floor((c1-c0)/2);for(let r=r0;r<=r1;r++)grid[r][c]=2}
+  if(RNG()>=zone.alley)continue;
+  if(RNG()<.5){const c=c0+Math.floor((c1-c0)/2);for(let r=r0;r<=r1;r++)grid[r][c]=2}
   else{const r=r0+1;for(let c=c0;c<=c1;c++)grid[r][c]=2}
  }
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;
-  deco[r][c]=Math.random()<zone.park
+  deco[r][c]=RNG()<zone.park
    ?{kind:'park',trees:Array.from({length:ri(2,3)},()=>({x:rand(13,35),y:rand(13,35),r:rand(6,9)}))}
-   :{kind:'bld',color:pick(zone.blds),win:ri(1,15),ac:Math.random()<.4,neon:zone.neon?pick(zone.neon):null,h:ri(6,13)};
+   :{kind:'bld',color:pick(zone.blds),win:ri(1,15),ac:RNG()<.4,neon:zone.neon?pick(zone.neon):null,h:ri(6,13)};
  }
  const sp=nearestRoad(spawn);
- rails=zone.trains?shuffle([4,8]).slice(0,loop>0||Math.random()<.4?2:1):[];
+ rails=zone.trains?shuffle([4,8]).slice(0,loop>0||RNG()<.4?2:1):[];
  // roadworks: straight segments only, alleys first, never disconnect the grid
  const cands=[];
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(!grid[r][c])continue;
@@ -309,8 +340,8 @@ function genMap(spawn){
   if(near)continue;barriers.add(k);if(!connected())barriers.delete(k);
  }
  lines=[];
- for(const r of ROAD_ROWS)lines.push({h:true,idx:r,dir:Math.random()<.5?1:-1});
- for(const c of ROAD_COLS)lines.push({h:false,idx:c,dir:Math.random()<.5?1:-1});
+ for(const r of ROAD_ROWS)lines.push({h:true,idx:r,dir:RNG()<.5?1:-1});
+ for(const c of ROAD_COLS)lines.push({h:false,idx:c,dir:RNG()<.5?1:-1});
  lines=lines.filter(l=>!(l.h&&rails.includes(l.idx))).filter(l=>![...barriers].some(b=>{const[bc,br]=b.split(',').map(Number);return l.h?br===l.idx:bc===l.idx}));
  renderMap();genAmbient();
  return sp;
@@ -392,16 +423,23 @@ function renderMap(){
 function carRect(k){const l=k.l;
  return l.h?{x:k.pos-k.len/2,y:HUD+l.idx*T+T/2-k.wid/2,w:k.len,h:k.wid}:{x:l.idx*T+T/2-k.wid/2,y:HUD+k.pos-k.len/2,w:k.wid,h:k.len};}
 function makeCar(){
- const sc=Math.random()<zone.scoot,k={l:null,pos:0,len:sc?26:42,wid:sc?14:26,sc,spd:rand(...zone.carSpd)*(sc?1.5:1),v:0,color:pick(zone.carColors||CAR_COLORS)};
+ const sc=RNG()<zone.scoot,k={l:null,pos:0,len:sc?26:42,wid:sc?14:26,sc,spd:rand(...zone.carSpd)*(sc?1.5:1),v:0,color:pick(zone.carColors||CAR_COLORS)};
  for(let tries=0;tries<30;tries++){k.l=pick(lines);k.pos=rand(0,k.l.h?W:ROWS*T);const R=carRect(k);
   if(!player||Math.hypot(R.x+R.w/2-player.x,R.y+R.h/2-player.y)>220)break}
+ // road ragers (Night District on): floor it when Dili is ahead in their lane
+ k.rage=!sc&&zoneIdx>=1&&RNG()<.18+.04*zoneIdx+.05*loop;k.angry=0;k.honkCd=0;
  k.v=k.spd;return k;
+}
+function ragerSees(k){ // Dili is in this car's lane, ahead of it and close
+ if(!player)return false;const l=k.l,lane=l.h?HUD+l.idx*T+T/2:l.idx*T+T/2,off=l.h?player.y-lane:player.x-lane;if(Math.abs(off)>T*.55)return false;
+ const ahead=((l.h?player.x:player.y-HUD)-k.pos)*l.dir;return ahead>0&&ahead<280;
 }
 function spawnCars(){cars=[];if(!lines.length)return;for(let i=0;i<zone.cars;i++)cars.push(makeCar())}
 function updateCars(dt){
  const f=(1+Math.min(.5,combo*.03))*diff();
  for(const k of cars){
   let v=k.spd*f,gap=1e9,ahead=null;
+  if(k.rage&&mode==='play'){k.honkCd-=dt;if(ragerSees(k)){if(!k.angry&&k.honkCd<=0){k.honkCd=2.5;SFX.honk()}k.angry=.6}else k.angry=Math.max(0,k.angry-dt);if(k.angry)v*=1.75}
   for(const o of cars){if(o===k||o.l!==k.l)continue;const d=(o.pos-k.pos)*k.l.dir;if(d>0&&d<gap){gap=d;ahead=o}}
   if(ahead&&gap<(k.len+ahead.len)/2+16)v=Math.min(v,ahead.v*.9);
   k.v+=(v-k.v)*Math.min(1,dt*6);k.pos+=k.l.dir*k.v*dt;
@@ -422,12 +460,16 @@ function chooseSpot(from,[mn,mx],avoid){
  fallback.sort((a,b)=>Math.abs(a.d-mn)-Math.abs(b.d-mn));return fallback[0]||{c:from.c,r:from.r,d:0,b:null};
 }
 function newOrder(){
- const pt=tileOf(player),p=chooseSpot(pt,[4,11],[pt]),d=chooseSpot(p,zone.route,[p,pt]);
- order={pickup:Object.assign({},p,center(p.c,p.r)),drop:Object.assign({},d,center(d.c,d.r)),carrying:false,
-  pathLen:bfs(p.c,p.r).dist[d.r*COLS+d.c],clock:0,dist:0,par:0,clean:true,born:runT};
- pathTimer=0;
+ const pt=tileOf(player);
+ seeded(daily?hashSeed(dailySeed+deliveries*7919):null,()=>{const p=chooseSpot(pt,[4,11],[pt]),d=chooseSpot(p,zone.route,[p,pt]);
+  order={pickup:Object.assign({},p,center(p.c,p.r)),drop:Object.assign({},d,center(d.c,d.r)),carrying:false,
+   pathLen:bfs(p.c,p.r).dist[d.r*COLS+d.c],clock:0,dist:0,par:0,clean:true,born:runT}});
+ orderCrashes=0;pathTimer=0;
 }
 function doPickup(){
+ if(order.pickup.dropped){ // re-grab a package knocked loose in a crash: the order clock keeps running
+  order.carrying=true;floats.push({x:order.pickup.x,y:order.pickup.y-26,text:'GOT IT!',color:'#ffd34d',t:.9,max:.9,size:18});
+  burst(order.pickup.x,order.pickup.y,14,CONFETTI);player.pop=.3;SFX.pickup();pathTimer=0;return}
  order.carrying=true;order.clock=0;order.dist=0;
  order.par=order.pathLen*T/playerSpeed()*1.35+1.2;
  floats.push({x:order.pickup.x,y:order.pickup.y-26,text:'+ PACKAGE',color:'#ffd34d',t:1,max:1,size:20});
@@ -440,7 +482,8 @@ function doDeliver(){
  const base=50+order.pathLen*10,bonus=base*(fast?2:1)*(clean?3:1)+combo*50;
  score+=bonus;
  const stars=1+(fast?1:0)+(clean?1:0)+(t<=order.par*.7?1:0)+(combo>=5?1:0);
- shiftTime=Math.min(99,shiftTime+4+(fast?2:0));lastTickSec=99;
+ // time refund shrinks as the run goes on: +4s early, +2s from delivery 24
+ shiftTime=Math.min(99,shiftTime+Math.max(2,4-Math.floor(deliveries/12))+(fast?2:0));lastTickSec=99;buzz(25);
  fastest=fastest==null?t:Math.min(fastest,t);totalDist+=order.dist;
  resultCard={no:deliveries,stars,combo,time:t,dist:Math.round(order.dist/T*10),bonus,fast,clean,t:2.8,max:2.8};
  floats.push({x:dx,y:dy-28,text:'+'+fmt(bonus),color:'#45e6a5',t:1.2,max:1.2,size:26});
@@ -467,32 +510,61 @@ function startStage(i,lp){
 // ---------- run flow ----------
 function enterZone(i,first,lp=0){
  zoneIdx=i;zone=ZONES[i];loop=lp;zoneDeliveries=0;
- const sp=genMap(first?{c:12,r:6}:tileOf(player)),c=center(sp.c,sp.r);
+ const sp=seeded(daily?hashSeed(dailySeed^(i*104729+lp*7)):null,()=>{const s=genMap(first?{c:12,r:6}:tileOf(player)),q=center(s.c,s.r);player.x=q.x;player.y=q.y;spawnCars();return s}),c=center(sp.c,sp.r);
  player.x=c.x;player.y=c.y;player.vx=player.vy=0;player.inv=Math.max(player.inv,1.2);player.trail=[];updateCam(0,true);
- spawnCars();rain=[];
+ rain=[];
  if(zone.rain)for(let n=0;n<140;n++)rain.push({x:rand(0,W),y:rand(HUD,H),l:rand(10,22),s:rand(520,760)});
  trains=rails.map(r=>({row:r,state:'idle',t:rand(2.5,4.5),dir:1,x:0,len:0,ding:0}));meteors=[];scorches=[];meteorT=2.5;
  snowflakes=zone.snow?Array.from({length:130},()=>({x:rand(0,W),y:rand(HUD,H),s:rand(30,70),r:rand(1.2,3),p:rand(0,7)})):[];
  if(first)banner={text:zone.name,sub:'Pick up the 📦 to start',t:2.2,max:2.2};
  else{flash=.4;flashColor=zone.accent}
 }
-function startRun(){
- ensureAudio();
+function startRun(isDaily=daily){
+ ensureAudio();keepAwake(true);
+ daily=isDaily;
+ if(daily){const t=today(),rec=dailyRec();rec.tries++;store.set('diliDelivery.daily',rec);dailyNo=t.no;dailySeed=hashSeed(t.key);dailyTries=rec.tries;paceRef=rec.pace}
+ else{dailySeed=null;paceRef=best.pace||null}
+ crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
  upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
  enterZone(0,true);newOrder();mode='play';SFX.go();
 }
 function endRun(){
- mode='over';overDelay=.9;joy=null;resultCard=null;banner=null;hype=null;dispScore=score;
- newBest=score>best.score;
+ mode='over';overDelay=.6;joy=null;resultCard=null;banner=null;hype=null;dispScore=score;keepAwake(false);
+ paceLog.push(score);
+ const prevBest=daily?dailyRec().best:best.score;
+ rage=rageReport(prevBest);
+ newBest=score>prevBest&&score>0;
+ if(daily){const rec=dailyRec();if(newBest){rec.best=score;rec.pace=paceLog}store.set('diliDelivery.daily',rec)}
+ else if(newBest)best.pace=paceLog;
  best.score=Math.max(best.score,score);best.combo=Math.max(best.combo,runBestCombo);
  best.deliveries=Math.max(best.deliveries,deliveries);if(fastest!=null)best.time=best.time==null?fastest:Math.min(best.time,fastest);
- best.maxZone=Math.max(best.maxZone||0,zoneIdx);best.runs++;store.set('diliDelivery.best',best);SFX.over();
+ best.maxZone=Math.max(best.maxZone||0,zoneIdx);best.runs++;store.set('diliDelivery.best',best);SFX.over();buzz([30,40,30]);
  if(newBest)for(let i=0;i<5;i++)setTimeout(()=>burst(rand(W*.3,W*.7),rand(150,300),40,CONFETTI,true),i*220);
+ makeShareCard();
+}
+// ---------- rage: the game over screen tells you exactly how close you were ----------
+const TAUNTS={
+ car:['Traffic 1 – Dili 0','The cars were not even trying.','Maybe look both ways next time?'],
+ rage:['That driver is still laughing 💢','Honk honk. Get out of the lane.'],
+ train:['The train had a bell. And lights. And a horn. 🚆','Trains always win.'],
+ meteor:['Space rocks: 1 · Dili: 0 ☄️','The red circle was a hint.'],
+ roadworks:['It was a traffic cone. It did not move. 🚧','Walked straight into the roadworks. Classic.'],
+ clean:['Zero crashes. Just too slow 🐢','Clean run… for a snail.'],
+ any:['The customer gave you ⭐ 1 star.','Grandma delivers faster.','One more run. Just one more.','Dili believes in you. Barely.'],
+};
+function rageReport(prevBest){
+ const lines=[],tg=order&&order.carrying?order.drop:null;
+ if(tg){const m=Math.round(Math.hypot(tg.x-player.x,tg.y-player.y)/T*10);if(m<=40)lines.push(`The package was ${m}m from the door 😭`)}
+ const gap=prevBest-score;if(prevBest>0&&gap>0&&gap<=Math.max(300,prevBest*.15))lines.push(`Only ${fmt(gap)} points short of your ${daily?'daily ':''}best 😤`);
+ const L=ZONES.length-1;if(zoneIdx<L){const n=ZONE_AT[zoneIdx+1]-deliveries;if(n<=2)lines.push(`${n} deliver${n>1?'ies':'y'} away from ${ZONES[zoneIdx+1].icon} ${ZONES[zoneIdx+1].name}`)}
+ if(crashLost>=8)lines.push(`Crashes cost you ${crashLost} seconds 💥`);
+ const pool=crashes?TAUNTS[lastCrashBy]||TAUNTS.car:TAUNTS.clean;
+ return{line:lines[0]||null,taunt:pick(Math.random()<.6?pool:TAUNTS.any)};
 }
 function openUpgrade(){
- const pool=shuffle(UPGRADES.filter(u=>u.id==='time'||upg[u.id]<u.max));
+ const pool=seeded(daily?hashSeed(dailySeed+deliveries*31):null,()=>shuffle(UPGRADES.filter(u=>u.id==='time'||upg[u.id]<u.max)));
  upgradeChoices=pool.slice(0,3);mode='upgrade';joy=null;SFX.up();
 }
 function chooseUpgrade(i){
@@ -509,16 +581,30 @@ function tryDash(){
  player.dash=.22;player.dashCd=dashCooldown();SFX.dash();
  rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:8,r1:40,color:'#8fd0ff'});
 }
-function crash(sx,sy){
+function crash(sx,sy,by='car'){
  const nx=player.x-sx,ny=player.y-sy,l=Math.hypot(nx,ny)||1;
- player.vx=nx/l*360;player.vy=ny/l*360;player.dash=0;shake=.3;hitStop=.07;
+ player.vx=nx/l*360;player.vy=ny/l*360;player.dash=0;shake=.3;hitStop=.07;for(const k of cars)k.nm=false;
  if(upg.shield>0){upg.shield--;player.inv=1;SFX.shield();burst(player.x,player.y,20,['#6fb3ff','#bfe0ff']);
   rings.push({x:player.x,y:player.y,t:.4,max:.4,r0:18,r1:50,color:'#9fd0ff'});
   floats.push({x:player.x,y:player.y-30,text:'🛡️ SHIELD',color:'#9fd0ff',t:1,max:1,size:20});return}
- const had=combo;combo=0;order.clean=false;shiftTime=Math.max(0,shiftTime-3);player.inv=1.2;player.dizzy=1.2;flash=.35;flashColor='#ff4d5e';
+ // repeated crashes on the same order hurt more: -3s, -4s, -5s, -6s
+ const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;lastCrashBy=by;
+ combo=0;order.clean=false;shiftTime=Math.max(0,shiftTime-pen);player.inv=1.2;player.dizzy=1.2;flash=.35;flashColor='#ff4d5e';
  floats.push({x:player.x,y:player.y-30,text:had>=2?`COMBO x${had} BROKEN`:'CRASH!',color:'#ff6473',t:1.1,max:1.1,size:22});
- floats.push({x:player.x,y:player.y-8,text:'-3s',color:'#ffb3bb',t:.9,max:.9,size:16});
- burst(player.x,player.y,26,['#ff6473','#ffd34d','#fff']);SFX.crash();
+ floats.push({x:player.x,y:player.y-8,text:`-${pen}s`,color:'#ffb3bb',t:.9,max:.9,size:16+(pen-3)*2});
+ burst(player.x,player.y,26,['#ff6473','#ffd34d','#fff']);SFX.crash();buzz([40,30,70]);
+ // the package flies out of Dili's hands and lands back where the hit came from: go get it
+ if(order.carrying&&!(best.runs===0&&deliveries<2)){
+  const t=nearestRoad(tileOf({x:clamp(sx,T/2,W-T/2),y:clamp(sy,HUD+T/2,H-T/2)})),c=center(t.c,t.r);
+  order.carrying=false;order.pickup={c:t.c,r:t.r,x:c.x,y:c.y,b:null,dropped:true,lockUntil:runT+.5};
+  floats.push({x:c.x,y:c.y-30,text:'📦 DROPPED!',color:'#ffd34d',t:1.3,max:1.3,size:20});
+  rings.push({x:c.x,y:c.y,t:.5,max:.5,r0:40,r1:10,color:'#ffd34d'});SFX.drop();pathTimer=0;
+ }
+}
+function nearMiss(){
+ nearMisses++;nearCd=.8;const pts=25+combo*5;score+=pts;slowmo=.18;
+ floats.push({x:player.x,y:player.y-34,text:`CLOSE CALL! +${pts}`,color:'#8fe3ff',t:.9,max:.9,size:17});
+ rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:30,r1:14,color:'#8fe3ff'});SFX.close();buzz(12);
 }
 
 // ---------- physics ----------
@@ -558,9 +644,9 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyC'){toggleCam();return}
  if(e.code==='KeyF'){toggleFullscreen();return}
  if(mode==='splash'){mode='menu';return}
- if(mode==='menu'){if(go)startRun()}
- else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun()}
- else if(mode==='paused'){if(go||e.code==='KeyP'||e.code==='Escape')mode='play'}
+ if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true)}
+ else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun();else if(e.code==='KeyS')shareRun();else if(e.code==='Escape')mode='menu'}
+ else if(mode==='paused'){if(go||e.code==='KeyP'||e.code==='Escape')mode='play';else if(e.code==='KeyR')startRun();else if(e.code==='KeyQ')quitToMenu()}
  else if(mode==='stage'){if(go&&stageT>1.2&&stageT<2.7)stageT=2.7}
  else if(mode==='upgrade'){const i=['Digit1','Digit2','Digit3','Numpad1','Numpad2','Numpad3'].indexOf(e.code);if(i>=0)chooseUpgrade(i%3)}
  else if(mode==='play'){
@@ -571,28 +657,36 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>{keys.clear();joy=null;if(mode==='play')mode='paused'});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')mode='paused'});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')mode='paused';
+ if(!document.hidden&&['play','paused','upgrade','stage'].includes(mode))keepAwake(true)}); // the OS drops the wake lock when hidden
 function toCanvas(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
 const hit=(p,b)=>p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
 canvas.addEventListener('pointerdown',e=>{
  e.preventDefault();ensureAudio();const p=toCanvas(e);if(e.pointerType==='touch')touchUI=true;
  if(mode==='splash'){mode='menu';return}
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
- const b=buttons.find(b=>hit(p,b));if(b){b.act();return}
- if(mode==='menu'){startRun();return}
+ const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
+ if(mode==='menu'){startRun(false);return}
  if(mode==='over'){if(overDelay<=0)startRun();return}
  if(mode==='paused'){mode='play';return}
  if(mode==='stage'){if(stageT>1.2&&stageT<2.7)stageT=2.7;return}
  if(mode!=='play')return;
- if(touchUI&&Math.hypot(p.x-36,p.y-(HUD+36))<28){mode='paused';return}
- if(p.y<HUD&&p.x>W-36){toggleMute();return}
- if(p.y<HUD&&p.x>W-70){toggleCam();return}
+ if(Math.hypot(p.x-36,p.y-(HUD+36))<28){mode='paused';return}
+ // HUD icons get generous hit areas (they are tiny on phones)
+ if(p.y<HUD+(touchUI?16:0)&&p.x>W-40){toggleMute();return}
+ if(p.y<HUD+(touchUI?16:0)&&p.x>W-78){toggleCam();return}
  if(e.pointerType!=='mouse'&&p.x>W*.62){tryDash();return}
  joy={id:e.pointerId,ox:p.x,oy:p.y,x:p.x,y:p.y};try{canvas.setPointerCapture(e.pointerId)}catch(err){}
 });
-canvas.addEventListener('pointermove',e=>{const p=toCanvas(e);mouse=p;if(joy&&e.pointerId===joy.id){joy.x=p.x;joy.y=p.y}});
+const JOY_R=55;
+canvas.addEventListener('pointermove',e=>{const p=toCanvas(e);mouse=p;if(joy&&e.pointerId===joy.id){joy.x=p.x;joy.y=p.y;
+ // floating stick: the base follows the thumb so you never run out of travel
+ const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(l>JOY_R){joy.ox=joy.x-dx/l*JOY_R;joy.oy=joy.y-dy/l*JOY_R}}});
+// buttons flagged `up` fire on release: Web Share / popups need the user activation that pointerup (not touch pointerdown) grants
+let pressedBtn=null;
+canvas.addEventListener('pointerup',e=>{const b=pressedBtn;pressedBtn=null;if(b&&hit(toCanvas(e),b))b.act()});
 const endJoy=e=>{if(joy&&e.pointerId===joy.id)joy=null};
-canvas.addEventListener('pointerup',endJoy);canvas.addEventListener('pointercancel',endJoy);
+canvas.addEventListener('pointerup',endJoy);canvas.addEventListener('pointercancel',e=>{pressedBtn=null;endJoy(e)});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
 // ---------- particles ----------
@@ -605,7 +699,7 @@ function flame(x,y,hot){particles.push({x:x+rand(-7,7),y:y+rand(-4,8),vx:rand(-1
 
 // ---------- update ----------
 function update(dt){
- runT+=dt;overDelay=Math.max(0,overDelay-dt);shake=Math.max(0,shake-dt);flash=Math.max(0,flash-dt*1.6);
+ runT+=dt;overDelay=Math.max(0,overDelay-dt);if(toast&&(toast.t-=dt)<=0)toast=null;shake=Math.max(0,shake-dt);flash=Math.max(0,flash-dt*1.6);
  comboPulse=Math.max(0,comboPulse-dt);scorePulse=Math.max(0,scorePulse-dt);
  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vx*=.97;if(!p.g)p.vy*=.97;p.t-=dt;p.rot=(p.rot||0)+dt*8}
  particles=particles.filter(p=>p.t>0);
@@ -629,6 +723,8 @@ function update(dt){
   if(stageT>=3.2){mode='play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
  if(mode!=='play')return;
  if(hitStop>0){hitStop-=dt;return}
+ if(slowmo>0){slowmo-=dt;dt*=.45} // brief slow-motion on a close call
+ runClock+=dt;if(runClock>=paceLog.length*5)paceLog.push(score);nearCd=Math.max(0,nearCd-dt);
  // coins fly from the drop point to the score counter
  for(const c of coins){c.t+=dt;if(c.t>=c.dur){c.done=true;scorePulse=.25;SFX.coin(c.i)}}coins=coins.filter(c=>!c.done);
  if(zone.rain){lightningT-=dt;if(lightningT<=0){lightningT=rand(5,10);flash=.45;flashColor='#dfe8ff';SFX.thunder()}}
@@ -662,8 +758,12 @@ function update(dt){
 
  updateCars(dt);
  if(P.inv<=0){
-  for(const k of cars){const R=carRect(k);if(circleHitsRect(P,{x:R.x+3,y:R.y+3,w:R.w-6,h:R.h-6})){crash(R.x+R.w/2,R.y+R.h/2);break}}
+  for(const k of cars){const R=carRect(k);if(circleHitsRect(P,{x:R.x+3,y:R.y+3,w:R.w-6,h:R.h-6})){crash(R.x+R.w/2,R.y+R.h/2,k.angry?'rage':'car');break}}
  }
+ // near miss: a car passes within a hair of Dili without a hit
+ for(const k of cars){const R=carRect(k);
+  if(circleHitsRect(P,R,11)){if(P.inv<=0&&k.v>50)k.nm=true}
+  else if(k.nm&&!circleHitsRect(P,R,28)){k.nm=false;if(P.inv<=0&&nearCd<=0)nearMiss()}}
  for(const tr of trains){tr.t-=dt;const ry=HUD+tr.row*T+T/2;
   if(tr.state==='idle'&&tr.t<=0){tr.state='warn';tr.t=1.5;tr.dir=Math.random()<.5?1:-1;tr.ding=0;
    if(Math.abs(P.y-ry)<T*2.5)floats.push({x:P.x,y:P.y-36,text:'⚠ TRAIN!',color:'#ff6473',t:1,max:1,size:18})}
@@ -672,7 +772,7 @@ function update(dt){
   else if(tr.state==='pass'){tr.x+=tr.dir*720*diff()*dt;
    if(tr.dir>0?tr.x-tr.len>W+10:tr.x+tr.len<-10){tr.state='idle';tr.t=rand(3,5.5)/diff()}
    const R=tr.dir>0?{x:tr.x-tr.len,y:ry-17,w:tr.len,h:34}:{x:tr.x,y:ry-17,w:tr.len,h:34};
-   if(P.inv<=0&&circleHitsRect(P,R)){crash(P.x,ry+(P.y<ry?30:-30));player.vy*=1.4}}
+   if(P.inv<=0&&circleHitsRect(P,R)){crash(P.x,ry+(P.y<ry?30:-30),'train');player.vy*=1.4}}
  }
  if(zone.meteors){
   if((meteorT-=dt)<=0){meteorT=rand(1.2,2.1)/diff();let x,y;
@@ -680,17 +780,17 @@ function update(dt){
    meteors.push({x:clamp(x,20,W-20),y:clamp(y,HUD+20,H-20),t:0,max:1.35,r:34});SFX.whoosh()}
   for(const m of meteors){m.t+=dt;if(m.t>=m.max){m.hit=true;burst(m.x,m.y,30,['#ff8a2a','#ffd34d','#fff','#8a7ca8']);
    rings.push({x:m.x,y:m.y,t:.5,max:.5,r0:10,r1:m.r*1.6,color:'#ff8a2a'});shake=Math.max(shake,.22);SFX.boom();scorches.push({x:m.x,y:m.y,t:4});
-   if(P.inv<=0&&Math.hypot(P.x-m.x,P.y-m.y)<m.r+P.r*.4)crash(m.x,m.y)}}
+   if(P.inv<=0&&Math.hypot(P.x-m.x,P.y-m.y)<m.r+P.r*.4)crash(m.x,m.y,'meteor')}}
   meteors=meteors.filter(m=>!m.hit);
  }
  for(const s of scorches)s.t-=dt;scorches=scorches.filter(s=>s.t>0);
  let touching=null;
  for(const b of barriers){const[bc,br]=b.split(',').map(Number),R={x:bc*T+BI,y:HUD+br*T+BI,w:T-2*BI,h:T-2*BI};if(circleHitsRect(P,R,2)){touching=R;break}}
- if(touching&&!P.touching){if(P.inv<=0)crash(touching.x+touching.w/2,touching.y+touching.h/2);else SFX.bump()}
+ if(touching&&!P.touching){if(P.inv<=0)crash(touching.x+touching.w/2,touching.y+touching.h/2,'roadworks');else SFX.bump()}
  P.touching=!!touching;
 
  const tgt=order.carrying?order.drop:order.pickup;
- if(Math.hypot(P.x-tgt.x,P.y-tgt.y)<pickRadius()){if(order.carrying)doDeliver();else doPickup()}
+ if(Math.hypot(P.x-tgt.x,P.y-tgt.y)<pickRadius()&&!(tgt.lockUntil>runT)){if(order.carrying)doDeliver();else doPickup()}
  if(mode==='play'&&(pathTimer-=dt)<=0){pathTimer=.15;computePath()}
 }
 function computePath(){
@@ -726,8 +826,8 @@ function drawTarget(tg,kind){
  if(kind==='pickup')drawPackage(tg.x,by,1.05);
  else{ctx.fillStyle=col;ctx.beginPath();ctx.arc(tg.x,by-6,13,Math.PI,0);ctx.lineTo(tg.x,by+14);ctx.closePath();ctx.fill();
   ctx.fillStyle='#0d2a22';ctx.beginPath();ctx.moveTo(tg.x-7,by-4);ctx.lineTo(tg.x,by-11);ctx.lineTo(tg.x+7,by-4);ctx.lineTo(tg.x+5,by-4);ctx.lineTo(tg.x+5,by+2);ctx.lineTo(tg.x-5,by+2);ctx.lineTo(tg.x-5,by-4);ctx.closePath();ctx.fill()}
- const label=kind==='pickup'?'PICK UP':'DROP';ctx.font=font(11,900);const w=ctx.measureText(label).width+14;
- ctx.fillStyle=col;rr(ctx,tg.x-w/2,tg.y-44,w,17,8);ctx.fill();text(label,tg.x,tg.y-35.5,11,'#10182d','center',900);
+ const label=kind==='pickup'?(tg.dropped?'GRAB IT!':'PICK UP'):'DROP';ctx.font=font(11,900);const w=ctx.measureText(label).width+14;
+ ctx.fillStyle=tg.dropped&&Math.sin(runT*14)>0?'#ff6473':col;rr(ctx,tg.x-w/2,tg.y-44,w,17,8);ctx.fill();text(label,tg.x,tg.y-35.5,11,'#10182d','center',900);
  ctx.restore();
 }
 function drawPath(){
@@ -770,7 +870,11 @@ function drawCar(k){
   ctx.fillStyle=shade(k.color,.1);rr(ctx,-L/2+12,-Wd/2+4,L-28,Wd-8,3);ctx.fill()}
  ctx.fillStyle='#fff6c0';ctx.fillRect(L/2-3,-Wd/2+2,3,4);ctx.fillRect(L/2-3,Wd/2-6,3,4);
  ctx.fillStyle='#ff4d5e';ctx.fillRect(-L/2,-Wd/2+2,2,4);ctx.fillRect(-L/2,Wd/2-6,2,4);
+ if(k.rage){ // road rager: red roof stripe, flashes its lights when it spots Dili
+  ctx.fillStyle='#ff3048';ctx.fillRect(-L/2+14,-2,L-30,4);
+  if(k.angry&&Math.sin(runT*30)>0){ctx.fillStyle='#fff';ctx.shadowColor='#fff6c0';ctx.shadowBlur=12;ctx.fillRect(L/2-4,-Wd/2+1,4,6);ctx.fillRect(L/2-4,Wd/2-7,4,6);ctx.shadowBlur=0}}
  ctx.restore();
+ if(k.angry){const s=1+Math.sin(runT*16)*.12;ctx.save();ctx.translate(R.x+R.w/2,R.y-10);ctx.scale(s,s);text('💢',0,0,16,'#fff','center');ctx.restore()}
 }
 function drawHeadlights(){
  ctx.save();ctx.globalCompositeOperation='lighter';
@@ -935,7 +1039,7 @@ function drawHUD(){
  const hg=ctx.createLinearGradient(0,0,W,0);hg.addColorStop(0,'#0c1a44');hg.addColorStop(1,'#0a1330');ctx.fillStyle=hg;ctx.fillRect(0,0,W,HUD);
  ctx.fillStyle=zone.accent;ctx.fillRect(0,HUD-2,W,2);
  drawLogoFancy(30,24,32,.6);
- text('DILI DELIVERY',52,15,14,'#fff','left',900);text(zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:'')+' · '+zone.tag,52,30,9,zone.accent,'left',800);
+ text(daily?'📅 DAILY #'+dailyNo:'DILI DELIVERY',52,15,14,daily?'#ffd34d':'#fff','left',900);text(zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:'')+' · '+zone.tag,52,30,9,zone.accent,'left',800);
  {const L=ZONES.length-1,prv=zoneIdx<L?ZONE_AT[zoneIdx]:ZONE_AT[L]+loop*LOOP_EVERY,nxt=zoneIdx<L?ZONE_AT[zoneIdx+1]:prv+LOOP_EVERY,pr=clamp((deliveries-prv)/(nxt-prv),0,1);
   ctx.fillStyle='#1c2742';rr(ctx,52,38,130,4,2);ctx.fill();ctx.fillStyle=zone.accent;rr(ctx,52,38,Math.max(4,130*pr),4,2);ctx.fill()}
  text('DELIVERY',200,15,9,'#7d8bab');text('#'+String(deliveries+1).padStart(2,'0'),200,33,19,'#fff','left',900);
@@ -951,6 +1055,7 @@ function drawHUD(){
   ctx.font=font(18,900);text('/ '+order.par.toFixed(1)+'s',600+ctx.measureText(s1).width,33,12,'#7d8bab','left',700)}
  else text('Get the 📦',596,33,14,'#ffd34d','left',800);
  text('SCORE',760,15,9,'#7d8bab');
+ {const d=paceDelta();if(d!=null){const up=d>=0;text((up?'▲ ':'▼ ')+fmt(Math.abs(d))+' vs PB',796,15,9,up?'#45e6a5':'#ff6473','left',900)}}
  ctx.save();ctx.translate(760,33);const ss=1+scorePulse*.6;ctx.scale(ss,ss);text(fmt(dispScore),0,0,19,scorePulse>0?'#ffd34d':'#fff','left',900);ctx.restore();
  text('COMBO',900,15,9,'#7d8bab');
  ctx.save();ctx.translate(900,33);const cs=1+comboPulse*.8;ctx.scale(cs,cs);text('x'+combo+(combo>=5?' 🔥':''),0,0,19,combo?zone.accent:'#56627f','left',900);ctx.restore();
@@ -962,6 +1067,12 @@ function drawHUD(){
  for(let i=0;i<upg.shield;i++)text('🛡️',1050+i*15,24,13,'#fff','left');
  text(camClose?'🔍':'🗺️',W-54,24,15,'#fff','center');
  text(muted?'🔇':'🔊',W-22,24,16,'#fff','center');
+}
+// score now vs. the personal-best run at the same moment (sampled every 5s)
+function paceDelta(){
+ if(!paceRef||!paceRef.length||runClock<3)return null;
+ const f=runClock/5,i=Math.floor(f),a=paceRef[Math.min(i,paceRef.length-1)],b=paceRef[Math.min(i+1,paceRef.length-1)];
+ return score-(a+(b-a)*(f-i));
 }
 function drawResultCard(){
  const rc=resultCard;if(!rc)return;const w=270,h=168,x=W/2-w/2,y=HUD+14,age=rc.max-rc.t;
@@ -1003,17 +1114,21 @@ function drawTutorial(){
  ctx.font=font(15,800);const w=ctx.measureText(msg).width+32;ctx.fillStyle='rgba(8,12,28,.85)';rr(ctx,W/2-w/2,H-44,w,32,16);ctx.fill();
  text(msg,W/2,H-28,15,'#fff','center',800);
 }
+function drawPauseBtn(){ // visible on every platform, not only touch
+ if(mode!=='play')return;const hov=Math.hypot(mouse.x-36,mouse.y-(HUD+36))<24;
+ ctx.fillStyle=hov?'rgba(47,99,224,.9)':'rgba(8,12,28,.65)';ctx.beginPath();ctx.arc(36,HUD+36,22,0,7);ctx.fill();
+ ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#fff';ctx.fillRect(29,HUD+27,5,18);ctx.fillRect(38,HUD+27,5,18);
+}
 function drawTouch(){
  if(!touchUI||mode!=='play')return;
- ctx.fillStyle='rgba(8,12,28,.65)';ctx.beginPath();ctx.arc(36,HUD+36,22,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(29,HUD+27,5,18);ctx.fillRect(38,HUD+27,5,18);
- if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,55,0,7);ctx.fill();ctx.globalAlpha=.6;
-  const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,55)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
+ if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
+  const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,JOY_R)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
  const cx=W-86,cy=H-86,cd=player.dashCd/dashCooldown();
  ctx.fillStyle='rgba(255,255,255,.12)';ctx.beginPath();ctx.arc(cx,cy,48,0,7);ctx.fill();
  ctx.strokeStyle=cd>0?'rgba(255,255,255,.25)':'#6fd3ff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,48,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-cd));ctx.stroke();
  text('⚡',cx,cy-6,24,'#fff','center');text('DASH',cx,cy+20,11,'#fff','center',900);
 }
-function button(label,x,y,w,h,act,primary=true){
+function button(label,x,y,w,h,act,primary=true,up=false){
  const hov=hit(mouse,{x,y,w,h}),s=1+(primary?Math.sin(runT*4)*.02:0)+(hov?.03:0);
  ctx.save();ctx.translate(x+w/2,y+h/2);ctx.scale(s,s);
  if(primary){const g=ctx.createLinearGradient(-w/2,0,w/2,0);g.addColorStop(0,BRAND.blue);g.addColorStop(1,BRAND.bright);ctx.fillStyle=g;ctx.shadowColor=BRAND.bright;ctx.shadowBlur=hov?30:18}
@@ -1021,7 +1136,7 @@ function button(label,x,y,w,h,act,primary=true){
  rr(ctx,-w/2,-h/2,w,h,h/2);ctx.fill();ctx.shadowBlur=0;
  if(primary){ctx.save();rr(ctx,-w/2,-h/2,w,h,h/2);ctx.clip();const sx=((runT*.6)%1.6-.3)*w-w/2;ctx.fillStyle='rgba(255,255,255,.18)';ctx.beginPath();ctx.moveTo(sx,-h/2);ctx.lineTo(sx+40,-h/2);ctx.lineTo(sx+10,h/2);ctx.lineTo(sx-30,h/2);ctx.fill();ctx.restore()}
  text(label,0,1,primary?21:15,'#fff','center',900);ctx.restore();
- buttons.push({x,y,w,h,act});
+ buttons.push({x,y,w,h,act,up});
 }
 function statBox(label,value,x,y,w,h,color='#fff'){
  ctx.fillStyle='rgba(111,163,255,.08)';rr(ctx,x,y,w,h,14);ctx.fill();ctx.strokeStyle='rgba(111,163,255,.2)';ctx.lineWidth=1;ctx.stroke();
@@ -1055,13 +1170,16 @@ function drawMenu(){
  drawLogoFancy(cx-62,76,56);text('DLICOM',cx-22,68,26,'#fff','left',900);text('PRESENTS',cx-21,92,11,'#bcd0ff','left',800);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
  else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,30,11,'#bcd0ff','right',700);
- outlined('DILI',cx,165,92,'#fff');outlined('DELIVERY',cx,232,52,BRAND.sky);
- text('Deliver · Dodge · Combo',cx,274,17,'#bcd0ff','center',700);
- button('START DELIVERY',cx-150,306,300,62,startRun);
- text('PERSONAL BEST',cx,404,11,'#8f9cbc','center',900);
- statBox('SCORE',fmt(best.score),cx-243,420,156,76,'#ffd34d');
- statBox('FASTEST',best.time==null?'—':best.time.toFixed(2)+'s',cx-78,420,156,76);
- statBox('BEST COMBO','x'+best.combo,cx+87,420,156,76,BRAND.sky);
+ outlined('DILI',cx,160,92,'#fff');outlined('DELIVERY',cx,226,52,BRAND.sky);
+ text('Deliver · Dodge · Combo',cx,264,17,'#bcd0ff','center',700);
+ button('START DELIVERY',cx-150,286,300,58,()=>startRun(false));
+ {const d=dailyRec(),t=today(),lbl=`📅 DAILY #${t.no}`+(d.best?`  ·  BEST ${fmt(d.best)}`:d.tries?'':'  ·  NEW!');
+  button(lbl,cx-150,354,300,40,()=>startRun(true),false);
+  if(!d.tries){const p=.6+.4*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,cx-150,354,300,40,20);ctx.stroke()}}
+ text('PERSONAL BEST',cx,414,11,'#8f9cbc','center',900);
+ statBox('SCORE',fmt(best.score),cx-243,426,156,70,'#ffd34d');
+ statBox('FASTEST',best.time==null?'—':best.time.toFixed(2)+'s',cx-78,426,156,70);
+ statBox('BEST COMBO','x'+best.combo,cx+87,426,156,70,BRAND.sky);
  ZONES.forEach((z,i)=>{const x=cx+(i-2.5)*58,y=528,open=i<=(best.maxZone||0);
   ctx.fillStyle=open?'rgba(111,163,255,.14)':'rgba(255,255,255,.04)';ctx.beginPath();ctx.arc(x,y,21,0,7);ctx.fill();
   ctx.strokeStyle=open?z.accent:'rgba(255,255,255,.12)';ctx.lineWidth=2;ctx.stroke();
@@ -1071,25 +1189,77 @@ function drawMenu(){
  text('📦 Pick up  →  follow the dots  →  🏠 Drop off   ·   Fast x2 · No crash x3',cx,580,13,'#dfe5f0','center',700);
  text('6 zones · trains, ice & meteors · then endless loops',cx,602,13,'#dfe5f0','center',700);
  text(touchUI?'Drag the left side to move · Tap the right side to dash':'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
- text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+'Press ENTER or tap to start',cx,H-22,11,'#6b7aa0','center',800);
+ text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap to start':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
 }
 function drawOver(){
  ctx.fillStyle='rgba(6,10,24,.82)';ctx.fillRect(0,0,W,H);
- outlined('SHIFT OVER',W/2,120,58,'#fff');
- outlined(fmt(dispScore),W/2,200,72,'#ffd34d');
- if(newBest){const s=1+Math.sin(runT*6)*.05;ctx.save();ctx.translate(W/2,252);ctx.scale(s,s);ctx.fillStyle='#45e6a5';rr(ctx,-78,-15,156,30,15);ctx.fill();text('★ NEW BEST ★',0,1,14,'#0d2a22','center',900);ctx.restore()}
- const y=286,w=175,gap=14,x0=W/2-(w*4+gap*3)/2;
- statBox('DELIVERIES',String(deliveries),x0,y,w,80);
- statBox('BEST COMBO','x'+runBestCombo,x0+(w+gap),y,w,80,'#ffd34d');
- statBox('FASTEST',fastest==null?'—':fastest.toFixed(2)+'s',x0+(w+gap)*2,y,w,80);
- statBox('DISTANCE',(totalDist/T*10/1000).toFixed(2)+'km',x0+(w+gap)*3,y,w,80);
- text(`Reached ${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}`,W/2,386,15,zone.accent,'center',900);
- text(`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`,W/2,412,12,'#aab8d5','center',800);
- if(overDelay<=0)button('RUN AGAIN',W/2-130,436,260,60,startRun);
- if(overDelay<=0)button('MENU',W/2-60,512,120,40,()=>{mode='menu'},false);
- drawLogoFancy(W/2-72,596,26,.7);text('POWERED BY DLICOM',W/2-50,596,12,'#bcd0ff','left',900);
- drawDili(W/2+300,190+Math.sin(runT*3)*5,2.4,-1,{carrying:false,pop:newBest?(runT%1.2):0});
- text('Enter / Space / Tap to run again',W/2,H-34,12,'#56627f','center',800);
+ const age=.6-overDelay;
+ text(daily?`📅 DAILY #${dailyNo}  ·  ATTEMPT #${dailyTries}`:`RUN #${best.runs}`,W/2,56,13,daily?'#ffd34d':'#8f9cbc','center',900);
+ outlined('SHIFT OVER',W/2,104,50,'#fff');
+ outlined(fmt(dispScore),W/2,170,68,'#ffd34d');
+ if(newBest){const s=1+Math.sin(runT*6)*.05,lb=daily?'★ NEW DAILY BEST ★':'★ NEW BEST ★';ctx.save();ctx.translate(W/2,222);ctx.scale(s,s);ctx.fillStyle='#45e6a5';rr(ctx,-100,-15,200,30,15);ctx.fill();text(lb,0,1,14,'#0d2a22','center',900);ctx.restore()}
+ else if(rage&&rage.line){const sh=Math.max(0,.5-Math.max(0,age))*16;outlined(rage.line,W/2+Math.sin(runT*60)*sh,222,22,'#ff6473')}
+ if(rage)text(newBest?'Screenshot it. It won\'t happen twice 😏':rage.taunt,W/2,252,15,'#aab8d5','center',700);
+ const y=274,w=175,gap=14,x0=W/2-(w*4+gap*3)/2;
+ statBox('DELIVERIES',String(deliveries),x0,y,w,76);
+ statBox('BEST COMBO','x'+runBestCombo,x0+(w+gap),y,w,76,'#ffd34d');
+ statBox('CLOSE CALLS',String(nearMisses),x0+(w+gap)*2,y,w,76,'#8fe3ff');
+ statBox('CRASHES',crashes?`${crashes}  (−${crashLost}s)`:'0 👌',x0+(w+gap)*3,y,w,76,crashes?'#ff6473':'#45e6a5');
+ text(`Reached ${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}`,W/2,372,15,zone.accent,'center',900);
+ {const pb=daily?`DAILY BEST  ${fmt(dailyRec().best)}   ·   ALL-TIME BEST  ${fmt(best.score)}`:`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`;
+  text(pb,W/2,396,12,'#aab8d5','center',800)}
+ if(overDelay<=0){
+  button('RUN AGAIN',W/2-130,416,260,58,()=>startRun());
+  button(shareFile?'📤  SHARE':'…',W/2-165,488,190,42,shareRun,false,true);
+  if(shareFile){ctx.strokeStyle='rgba(255,211,77,.7)';ctx.lineWidth=2;rr(ctx,W/2-165,488,190,42,21);ctx.stroke()}
+  button('MENU',W/2+35,488,130,42,()=>{mode='menu'},false);
+ }
+ if(toast){const a=Math.min(1,toast.t);ctx.globalAlpha=a;ctx.font=font(13,800);const tw=ctx.measureText(toast.text).width+30;
+  ctx.fillStyle='rgba(69,230,165,.18)';rr(ctx,W/2-tw/2,544,tw,30,15);ctx.fill();text(toast.text,W/2,559,13,'#45e6a5','center',800);ctx.globalAlpha=1}
+ drawLogoFancy(W/2-72,604,26,.7);text('POWERED BY DLICOM',W/2-50,604,12,'#bcd0ff','left',900);
+ drawDili(W/2+300,190+Math.sin(runT*3)*5,2.4,-1,{carrying:false,pop:newBest?(runT%1.2):0,dizzy:!newBest&&crashes>0});
+ text(touchUI?'Tap anywhere to run again':'Enter / Space: run again  ·  S: share  ·  Esc: menu',W/2,H-30,12,'#56627f','center',800);
+}
+// ---------- share card: an image of the run + a post ready for X ----------
+function shareText(){
+ const where=`${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}`;
+ const head=daily?`📅 Dili Delivery Daily #${dailyNo} — ${fmt(score)} pts (attempt #${dailyTries})`:`📦 I scored ${fmt(score)} in Dili Delivery`;
+ const pain=newBest?'New personal best 😎':rage&&rage.line?rage.line:'';
+ return `${head}\n${deliveries} deliveries · combo x${runBestCombo} · reached ${where}\n${pain}\nCan you beat me? 👇\n${GAME_URL}`.replace(/\n\n/g,'\n');
+}
+function makeShareCard(noHero){
+ const c=document.createElement('canvas');c.width=1200;c.height=630;const g=c.getContext('2d'),main=ctx,hero=noHero?null:heroCanvas;ctx=g;
+ try{
+  const bg=g.createLinearGradient(1200,0,0,630);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');g.fillStyle=bg;g.fillRect(0,0,1200,630);
+  for(const s of menuStars){g.globalAlpha=.5;g.fillStyle='#fff';g.beginPath();g.arc(s.x*1200/W,s.y*630/H,s.r,0,7);g.fill()}g.globalAlpha=1;
+  if(hero){const hh=560,hw=hh*hero.width/hero.height;g.drawImage(hero,10,630-hh,hw,hh)}else drawDili(250,330,6,1,{carrying:true});
+  const cx=800;
+  drawLogo(g,cx-150,58,44);text('DLICOM PRESENTS',cx-118,58,16,'#bcd0ff','left',900);
+  outlined('DILI DELIVERY',cx,122,54,'#fff');
+  text(daily?`📅 DAILY CHALLENGE #${dailyNo}`:newBest?'★ NEW PERSONAL BEST ★':'SHIFT OVER',cx,172,20,daily||newBest?'#ffd34d':'#bcd0ff','center',900);
+  outlined(fmt(score),cx,246,96,'#ffd34d');
+  const w=160,gap=12,x0=cx-(w*3+gap*2)/2;
+  statBox('DELIVERIES',String(deliveries),x0,312,w,78);
+  statBox('BEST COMBO','x'+runBestCombo,x0+w+gap,312,w,78,BRAND.sky);
+  statBox('ZONE',`${zone.icon} ${zoneIdx+1}${loop?'·'+(loop+1):''}`,x0+(w+gap)*2,312,w,78,zone.accent);
+  if(!newBest&&rage&&rage.line)outlined(rage.line,cx,430,24,'#ff6473');
+  else outlined(`Reached ${zone.icon} ${zone.name}`,cx,430,24,zone.accent);
+  outlined('CAN YOU BEAT ME?',cx,490,40,'#fff');
+  g.fillStyle='rgba(255,255,255,.1)';rr(g,cx-230,540,460,44,22);g.fill();text(GAME_URL.replace(/^https?:\/\//,''),cx,562,17,'#dfe5f0','center',800);
+ }finally{ctx=main}
+ const run=best.runs;
+ // opened from file:// the hero image taints the canvas and toBlob throws: redraw the card without it
+ try{c.toBlob(b=>{if(b&&best.runs===run&&mode==='over')shareFile=new File([b],'dili-delivery-score.png',{type:'image/png'})},'image/png')}catch(e){if(!noHero)makeShareCard(true)}
+}
+function shareRun(){
+ if(!shareFile)return;const txt=shareText();
+ // phones: native share sheet with the image attached (X, Messenger, Zalo…)
+ if(touchUI&&navigator.canShare&&navigator.canShare({files:[shareFile]})){
+  navigator.share({files:[shareFile],text:txt}).then(()=>{toast={text:'Shared! Now go beat it 😤',t:3}}).catch(()=>{});return}
+ // desktop: open a prefilled post on X and download the card to attach
+ window.open('https://x.com/intent/post?text='+encodeURIComponent(txt),'_blank','noopener');
+ try{const a=document.createElement('a'),u=URL.createObjectURL(shareFile);a.href=u;a.download=shareFile.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}catch(e){}
+ toast={text:'Score card downloaded — attach it to your post 📎',t:4};
 }
 function drawUpgrade(){
  ctx.fillStyle='rgba(6,10,24,.8)';ctx.fillRect(0,0,W,H);
@@ -1131,11 +1301,17 @@ function drawStage(){
  if(t<=2.7){const e=cover*(W+300);ctx.beginPath();ctx.moveTo(e,0);ctx.lineTo(e+8,0);ctx.lineTo(e-292,H);ctx.lineTo(e-300,H);ctx.fill()}
  ctx.globalAlpha=1;
 }
+function quitToMenu(){mode='menu';joy=null;keepAwake(false)}
 function drawPaused(){
- ctx.fillStyle='rgba(6,10,24,.7)';ctx.fillRect(0,0,W,H);outlined('PAUSED',W/2,H/2-30,56,'#fff');
- text('Press P or tap to resume',W/2,H/2+22,15,'#aab8d5','center',700);
- button('MENU',W/2-60,H/2+60,120,40,()=>{mode='menu'},false);
- if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W/2-105,H/2+112,210,40,toggleFullscreen,false);
+ ctx.fillStyle='rgba(6,10,24,.78)';ctx.fillRect(0,0,W,H);
+ outlined('PAUSED',W/2,H/2-150,56,'#fff');
+ text(`${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}   ·   SCORE ${fmt(score)}   ·   SHIFT ${shiftTime.toFixed(1)}s`,W/2,H/2-104,15,'#aab8d5','center',800);
+ button('▶  RESUME',W/2-140,H/2-76,280,60,()=>{mode='play'});
+ button('↻  RESTART',W/2-140,H/2,135,44,()=>startRun(),false);
+ button('✕  QUIT',W/2+5,H/2,135,44,quitToMenu,false);
+ if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W/2-140,H/2+56,280,40,toggleFullscreen,false);
+ button(muted?'🔇  SOUND OFF':'🔊  SOUND ON',W/2-140,H/2+(fsOK&&!standalone?108:56),280,40,toggleMute,false);
+ text(touchUI?'Tap outside the buttons to resume':'P / Esc resume  ·  R restart  ·  Q quit',W/2,H-34,12,'#6b7aa0','center',800);
 }
 function draw(){
  buttons=[];ctx.setTransform(RS,0,0,RS,0,0);ctx.imageSmoothingQuality='high';ctx.fillStyle='#0a1330';ctx.fillRect(0,0,W,H);
@@ -1145,7 +1321,7 @@ function draw(){
  if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
  applyCam();drawWorld();ctx.restore();
  drawPointer();drawMinimap();
- drawVignette();drawResultCard();drawBanner();drawHype();drawTutorial();drawTouch();
+ drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype()}drawTutorial();drawTouch();drawPauseBtn();
  drawHUD();drawCoins();
  if(flash>0){ctx.globalAlpha=Math.min(.45,flash);ctx.fillStyle=flashColor;ctx.fillRect(0,HUD,W,ROWS*T);ctx.globalAlpha=1}
  drawStage();

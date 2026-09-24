@@ -17,11 +17,22 @@ Each shift starts with 60 seconds.
 | Delivered under par time | Bonus **x2**, +2s extra shift time |
 | No crash during the order | Bonus **x3** |
 | Consecutive deliveries | Combo +1 (+50 per combo level). Traffic gets faster as combo rises |
-| Crash | Combo reset, −3s |
-| Every delivery | +4s shift time |
+| Crash | Combo reset, −3s. Each extra crash on the same order costs 1s more (up to −6s) |
+| Crash while carrying | The 📦 is knocked out of your hands and lands back in the road. Grab it again; the order clock keeps running |
+| Close call (a car passes within a hair) | +25 points (+5 per combo level), brief slow-motion |
+| Every delivery | +4s shift time (+3s from delivery 12, +2s from delivery 24) |
 | Every 3 deliveries | Pick an upgrade: Speed, Dash, Shield, Magnet, +10s |
-
 | Clearing a zone | +8s shift time |
+
+From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
+
+### Daily Challenge
+A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same city layouts, the same orders and the same upgrade offers that day. Your best score and number of attempts are saved per day.
+
+### Chasing your best
+- The HUD shows **▲/▼ vs PB**: your score compared with your best run at the same moment.
+- The game over screen tells you how close you came: "The package was 13m from the door", "Only 120 points short of your best", "1 delivery away from ❄️ SNOW PEAK", or how many seconds crashes cost you. It adds a short taunt based on what hit you.
+- **Share** creates a score card image. On phones it opens the share sheet with the image attached. On desktop it opens a prefilled post on X and downloads the image for you to attach.
 
 ### Zones
 | # | Zone | Reached after | Hazard |
@@ -38,17 +49,18 @@ Within each zone: 1 extra car joins every 2 deliveries, and traffic speeds up.
 Between zones: a "Zone Clear" screen shows the next zone's hazard.
 The menu shows which zones you have unlocked.
 
-Personal Best (score, fastest delivery, best combo, furthest zone) is saved in `localStorage` on this browser only.
+Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace) and Daily Challenge results are saved in `localStorage` on this browser only.
 
 ## Controls
 - WASD / Arrow keys: move
 - Space / Shift: dash
-- P / Esc: pause
+- P / Esc or the ⏸ button (top-left of the map): pause. The pause menu has Resume, Restart, Quit, Fullscreen and Sound (keys: P/Esc, R, Q)
+- D (menu): Daily Challenge · S (game over): share
 - M: sound on/off
 - C: switch camera (close follow cam ↔ full map)
 - F: fullscreen
 - R: restart
-- Mobile: drag on the left side to move, tap the right side to dash, ⏸ button (top-left) to pause. The first tap switches to fullscreen landscape (Android/desktop). On iPhone, use Share → Add to Home Screen to play fullscreen.
+- Mobile: drag on the left side to move (the stick follows your thumb), tap the right side to dash, ⏸ button (top-left) to pause. The phone vibrates on crashes and deliveries, and the screen stays awake during a run. The first tap switches to fullscreen landscape (Android/desktop). On iPhone, use Share → Add to Home Screen to play fullscreen.
 
 ## Camera & rendering
 - Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.
@@ -59,6 +71,10 @@ Personal Best (score, fastest delivery, best combo, furthest zone) is saved in `
 - Background music: separate procedural loops for the menu and each of the 6 zones, getting a little faster on every endless loop. It speeds up and adds layers (lead melody, extra drums) as your combo grows, and gets quieter while paused or picking upgrades.
 - Effects: coins fly to the score, shockwave on delivery, result-card stars pop in one by one, combo milestone pop-ups (x3/x5/x10…), glowing combo aura, dash afterimages, dizzy stars after a crash, hit-stop, red vignette when time is low, drifting cloud shadows (Downtown), fireflies (Night) and rain splashes with lightning (Storm).
 
+## Play online
+Hosted with GitHub Pages: https://quangdai1321.github.io/Dili-Delivery/
+
 ## Next build
-1. Mobile polish (3/10).
-2. QA pass (4/10).
+1. Online leaderboard (needs a small backend).
+2. More zones and levels.
+3. QA pass.
