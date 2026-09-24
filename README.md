@@ -45,8 +45,14 @@ Personal Best (score, fastest delivery, best combo, furthest zone) is saved in `
 - Space / Shift: dash
 - P / Esc: pause
 - M: sound on/off
+- C: switch camera (close follow cam ↔ full map)
 - R: restart
 - Mobile: drag on the left side to move, tap the right side to dash
+
+## Camera & rendering
+- Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.
+- 3/4 perspective: buildings show their front walls and cast shadows, and cars have depth.
+- Renders at the device pixel ratio for sharp visuals. Resolution lowers automatically if the device can't hold ~45fps, and long frames are sub-stepped so game speed stays real-time.
 
 ## Audio & effects
 - Background music: separate procedural loops for the menu and each of the 6 zones, getting a little faster on every endless loop. It speeds up and adds layers (lead melody, extra drums) as your combo grows, and gets quieter while paused or picking upgrades.
