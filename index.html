@@ -143,8 +143,13 @@ function drawLogo(g,x,y,size){
  dia(66,gr);dia(50,'#fff');dia(30,gr);
  g.restore();
 }
+// shadowBlur is costly every frame: the glowing logo is rendered once per size into a sprite
+const logoGlowCache={};
+function logoGlow(size,glow){const k=size+'|'+glow;let c=logoGlowCache[k];if(c)return c;
+ const pad=size*.9,S=2;c=document.createElement('canvas');c.width=c.height=Math.ceil((size+pad*2)*S);const g=c.getContext('2d');
+ g.scale(S,S);g.shadowColor='rgba(76,134,255,.9)';g.shadowBlur=size*.45*glow*S;drawLogo(g,size/2+pad,size/2+pad,size);c.pad=pad;return logoGlowCache[k]=c}
 function drawLogoFancy(x,y,size,glow=1){
- ctx.save();ctx.shadowColor='rgba(76,134,255,.9)';ctx.shadowBlur=size*.45*glow*(.8+.2*Math.sin(runT*3));drawLogo(ctx,x,y,size);ctx.restore();
+ const c=logoGlow(size,glow),d=size+c.pad*2;ctx.drawImage(c,x-d/2,y-d/2,d,d);
  ctx.save();rr(ctx,x-size/2,y-size/2,size,size,size*.22);ctx.clip();
  const q=((runT*.45)%1.6-.3)*size*1.6-size*.8;ctx.fillStyle='rgba(255,255,255,.28)';
  ctx.beginPath();ctx.moveTo(x+q,y-size/2);ctx.lineTo(x+q+size*.22,y-size/2);ctx.lineTo(x+q-size*.1,y+size/2);ctx.lineTo(x+q-size*.32,y+size/2);ctx.closePath();ctx.fill();ctx.restore();
@@ -208,7 +213,8 @@ const ACHS=[
 const meta=Object.assign({coins:0,crashes:0,owned:['c_blue','h_none','t_ghost'],equip:{color:'c_blue',hat:'h_none',trail:'t_ghost'},ach:{}},store.get('diliDelivery.meta',{}));
 const saveMeta=()=>store.set('diliDelivery.meta',meta);
 let runCoins=0,achPops=[];
-function addCoins(n){if(n<=0)return;meta.coins+=n;runCoins+=n;saveMeta()}
+let coinPulse=0;
+function addCoins(n){if(n<=0)return;meta.coins+=n;runCoins+=n;coinPulse=.35;saveMeta()}
 function unlockAch(id){
  const a=ACHS.find(x=>x.id===id);if(!a||meta.ach[id])return;meta.ach[id]=Date.now();meta.coins+=a.coins||0;runCoins+=a.coins||0;
  if(a.item&&!meta.owned.includes(a.item))meta.owned.push(a.item);saveMeta();
@@ -386,7 +392,7 @@ let runKind='normal',runSeed=0,chRun=null,sandTiles=new Set(),stormT=10,stormOn=
 let event=null,evT=25,evCount=0,cop=null,pickups=[],cleanStreak=0,failedOrders=0,chaseCaught=false;
 const MR=2,mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
-let RS=1,resCap=2.5,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
+let RS=1,resCap=matchMedia('(pointer:coarse)').matches?2:2.5,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
 function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(resCap,window.devicePixelRatio||1),w=Math.max(Math.round(W*.5),Math.round((r.width||W)*dpr));if(w===canvas.width)return;RS=w/W;canvas.width=w;canvas.height=Math.round(H*RS)}
 addEventListener('resize',resize);
 if(window.ResizeObserver)new ResizeObserver(()=>resize()).observe(canvas);
@@ -670,7 +676,7 @@ function doDeliver(di=0){
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
  const happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy;
  score+=bonus;
- addCoins(3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5));
+ {const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5);addCoins(cg);floats.push({x:dx+46,y:dy-2,text:`+${cg} 🪙`,color:'#ffd34d',t:1.1,max:1.1,size:16})}
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip')unlockAch('vip');if(ot==='fragile')unlockAch('fragile');
  if(om.label)floats.push({x:dx,y:dy-54,text:`${om.icon} ${om.label} x${om.mult>1?om.mult:''}`.replace(/ x$/,' ✓'),color:om.color,t:1.2,max:1.2,size:17});
@@ -812,7 +818,7 @@ function crash(sx,sy,by='car'){
 }
 function nearMiss(){
  nearMisses++;nearCd=.8;const pts=(25+combo*5)*(evOn('happy')?2:1);score+=pts;slowmo=.18;addCoins(1);if(nearMisses>=10)unlockAch('near10');
- floats.push({x:player.x,y:player.y-34,text:`CLOSE CALL! +${pts}`,color:'#8fe3ff',t:.9,max:.9,size:17});
+ floats.push({x:player.x,y:player.y-34,text:`CLOSE CALL! +${pts}  +1🪙`,color:'#8fe3ff',t:.9,max:.9,size:17});
  rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:30,r1:14,color:'#8fe3ff'});SFX.close();buzz(12);
 }
 
@@ -826,7 +832,7 @@ const EVENTS=[
 ];
 const evOn=id=>!!(event&&event.id===id);
 function startEvent(){
- const ok=EVENTS.filter(e=>!(e.id==='rain'&&(zone.rain||zone.ice||zone.sand||zone.style==='moon')));
+ const ok=EVENTS.filter(e=>!(e.id==='police'&&zoneIdx<1)&&!(e.id==='rain'&&(zone.rain||zone.ice||zone.sand||zone.style==='moon')));
  const e=seeded(hashSeed(runSeed+evCount*97+13),()=>pick(ok));evCount++;
  event=Object.assign({},e,{t:e.dur,siren:0});
  hype={text:e.icon+' '+e.name,sub:e.sub,t:1.8,max:1.8};SFX.event();flash=.2;flashColor=e.color;
@@ -847,7 +853,7 @@ function endEvent(silent){
  evT=seeded(hashSeed(runSeed+evCount*53),()=>rand(22,34));
 }
 function updateEvent(dt,P){
- if(!event){if(runClock>15&&(evT-=dt)<=0)startEvent();return}
+ if(!event){if(runClock>15&&deliveries>=3&&(evT-=dt)<=0)startEvent();return}
  if((event.t-=dt)<=0){endEvent();return}
  if(cop){ // the cop drives tile to tile along the shortest path to Dili
   if((event.siren-=dt)<=0){event.siren=.45;SFX.siren(Math.floor(event.t/.45)%2)}
@@ -1338,8 +1344,8 @@ function drawWorld(){
  if(zone.fireflies){ctx.save();ctx.globalCompositeOperation='lighter';for(const a of ambient){const al=.35+.35*Math.sin(a.p);const fc=zone.flyColor||'255,226,120';ctx.fillStyle=`rgba(${fc},${al})`;ctx.beginPath();ctx.arc(a.x,a.y,2.2,0,7);ctx.fill();ctx.fillStyle=`rgba(${fc},${al*.25})`;ctx.beginPath();ctx.arc(a.x,a.y,7,0,7);ctx.fill()}ctx.restore()}
  if(order){if(order.carrying)for(const d of order.drops)drawTarget(d,'drop',d!==order.drop);else drawTarget(order.pickup,'pickup')}
  if(stormA>.01){ // sandstorm: thick dust everywhere except a small bubble around Dili
-  const px=player?player.x:W/2,py=player?player.y:H/2,g=ctx.createRadialGradient(px,py,40,px,py,260);
-  g.addColorStop(0,'rgba(214,160,90,0)');g.addColorStop(1,`rgba(214,160,90,${.9*stormA})`);ctx.fillStyle=g;ctx.fillRect(0,HUD,W,ROWS*T);
+  const px=player?player.x:W/2,py=player?player.y:H/2,g=ctx.createRadialGradient(px,py,70,px,py,330);
+  g.addColorStop(0,'rgba(214,160,90,0)');g.addColorStop(1,`rgba(214,160,90,${.72*stormA})`);ctx.fillStyle=g;ctx.fillRect(0,HUD,W,ROWS*T);
   ctx.strokeStyle=`rgba(255,230,180,${.35*stormA})`;ctx.lineWidth=1.5;ctx.beginPath();
   for(let i=0;i<70;i++){const x=((i*97+runT*520*windDir)%W+W)%W,y=HUD+(i*53)%(ROWS*T);ctx.moveTo(x,y);ctx.lineTo(x-windDir*26,y+3)}ctx.stroke()}
  for(const m of meteors)drawMeteor(m);
@@ -1408,7 +1414,7 @@ function drawHUD(){
   ctx.font=font(18,900);text('/ '+order.par.toFixed(1)+'s',600+ctx.measureText(s1).width,33,12,'#7d8bab','left',700)}
  else text('Get the 📦',596,33,14,'#ffd34d','left',800);
  text('SCORE',760,15,9,'#7d8bab');
- if(chRun){const d=score-chRun.score,up=d>=0;text(up?`▲ BEATING ${chRun.name.toUpperCase()}`:`▼ ${fmt(-d)} TO BEAT ${chRun.name.toUpperCase()}`,796,15,9,up?'#45e6a5':'#ff6473','left',900)}
+ if(chRun){const d=score-chRun.score,up=d>=0;text(up?'▲ WINNING':`▼ ${fmt(-d)} TO WIN`,796,15,9,up?'#45e6a5':'#ff6473','left',900)}
  else{const d=paceDelta();if(d!=null){const up=d>=0;text((up?'▲ ':'▼ ')+fmt(Math.abs(d))+' vs PB',796,15,9,up?'#45e6a5':'#ff6473','left',900)}}
  ctx.save();ctx.translate(760,33);const ss=1+scorePulse*.6;ctx.scale(ss,ss);text(fmt(dispScore),0,0,19,scorePulse>0?'#ffd34d':'#fff','left',900);ctx.restore();
  text('COMBO',900,15,9,'#7d8bab');
@@ -1427,6 +1433,12 @@ function paceDelta(){
  if(!paceRef||!paceRef.length||runClock<3)return null;
  const f=runClock/5,i=Math.floor(f),a=paceRef[Math.min(i,paceRef.length-1)],b=paceRef[Math.min(i+1,paceRef.length-1)];
  return score-(a+(b-a)*(f-i));
+}
+function drawCoinPill(){
+ if(mode!=='play'&&mode!=='paused'&&mode!=='upgrade')return;coinPulse=Math.max(0,coinPulse-1/60);
+ const s=1+coinPulse*.5,x=14,y=H-44;ctx.save();ctx.translate(x+48,y+15);ctx.scale(s,s);
+ ctx.fillStyle='rgba(8,12,28,.8)';rr(ctx,-48,-15,96,30,15);ctx.fill();ctx.strokeStyle=coinPulse>0?'#ffd34d':'rgba(255,211,77,.35)';ctx.lineWidth=2;ctx.stroke();
+ text(`🪙 ${fmt(meta.coins)}`,0,1,14,'#ffd34d','center',900);ctx.restore();
 }
 function drawEventPill(){
  if(!event||mode==='over')return;const e=event,x=68,y=HUD+12,w=236,h=30,u=e.t/e.dur;
@@ -1540,6 +1552,7 @@ function drawMenu(){
  drawLogoFancy(cx-62,76,56);text('DLICOM',cx-22,68,26,'#fff','left',900);text('PRESENTS',cx-21,92,11,'#bcd0ff','left',800);
  button(`🎨 SKINS   🪙 ${fmt(meta.coins)}`,16,16,230,40,openShop,false);
  if(CH&&!chPrompt)button(`⚔️ VS ${CH.name.toUpperCase()} · ${fmt(CH.score)}`,258,16,280,40,()=>{chPrompt=true},false);
+ if(!canBuySomething()&&meta.coins<120)text('Deliver packages to earn 🪙 for skins',22,68,11,'#bcd0ff','left',800);
  if(canBuySomething()){const p=.6+.4*Math.sin(runT*6);ctx.fillStyle=`rgba(255,77,94,${p})`;ctx.beginPath();ctx.arc(240,20,7,0,7);ctx.fill()}
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
  else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,30,11,'#bcd0ff','right',700);
@@ -1581,7 +1594,7 @@ function drawOver(){
  statBox('BEST COMBO','x'+runBestCombo,x0+(w+gap),y,w,76,'#ffd34d');
  statBox('CLOSE CALLS',String(nearMisses),x0+(w+gap)*2,y,w,76,'#8fe3ff');
  statBox('CRASHES',crashes?`${crashes}  (−${crashLost}s)`:'0 👌',x0+(w+gap)*3,y,w,76,crashes?'#ff6473':'#45e6a5');
- text(`Reached ${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}   ·   🪙 +${runCoins} coins`,W/2,372,15,zone.accent,'center',900);
+ text(`Reached ${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}   ·   🪙 +${runCoins} coins (total ${fmt(meta.coins)})`,W/2,372,15,zone.accent,'center',900);
  {const pb=daily?`DAILY BEST  ${fmt(dailyRec().best)}   ·   ALL-TIME BEST  ${fmt(best.score)}`:`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`;
   text(pb,W/2,396,12,'#aab8d5','center',800)}
  if(overDelay<=0){
@@ -1627,7 +1640,9 @@ function drawShop(){
  drawDili(px,py+Math.sin(runT*2)*6,4.6,1,{carrying:true,moving:shop.tab==='trail'});
  outlined('🎨 DILI STYLE',px,64,34,'#fff');
  ctx.fillStyle='rgba(255,211,77,.14)';rr(ctx,px-95,96,190,40,20);ctx.fill();text(`🪙 ${fmt(meta.coins)}`,px,117,20,'#ffd34d','center',900);
- text('Earn coins by delivering, close calls,',px,560,12,'#aab8d5','center',700);text('clearing zones and coin showers',px,578,12,'#aab8d5','center',700);
+ ctx.fillStyle='rgba(8,12,28,.6)';rr(ctx,px-160,482,320,118,14);ctx.fill();text('HOW TO EARN 🪙',px,499,12,'#ffd34d','center',900);
+ [['📦 Each delivery','+3 to +20'],['⚡ Close call (near miss)','+1'],['🏁 Clear a zone','+10'],['🪙 Coin shower event','+1 each'],['🏆 Achievements','+20 to +100']]
+  .forEach(([a,b],i)=>{text(a,px-146,518+i*17,12,'#dfe5f0','left',700);text(b,px+146,518+i*17,12,'#ffd34d','right',900)});
  // right: tabs + cards
  const tabs=[['color','COLORS'],['hat','HATS'],['trail','DASH TRAILS'],['ach','🏆 ACHIEVEMENTS']],tx=440;
  tabs.forEach(([id,l],i)=>button(l,tx+i*172,40,164,40,()=>{shop.tab=id},shop.tab===id));
@@ -1802,7 +1817,7 @@ function draw(){
  if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
  applyCam();drawWorld();ctx.restore();
  drawPointer();drawMinimap();
- drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype();drawEventPill()}drawTutorial();drawTouch();drawPauseBtn();
+ drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype();drawEventPill()}drawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawHUD();drawCoins();
  if(flash>0){ctx.globalAlpha=Math.min(.45,flash);ctx.fillStyle=flashColor;ctx.fillRect(0,HUD,W,ROWS*T);ctx.globalAlpha=1}
  drawStage();
