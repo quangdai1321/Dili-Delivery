@@ -635,7 +635,7 @@ function chooseUpgrade(i){
 }
 function tryDash(){
  if(mode!=='play'||player.dashCd>0)return;
- const v=inputVec(),l=Math.hypot(v.x,v.y);
+ const v=steer(player,inputVec()),l=Math.hypot(v.x,v.y); // dash along the lane, not into a wall
  player.dashDir=l>.1?{x:v.x/l,y:v.y/l}:{x:player.face,y:0};
  player.dash=.22;player.dashCd=dashCooldown();SFX.dash();
  rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:8,r1:40,color:'#8fd0ff'});
@@ -800,14 +800,10 @@ function update(dt){
  if(shiftTime<=0){shiftTime=0;endRun();return}
 
  const P=player;P.inv=Math.max(0,P.inv-dt);P.dash=Math.max(0,P.dash-dt);P.dashCd=Math.max(0,P.dashCd-dt);P.pop=Math.max(0,P.pop-dt);P.dizzy=Math.max(0,P.dizzy-dt);
- const inp=inputVec(),spd=playerSpeed();
+ const inp=steer(P,inputVec()),spd=playerSpeed();
  if(P.dash>0){P.vx=P.dashDir.x*spd*2.3;P.vy=P.dashDir.y*spd*2.3;P.trail.push({x:P.x,y:P.y,t:.22})}
  else{const k=Math.min(1,dt*(zone.ice?2.4:zone.lowgrav?4.5:12));P.vx+=(inp.x*spd-P.vx)*k;P.vy+=(inp.y*spd-P.vy)*k}
  for(const g of P.trail)g.t-=dt;P.trail=P.trail.filter(g=>g.t>0);
- // corner assist: glide toward the lane centre when turning into an open road
- const t=tileOf(P);
- if(Math.abs(inp.x)>.5&&Math.abs(inp.y)<.35&&walkable(t.c+Math.sign(inp.x),t.r)){const cy=center(t.c,t.r).y;P.y+=clamp(cy-P.y,-140*dt,140*dt)}
- if(Math.abs(inp.y)>.5&&Math.abs(inp.x)<.35&&walkable(t.c,t.r+Math.sign(inp.y))){const cx=center(t.c,t.r).x;P.x+=clamp(cx-P.x,-140*dt,140*dt)}
  const ox=P.x,oy=P.y;
  P.x+=P.vx*dt;collideWorld(P);P.y+=P.vy*dt;collideWorld(P);
  const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>40*dt;
@@ -855,6 +851,28 @@ function update(dt){
  const tgt=order.carrying?order.drop:order.pickup;
  if(Math.hypot(P.x-tgt.x,P.y-tgt.y)<pickRadius()&&!(tgt.lockUntil>runT)){if(order.carrying)doDeliver();else doPickup()}
  if(mode==='play'&&(pathTimer-=dt)<=0){pathTimer=.15;computePath()}
+}
+// lane steering: maps analog / diagonal / early input onto the road grid, so Dili follows lanes,
+// takes the turn you are holding toward, and never grinds against building corners
+function steer(P,inp){
+ const m=Math.min(1,Math.hypot(inp.x,inp.y));if(m<.1)return{x:0,y:0};
+ const t=tileOf(P);if(!walkable(t.c,t.r))return inp;
+ const c=center(t.c,t.r),sx=Math.sign(inp.x),sy=Math.sign(inp.y);
+ const openX=Math.abs(inp.x)>.25&&walkable(t.c+sx,t.r),openY=Math.abs(inp.y)>.25&&walkable(t.c,t.r+sy);
+ const alongX=s=>({x:s*m,y:clamp((c.y-P.y)*.08,-.6,.6)}),alongY=s=>({x:clamp((c.x-P.x)*.08,-.6,.6),y:s*m});
+ let ax=Math.abs(inp.x)>=Math.abs(inp.y)?'x':'y';
+ if(openX&&openY&&Math.abs(Math.abs(inp.x)-Math.abs(inp.y))<.35)ax=Math.abs(P.vx)>Math.abs(P.vy)?'y':'x'; // held diagonal = take the turn
+ else if(ax==='x'&&!openX&&openY)ax='y';else if(ax==='y'&&!openY&&openX)ax='x';
+ else if(!openX&&!openY){ // pressing into a wall: slide to the nearest opening in that direction (turn buffer)
+  const want=Math.abs(inp.y)>=Math.abs(inp.x)?'y':'x';
+  if(want==='y'&&sy){const f=Math.sign(P.vx)||1;for(let d=1;d<=3;d++)for(const s of[f,-f]){let ok=true;for(let i=1;i<=d;i++)if(!walkable(t.c+s*i,t.r))ok=false;if(ok&&walkable(t.c+s*d,t.r+sy))return alongX(s)}}
+  if(want==='x'&&sx){const f=Math.sign(P.vy)||1;for(let d=1;d<=3;d++)for(const s of[f,-f]){let ok=true;for(let i=1;i<=d;i++)if(!walkable(t.c,t.r+s*i))ok=false;if(ok&&walkable(t.c+sx,t.r+s*d))return alongY(s)}}
+  return inp;
+ }
+ // turning: finish lining up with the lane first so the corner can't snag
+ if(ax==='y'&&openY&&Math.abs(c.x-P.x)>10)return alongX(Math.sign(c.x-P.x));
+ if(ax==='x'&&openX&&Math.abs(c.y-P.y)>10)return alongY(Math.sign(c.y-P.y));
+ return ax==='x'?alongX(sx||1):alongY(sy||1);
 }
 function computePath(){
  const s=tileOf(player),tg=order.carrying?order.drop:order.pickup,{dist,prev}=bfs(s.c,s.r);

@@ -52,7 +52,7 @@ The menu shows which zones you have unlocked.
 Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace) and Daily Challenge results are saved in `localStorage` on this browser only.
 
 ## Controls
-- WASD / Arrow keys: move
+- WASD / Arrow keys: move. Lane steering keeps Dili centred on the road: hold a direction early and Dili takes the next turn that way; diagonals and analog stick input follow the lane at full speed instead of grinding on corners
 - Space / Shift: dash
 - P / Esc or the ⏸ button (top-left of the map): pause. The pause menu has Resume, Restart, Quit, Fullscreen and Sound (keys: P/Esc, R, Q)
 - D (menu): Daily Challenge · L (menu): leaderboard · S (game over): share
