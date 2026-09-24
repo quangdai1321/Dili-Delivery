@@ -46,8 +46,9 @@ Personal Best (score, fastest delivery, best combo, furthest zone) is saved in `
 - P / Esc: pause
 - M: sound on/off
 - C: switch camera (close follow cam ↔ full map)
+- F: fullscreen
 - R: restart
-- Mobile: drag on the left side to move, tap the right side to dash
+- Mobile: drag on the left side to move, tap the right side to dash, ⏸ button (top-left) to pause. The first tap switches to fullscreen landscape (Android/desktop). On iPhone, use Share → Add to Home Screen to play fullscreen.
 
 ## Camera & rendering
 - Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.

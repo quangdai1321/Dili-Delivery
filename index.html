@@ -2,26 +2,40 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#070c1a">
 <title>Dili Delivery</title>
 <link rel="icon" id="favicon" href="assets/dlicom-logo.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#050a18;color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+html,body{margin:0;height:100%;background:#050a18;color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:none}
 body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;background:radial-gradient(ellipse at 80% 0%,#12306f 0%,#050a18 60%)}
 #app{width:min(100%,calc((100vh - 48px) * 1152 / 672));width:min(100%,calc((100dvh - 48px) * 1152 / 672))}
 canvas{display:block;width:100%;height:auto;aspect-ratio:1152/672;border-radius:18px;background:#0a1330;box-shadow:0 24px 80px #0009,0 0 0 1px #1d3a8a55;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .hint{text-align:center;color:#7d8bab;font-size:12px;margin-top:8px;line-height:1.4}
-.rotate{display:none;text-align:center;color:#6fa3ff;font-weight:800;font-size:15px;margin-top:14px}
-@media (orientation:portrait) and (pointer:coarse){.rotate{display:block}}
+.rotate{display:none;position:fixed;inset:0;z-index:5;background:rgba(5,10,24,.94);flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font-weight:800;font-size:19px;padding:24px}
+.rotate .big{font-size:64px}.rotate .sub{font-size:13px;color:#8fa8d8;font-weight:700}
+@media (orientation:portrait) and (pointer:coarse){.rotate{display:flex}}
+.rotate.hide{display:none!important}
+/* phones / short screens: edge-to-edge canvas, no chrome around it */
+@media (pointer:coarse),(max-height:540px){
+ body{padding:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+ #app{width:min(100vw,calc(100vh * 1152 / 672));width:min(100vw,calc(100dvh * 1152 / 672))}
+ canvas{border-radius:0;box-shadow:none}
+ .hint{display:none}
+}
 </style>
 </head>
 <body>
 <div id="app">
 <canvas id="game" width="1152" height="672"></canvas>
-<div class="hint">WASD / Arrows move · Space dash · P pause · M sound · C camera · R restart — Mobile: drag left side to move, tap right side to dash</div>
-<div class="rotate">📱↻ Rotate your phone for a bigger view</div>
+<div class="hint">WASD / Arrows move · Space dash · P pause · M sound · C camera · F fullscreen · R restart — Mobile: drag left side to move, tap right side to dash</div>
+<div class="rotate" id="rotate"><div class="big">📱↻</div><div>Rotate your phone to landscape</div><div class="sub">for the full-screen experience · tap to play anyway</div></div>
 </div>
 <script>
 'use strict';
@@ -90,6 +104,12 @@ function drawLogo(g,x,y,size){
  const dia=(r,c)=>{g.fillStyle=c;g.beginPath();g.moveTo(0,-r);g.lineTo(r,0);g.lineTo(0,r);g.lineTo(-r,0);g.closePath();g.fill()};
  dia(66,gr);dia(50,'#fff');dia(30,gr);
  g.restore();
+}
+function drawLogoFancy(x,y,size,glow=1){
+ ctx.save();ctx.shadowColor='rgba(76,134,255,.9)';ctx.shadowBlur=size*.45*glow*(.8+.2*Math.sin(runT*3));drawLogo(ctx,x,y,size);ctx.restore();
+ ctx.save();rr(ctx,x-size/2,y-size/2,size,size,size*.22);ctx.clip();
+ const q=((runT*.45)%1.6-.3)*size*1.6-size*.8;ctx.fillStyle='rgba(255,255,255,.28)';
+ ctx.beginPath();ctx.moveTo(x+q,y-size/2);ctx.lineTo(x+q+size*.22,y-size/2);ctx.lineTo(x+q-size*.1,y+size/2);ctx.lineTo(x+q-size*.32,y+size/2);ctx.closePath();ctx.fill();ctx.restore();
 }
 {const fc=document.createElement('canvas');fc.width=fc.height=64;drawLogo(fc.getContext('2d'),32,32,62);document.getElementById('favicon').href=fc.toDataURL()}
 // hero render for the menu, with feathered edges; falls back to the vector Dili if it fails to load
@@ -192,19 +212,19 @@ function playStep(tr,step,t,spb){
 function musicTick(){
  if(!actx||!music.gain)return;
  const now=actx.currentTime;if(music.next<now-.1)music.next=now+.05;
- const want=mode==='menu'?'menu':String(zoneIdx);
+ const want=mode==='menu'||mode==='splash'?'menu':String(zoneIdx);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
   const tr=TRACKS[music.track],spb=60/(tr.bpm*(mode==='play'?1+Math.min(.12,combo*.01)+loop*.03:1))/4;
   if(!muted)playStep(tr,music.step,music.next,spb);
   music.next+=spb;music.step++;
  }
- const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'?.3:mode==='over'?.12:.14;
+ const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'?.3:mode==='over'?.12:.14;
  if(vol!==music.vol){music.vol=vol;music.gain.gain.setTargetAtTime(vol,now,.2)}
 }
 
 // ---------- state ----------
-let mode='menu',zoneIdx=0,zone=ZONES[0];
+let mode='splash',splashT=0,zoneIdx=0,zone=ZONES[0];
 let grid=[],deco=[],barriers=new Set(),lines=[],cars=[],particles=[],floats=[],rain=[],rings=[],coins=[],ambient=[],splashes=[],rails=[],trains=[],meteors=[],scorches=[],snowflakes=[];
 let loop=0,zoneDeliveries=0,stageT=0,stageInfo=null,pendingZone=null,pendingUpgrade=false,meteorT=2;
 let player=null,order=null,upg={speed:0,dash:0,shield:0,magnet:0};
@@ -214,12 +234,24 @@ let pathCache=[],pathTimer=0,upgradeChoices=[],joy=null,touchUI=false,mouse={x:-
 const MR=2,mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
 let RS=1,resCap=2.5,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
-function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(resCap,window.devicePixelRatio||1),w=Math.max(Math.round(W*.5),Math.round((r.width||W)*dpr));RS=w/W;canvas.width=w;canvas.height=Math.round(H*RS)}
+function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(resCap,window.devicePixelRatio||1),w=Math.max(Math.round(W*.5),Math.round((r.width||W)*dpr));if(w===canvas.width)return;RS=w/W;canvas.width=w;canvas.height=Math.round(H*RS)}
 addEventListener('resize',resize);
+if(window.ResizeObserver)new ResizeObserver(()=>resize()).observe(canvas);
+const fsOK=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+const standalone=matchMedia('(display-mode: fullscreen),(display-mode: standalone)').matches||navigator.standalone===true;
+const isFS=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+let autoFS=true;
+function goFullscreen(){
+ const el=document.documentElement,req=el.requestFullscreen||el.webkitRequestFullscreen;if(!req||isFS())return;
+ try{const r=req.call(el,{navigationUI:'hide'});if(r&&r.then)r.then(()=>{try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}}).catch(()=>{})}catch(e){}
+}
+function toggleFullscreen(){if(isFS()){autoFS=false;(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{autoFS=true;goFullscreen()}}
+for(const ev of['fullscreenchange','webkitfullscreenchange'])document.addEventListener(ev,()=>setTimeout(resize,60));
+document.getElementById('rotate').addEventListener('click',e=>e.currentTarget.classList.add('hide'));
 // follow camera: zooms in on Dili, looks ahead in the movement direction, never shows outside the map
 const cam={x:W/2,y:HUD+ROWS*T/2,z:1},CAM_Z=1.45;
 function updateCam(dt,snap){
- const wantZ=camClose&&(mode==='play'||mode==='paused'||mode==='upgrade')?CAM_Z-(player&&player.dash>0?.07:0):1;
+ const wantZ=camClose&&(mode==='play'||mode==='paused'||mode==='upgrade')?(touchUI?1.6:CAM_Z)-(player&&player.dash>0?.07:0):1;
  cam.z+=(wantZ-cam.z)*(snap?1:Math.min(1,dt*3));
  const vw=W/cam.z,vh=ROWS*T/cam.z,tx=player?player.x+player.vx*.35:W/2,ty=player?player.y+player.vy*.35:HUD+ROWS*T/2,k=snap?1:Math.min(1,dt*5);
  cam.x+=(clamp(tx,vw/2,W-vw/2)-cam.x)*k;cam.y+=(clamp(ty,HUD+vh/2,H-vh/2)-cam.y)*k;
@@ -524,6 +556,8 @@ addEventListener('keydown',e=>{
  const go=e.code==='Enter'||e.code==='Space';
  if(e.code==='KeyM'){toggleMute();return}
  if(e.code==='KeyC'){toggleCam();return}
+ if(e.code==='KeyF'){toggleFullscreen();return}
+ if(mode==='splash'){mode='menu';return}
  if(mode==='menu'){if(go)startRun()}
  else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun()}
  else if(mode==='paused'){if(go||e.code==='KeyP'||e.code==='Escape')mode='play'}
@@ -542,12 +576,15 @@ function toCanvas(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-
 const hit=(p,b)=>p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
 canvas.addEventListener('pointerdown',e=>{
  e.preventDefault();ensureAudio();const p=toCanvas(e);if(e.pointerType==='touch')touchUI=true;
+ if(mode==='splash'){mode='menu';return}
+ if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
  const b=buttons.find(b=>hit(p,b));if(b){b.act();return}
  if(mode==='menu'){startRun();return}
  if(mode==='over'){if(overDelay<=0)startRun();return}
  if(mode==='paused'){mode='play';return}
  if(mode==='stage'){if(stageT>1.2&&stageT<2.7)stageT=2.7;return}
  if(mode!=='play')return;
+ if(touchUI&&Math.hypot(p.x-36,p.y-(HUD+36))<28){mode='paused';return}
  if(p.y<HUD&&p.x>W-36){toggleMute();return}
  if(p.y<HUD&&p.x>W-70){toggleCam();return}
  if(e.pointerType!=='mouse'&&p.x>W*.62){tryDash();return}
@@ -585,6 +622,7 @@ function update(dt){
  for(const s of splashes)s.t-=dt;splashes=splashes.filter(s=>s.t>0);
  dispScore+=(score-dispScore)*Math.min(1,dt*7);if(Math.abs(score-dispScore)<1)dispScore=score;
  dispShift+=(shiftTime-dispShift)*Math.min(1,dt*6);if(mode!=='menu')updateCam(dt);
+ if(mode==='splash'){splashT+=dt;if(splashT>=2.6)mode='menu';return}
  if(mode==='menu'){updateCars(dt);return}
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder()}
@@ -896,7 +934,7 @@ function drawMinimap(){
 function drawHUD(){
  const hg=ctx.createLinearGradient(0,0,W,0);hg.addColorStop(0,'#0c1a44');hg.addColorStop(1,'#0a1330');ctx.fillStyle=hg;ctx.fillRect(0,0,W,HUD);
  ctx.fillStyle=zone.accent;ctx.fillRect(0,HUD-2,W,2);
- drawLogo(ctx,30,24,30);
+ drawLogoFancy(30,24,32,.6);
  text('DILI DELIVERY',52,15,14,'#fff','left',900);text(zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:'')+' · '+zone.tag,52,30,9,zone.accent,'left',800);
  {const L=ZONES.length-1,prv=zoneIdx<L?ZONE_AT[zoneIdx]:ZONE_AT[L]+loop*LOOP_EVERY,nxt=zoneIdx<L?ZONE_AT[zoneIdx+1]:prv+LOOP_EVERY,pr=clamp((deliveries-prv)/(nxt-prv),0,1);
   ctx.fillStyle='#1c2742';rr(ctx,52,38,130,4,2);ctx.fill();ctx.fillStyle=zone.accent;rr(ctx,52,38,Math.max(4,130*pr),4,2);ctx.fill()}
@@ -967,6 +1005,7 @@ function drawTutorial(){
 }
 function drawTouch(){
  if(!touchUI||mode!=='play')return;
+ ctx.fillStyle='rgba(8,12,28,.65)';ctx.beginPath();ctx.arc(36,HUD+36,22,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(29,HUD+27,5,18);ctx.fillRect(38,HUD+27,5,18);
  if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,55,0,7);ctx.fill();ctx.globalAlpha=.6;
   const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,55)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
  const cx=W-86,cy=H-86,cd=player.dashCd/dashCooldown();
@@ -988,6 +1027,19 @@ function statBox(label,value,x,y,w,h,color='#fff'){
  ctx.fillStyle='rgba(111,163,255,.08)';rr(ctx,x,y,w,h,14);ctx.fill();ctx.strokeStyle='rgba(111,163,255,.2)';ctx.lineWidth=1;ctx.stroke();
  text(label,x+w/2,y+20,10,'#8f9cbc','center',800);text(value,x+w/2,y+h-24,24,color,'center',900);
 }
+function drawSplash(){
+ const t=splashT,bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ for(const s of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}
+ const out=clamp((2.6-t)/.45,0,1),cy=H/2-40;ctx.save();ctx.globalAlpha=out;
+ for(let i=0;i<3;i++){const u=(t*.8+i/3)%1;ctx.strokeStyle=`rgba(111,163,255,${(1-u)*.5})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(W/2,cy,70+u*220,0,7);ctx.stroke()}
+ const g=clamp(t/.6,0,1),sc=easeOutBack(g);ctx.save();ctx.translate(W/2,cy);ctx.scale(sc,sc);ctx.rotate((1-g)*-.6);drawLogoFancy(0,0,150,1.3);ctx.restore();
+ ctx.globalAlpha=out*clamp((t-.5)/.4,0,1);
+ if('letterSpacing' in ctx)ctx.letterSpacing='10px';outlined('DLICOM',W/2+5,cy+122,50,'#fff');
+ if('letterSpacing' in ctx)ctx.letterSpacing='6px';text('PRESENTS',W/2+3,cy+164,14,'#bcd0ff','center',800);
+ if('letterSpacing' in ctx)ctx.letterSpacing='0px';
+ ctx.restore();ctx.globalAlpha=1;
+ text('Tap to skip',W/2,H-28,11,'rgba(188,208,255,.5)','center',700);
+}
 function drawMenu(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
  for(const s of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;
@@ -1000,7 +1052,9 @@ function drawMenu(){
  // orbiting packages around the hero
  for(let i=0;i<3;i++){const a=runT*.8+i*2.1,px=300+Math.cos(a)*230,py=330+Math.sin(a)*60+bob;if(Math.sin(a)<0)ctx.globalAlpha=.5;drawPackage(px,py,1.1+.3*Math.sin(a));ctx.globalAlpha=1}
  const cx=815;
- drawLogo(ctx,cx-62,86,34);text('DLICOM PRESENTS',cx-38,86,13,'#bcd0ff','left',800);
+ drawLogoFancy(cx-62,76,56);text('DLICOM',cx-22,68,26,'#fff','left',900);text('PRESENTS',cx-21,92,11,'#bcd0ff','left',800);
+ if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
+ else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,30,11,'#bcd0ff','right',700);
  outlined('DILI',cx,165,92,'#fff');outlined('DELIVERY',cx,232,52,BRAND.sky);
  text('Deliver · Dodge · Combo',cx,274,17,'#bcd0ff','center',700);
  button('START DELIVERY',cx-150,306,300,62,startRun);
@@ -1033,6 +1087,7 @@ function drawOver(){
  text(`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`,W/2,412,12,'#aab8d5','center',800);
  if(overDelay<=0)button('RUN AGAIN',W/2-130,436,260,60,startRun);
  if(overDelay<=0)button('MENU',W/2-60,512,120,40,()=>{mode='menu'},false);
+ drawLogoFancy(W/2-72,596,26,.7);text('POWERED BY DLICOM',W/2-50,596,12,'#bcd0ff','left',900);
  drawDili(W/2+300,190+Math.sin(runT*3)*5,2.4,-1,{carrying:false,pop:newBest?(runT%1.2):0});
  text('Enter / Space / Tap to run again',W/2,H-34,12,'#56627f','center',800);
 }
@@ -1061,6 +1116,7 @@ function drawStage(){
  ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.clip();
  for(const s of menuStars){ctx.globalAlpha=.25+.4*(.5+.5*Math.sin(runT*3+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}
  const a=clamp((t-.45)/.25,0,1)*clamp((2.75-t)/.2,0,1);ctx.globalAlpha=a;
+ drawLogoFancy(W/2-39,62,30,.8);text('DLICOM',W/2-16,62,16,'#fff','left',900);
  outlined('✓ '+stageInfo.cleared+' CLEAR!',W/2,108,24,'#45e6a5');text('+8s SHIFT BONUS',W/2,140,14,'#ffd34d','center',900);
  const s=easeOutBack(clamp((t-.6)/.35,0,1));ctx.save();ctx.translate(W/2,235);ctx.scale(s,s);text(z.icon,0,0,72,'#fff','center');ctx.restore();
  text(stageInfo.i===ZONES.length-1&&stageInfo.loop?`FINAL ZONE · LOOP ${stageInfo.loop+1}`:`ZONE ${stageInfo.i+1} / ${ZONES.length}`,W/2,305,13,'#bcd0ff','center',900);
@@ -1079,9 +1135,11 @@ function drawPaused(){
  ctx.fillStyle='rgba(6,10,24,.7)';ctx.fillRect(0,0,W,H);outlined('PAUSED',W/2,H/2-30,56,'#fff');
  text('Press P or tap to resume',W/2,H/2+22,15,'#aab8d5','center',700);
  button('MENU',W/2-60,H/2+60,120,40,()=>{mode='menu'},false);
+ if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W/2-105,H/2+112,210,40,toggleFullscreen,false);
 }
 function draw(){
  buttons=[];ctx.setTransform(RS,0,0,RS,0,0);ctx.imageSmoothingQuality='high';ctx.fillStyle='#0a1330';ctx.fillRect(0,0,W,H);
+ if(mode==='splash'){drawSplash();return}
  if(mode==='menu'){drawMenu();return}
  ctx.save();ctx.beginPath();ctx.rect(0,HUD,W,ROWS*T);ctx.clip();
  if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
