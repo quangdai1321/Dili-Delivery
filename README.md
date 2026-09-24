@@ -82,7 +82,7 @@ Setup (one time):
 The anon key is designed to be public. Row Level Security only lets players read scores and add new ones. They cannot edit or delete anything. The database rejects impossible scores and allows at most one submission per device every 20 seconds. Scores are still reported by the browser, so a determined cheater could post a fake one: remove it in **Table Editor → scores**. Leave the two constants empty and the leaderboard stays hidden.
 
 ## Play online
-Hosted with GitHub Pages: https://quangdai1321.github.io/Dili-Delivery/
+Hosted on Vercel: https://dili-delivery-seven.vercel.app/
 
 ## Next build
 1. More zones and levels.
