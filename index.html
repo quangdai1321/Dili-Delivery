@@ -32,6 +32,14 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1152/672;border-radius:
 .rotate .big{font-size:64px}.rotate .sub{font-size:13px;color:#8fa8d8;font-weight:700}
 @media (orientation:portrait) and (pointer:coarse){.rotate{display:flex}}
 .rotate.hide{display:none!important}
+.modal{display:none;position:fixed;inset:0;z-index:10;background:rgba(5,10,24,.78);align-items:center;justify-content:center;padding:16px;touch-action:auto}
+.modal.show{display:flex}
+.modal form{background:linear-gradient(160deg,#16327a,#0a1330);border:1px solid #2f63e0;border-radius:20px;padding:22px;width:min(100%,380px);display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 24px 80px #000a}
+.modal .mt{font-size:20px;font-weight:900}.modal .ms{font-size:12px;color:#8fa8d8;font-weight:700}
+.modal input{font:inherit;font-size:20px;font-weight:800;padding:12px 14px;border-radius:12px;border:2px solid #2f63e0;background:#050a18;color:#fff;text-align:center;outline:none;user-select:text;-webkit-user-select:text}
+.modal input:focus{border-color:#6fa3ff}.modal input.bad{border-color:#ff6473}
+.modal .mb{display:flex;gap:10px}.modal button{flex:1;font:inherit;font-size:16px;font-weight:900;padding:12px;border-radius:999px;border:0;cursor:pointer;color:#fff;background:rgba(255,255,255,.12)}
+.modal button[type=submit]{background:linear-gradient(90deg,#2f63e0,#4c86ff)}
 /* phones / short screens: edge-to-edge canvas, no chrome around it */
 @media (pointer:coarse),(max-height:540px){
  body{padding:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
@@ -46,6 +54,12 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1152/672;border-radius:
 <canvas id="game" width="1152" height="672"></canvas>
 <div class="hint">WASD / Arrows move · Space dash · P pause · M sound · C camera · F fullscreen · R restart — Mobile: drag left side to move, tap right side to dash</div>
 <div class="rotate" id="rotate"><div class="big">📱↻</div><div>Rotate your phone to landscape</div><div class="sub">for the full-screen experience · tap to play anyway</div></div>
+<div class="modal" id="nameModal"><form id="nameForm" autocomplete="off">
+ <div class="mt">🏆 Your name on the leaderboard</div>
+ <input id="nameInput" maxlength="16" placeholder="e.g. DiliFan" enterkeyhint="done">
+ <div class="ms">2–16 characters: letters, numbers, spaces, _ or -</div>
+ <div class="mb"><button type="button" id="nameCancel">Cancel</button><button type="submit">Save</button></div>
+</form></div>
 </div>
 <script>
 'use strict';
@@ -153,6 +167,49 @@ let wakeLock=null;
 function keepAwake(on){try{if(on&&!wakeLock&&navigator.wakeLock)navigator.wakeLock.request('screen').then(l=>{wakeLock=l;l.addEventListener('release',()=>{wakeLock=null})}).catch(()=>{});
  else if(!on&&wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
 
+// ---------- online leaderboard (Supabase REST, no SDK) ----------
+// Paste your project's URL and anon / publishable key. They are meant to be public: RLS only allows reading and adding scores.
+const SUPABASE_URL='',SUPABASE_KEY='';
+const LB_ON=!!(SUPABASE_URL&&SUPABASE_KEY);
+const deviceId=store.get('diliDelivery.device',null)||(()=>{const b=crypto.getRandomValues(new Uint8Array(16));b[6]=b[6]&15|64;b[8]=b[8]&63|128;
+ const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join(''),id=`${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;store.set('diliDelivery.device',id);return id})();
+let playerName=store.get('diliDelivery.name','');
+async function sb(path,body,prefer){
+ const h={'Content-Type':'application/json',apikey:SUPABASE_KEY};if(SUPABASE_KEY.startsWith('eyJ'))h.Authorization='Bearer '+SUPABASE_KEY; // legacy anon JWT
+ if(prefer)h.Prefer=prefer;
+ const r=await fetch(SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/'+path,{method:'POST',headers:h,body:JSON.stringify(body)});
+ const t=await r.text();if(!r.ok){let m=t;try{m=JSON.parse(t).message||t}catch(e){}throw new Error(m.slice(0,80))}return t?JSON.parse(t):null;
+}
+let lastRun=null,lbSubmit=null,board=null;
+async function submitScore(){
+ const r=lastRun;if(!LB_ON||!r||!playerName)return;lbSubmit={state:'sending'};
+ try{
+  await sb('scores',{device_id:deviceId,name:playerName,mode:r.mode,day:r.day,score:r.score,deliveries:r.deliveries,combo:r.combo,zone:r.zone,loop:r.loop},'return=minimal');
+  const me=(await sb('rpc/get_my_rank',{p_mode:r.mode,p_day:r.day,p_device:deviceId}))[0];
+  if(lastRun===r)lbSubmit={state:'done',rank:me&&me.rank,total:me&&me.total};
+ }catch(e){if(lastRun===r)lbSubmit={state:'error',msg:e.message}}
+}
+function openBoard(tab,from){board={tab,from,rows:null,me:null,error:null};mode='board';joy=null;loadBoard()}
+async function loadBoard(){
+ const b=board;if(!b||!LB_ON)return;b.rows=null;b.me=null;b.error=null;
+ const day=b.tab==='daily'?today().key:null;
+ try{const [rows,me]=await Promise.all([sb('rpc/get_leaderboard',{p_mode:b.tab,p_day:day,p_limit:10,p_device:deviceId}),sb('rpc/get_my_rank',{p_mode:b.tab,p_day:day,p_device:deviceId})]);
+  if(board===b){b.rows=rows||[];b.me=me&&me[0]||null}}
+ catch(e){if(board===b)b.error=e.message}
+}
+function boardTab(t){if(board&&board.tab!==t){board.tab=t;loadBoard()}}
+function boardBack(){const f=board?board.from:'menu';board=null;mode=f}
+// name entry: a real <input> so phone keyboards work
+const nameModal=document.getElementById('nameModal'),nameInput=document.getElementById('nameInput');let nameCb=null;
+const modalOpen=()=>nameModal.classList.contains('show');
+function askName(cb){nameCb=cb;nameInput.value=playerName;nameInput.classList.remove('bad');nameModal.classList.add('show');keys.clear();joy=null;nameInput.focus()} // focus synchronously: iOS only opens the keyboard inside the tap handler
+function closeName(){nameModal.classList.remove('show');nameInput.blur();nameCb=null}
+document.getElementById('nameForm').addEventListener('submit',e=>{e.preventDefault();
+ const v=nameInput.value.trim().replace(/\s+/g,' ');if(!/^[\p{L}\p{N} _-]{2,16}$/u.test(v)){nameInput.classList.add('bad');nameInput.focus();return}
+ playerName=v;store.set('diliDelivery.name',v);const cb=nameCb;closeName();if(cb)cb()});
+document.getElementById('nameCancel').addEventListener('click',closeName);
+nameModal.addEventListener('keydown',e=>{if(e.key==='Escape')closeName();e.stopPropagation()});
+
 // ---------- audio: synth SFX + procedural music (no files) ----------
 let actx=null,master=null,noiseBuf=null,muted=!!store.get('diliDelivery.muted',false);
 const music={gain:null,track:'menu',step:0,next:0,vol:-1};
@@ -240,14 +297,14 @@ function playStep(tr,step,t,spb){
 function musicTick(){
  if(!actx||!music.gain)return;
  const now=actx.currentTime;if(music.next<now-.1)music.next=now+.05;
- const want=mode==='menu'||mode==='splash'?'menu':String(zoneIdx);
+ const want=mode==='menu'||mode==='splash'||mode==='board'?'menu':String(zoneIdx);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
   const tr=TRACKS[music.track],spb=60/(tr.bpm*(mode==='play'?1+Math.min(.12,combo*.01)+loop*.03:1))/4;
   if(!muted)playStep(tr,music.step,music.next,spb);
   music.next+=spb;music.step++;
  }
- const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'?.3:mode==='over'?.12:.14;
+ const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'?.3:mode==='over'?.12:.14;
  if(vol!==music.vol){music.vol=vol;music.gain.gain.setTargetAtTime(vol,now,.2)}
 }
 
@@ -543,6 +600,8 @@ function endRun(){
  best.maxZone=Math.max(best.maxZone||0,zoneIdx);best.runs++;store.set('diliDelivery.best',best);SFX.over();buzz([30,40,30]);
  if(newBest)for(let i=0;i<5;i++)setTimeout(()=>burst(rand(W*.3,W*.7),rand(150,300),40,CONFETTI,true),i*220);
  makeShareCard();
+ lastRun={mode:daily?'daily':'all',day:daily?today().key:null,score:Math.round(score),deliveries,combo:runBestCombo,zone:zoneIdx,loop};lbSubmit=null;
+ if(LB_ON&&deliveries>0&&score>0){if(playerName)submitScore();else lbSubmit={state:'needName'}}
 }
 // ---------- rage: the game over screen tells you exactly how close you were ----------
 const TAUNTS={
@@ -637,6 +696,7 @@ function inputVec(){
  const l=Math.hypot(x,y);return l>1?{x:x/l,y:y/l}:{x,y};
 }
 addEventListener('keydown',e=>{
+ if(modalOpen())return;
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
  keys.add(e.code);if(e.repeat)return;ensureAudio();
  const go=e.code==='Enter'||e.code==='Space';
@@ -644,7 +704,8 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyC'){toggleCam();return}
  if(e.code==='KeyF'){toggleFullscreen();return}
  if(mode==='splash'){mode='menu';return}
- if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true)}
+ if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab(board.tab==='all'?'daily':'all')}return}
+ if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true);else if(e.code==='KeyL'&&LB_ON)openBoard('all','menu')}
  else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun();else if(e.code==='KeyS')shareRun();else if(e.code==='Escape')mode='menu'}
  else if(mode==='paused'){if(go||e.code==='KeyP'||e.code==='Escape')mode='play';else if(e.code==='KeyR')startRun();else if(e.code==='KeyQ')quitToMenu()}
  else if(mode==='stage'){if(go&&stageT>1.2&&stageT<2.7)stageT=2.7}
@@ -666,6 +727,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(mode==='splash'){mode='menu';return}
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
  const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
+ if(mode==='board')return;
  if(mode==='menu'){startRun(false);return}
  if(mode==='over'){if(overDelay<=0)startRun();return}
  if(mode==='paused'){mode='play';return}
@@ -718,6 +780,7 @@ function update(dt){
  dispShift+=(shiftTime-dispShift)*Math.min(1,dt*6);if(mode!=='menu')updateCam(dt);
  if(mode==='splash'){splashT+=dt;if(splashT>=2.6)mode='menu';return}
  if(mode==='menu'){updateCars(dt);return}
+ if(mode==='board')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder()}
   if(stageT>=3.2){mode='play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
@@ -1173,9 +1236,10 @@ function drawMenu(){
  outlined('DILI',cx,160,92,'#fff');outlined('DELIVERY',cx,226,52,BRAND.sky);
  text('Deliver · Dodge · Combo',cx,264,17,'#bcd0ff','center',700);
  button('START DELIVERY',cx-150,286,300,58,()=>startRun(false));
- {const d=dailyRec(),t=today(),lbl=`📅 DAILY #${t.no}`+(d.best?`  ·  BEST ${fmt(d.best)}`:d.tries?'':'  ·  NEW!');
-  button(lbl,cx-150,354,300,40,()=>startRun(true),false);
-  if(!d.tries){const p=.6+.4*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,cx-150,354,300,40,20);ctx.stroke()}}
+ {const d=dailyRec(),t=today(),dw=LB_ON?146:300,lbl=`📅 DAILY #${t.no}`+(LB_ON?'':d.best?`  ·  BEST ${fmt(d.best)}`:d.tries?'':'  ·  NEW!');
+  button(lbl,cx-150,354,dw,40,()=>startRun(true),false);
+  if(!d.tries){const p=.6+.4*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,cx-150,354,dw,40,20);ctx.stroke()}
+  if(LB_ON)button('🏆 RANKING',cx+4,354,146,40,()=>openBoard('all','menu'),false)}
  text('PERSONAL BEST',cx,414,11,'#8f9cbc','center',900);
  statBox('SCORE',fmt(best.score),cx-243,426,156,70,'#ffd34d');
  statBox('FASTEST',best.time==null?'—':best.time.toFixed(2)+'s',cx-78,426,156,70);
@@ -1210,15 +1274,51 @@ function drawOver(){
   text(pb,W/2,396,12,'#aab8d5','center',800)}
  if(overDelay<=0){
   button('RUN AGAIN',W/2-130,416,260,58,()=>startRun());
-  button(shareFile?'📤  SHARE':'…',W/2-165,488,190,42,shareRun,false,true);
-  if(shareFile){ctx.strokeStyle='rgba(255,211,77,.7)';ctx.lineWidth=2;rr(ctx,W/2-165,488,190,42,21);ctx.stroke()}
-  button('MENU',W/2+35,488,130,42,()=>{mode='menu'},false);
+  const bw=LB_ON?150:190,bx=LB_ON?W/2-235:W/2-165;
+  button(shareFile?'📤  SHARE':'…',bx,488,bw,42,shareRun,false,true);
+  if(shareFile){ctx.strokeStyle='rgba(255,211,77,.7)';ctx.lineWidth=2;rr(ctx,bx,488,bw,42,21);ctx.stroke()}
+  if(LB_ON)button('🏆 RANKING',W/2-75,488,150,42,()=>openBoard(lastRun?lastRun.mode:'all','over'),false);
+  button('MENU',LB_ON?W/2+85:W/2+35,488,LB_ON?150:130,42,()=>{mode='menu'},false);
+  // leaderboard status under the buttons
+  const s=lbSubmit;
+  if(s&&s.state==='needName'){button('🏆  ADD YOUR NAME TO THE LEADERBOARD',W/2-200,542,400,36,()=>askName(submitScore),false,true);
+   const p=.5+.5*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,W/2-200,542,400,36,18);ctx.stroke()}
+  else if(s&&s.state==='sending')text('🏆 Submitting score…',W/2,560,14,'#aab8d5','center',800);
+  else if(s&&s.state==='done'&&s.rank)button(`🏆  RANK #${s.rank} OF ${s.total}  ·  ${lastRun.mode==='daily'?'DAILY #'+dailyNo:'ALL-TIME'}`,W/2-200,542,400,36,()=>openBoard(lastRun.mode,'over'),false);
+  else if(s&&s.state==='error')button('⚠️  Leaderboard offline — tap to retry',W/2-200,542,400,36,submitScore,false);
  }
  if(toast){const a=Math.min(1,toast.t);ctx.globalAlpha=a;ctx.font=font(13,800);const tw=ctx.measureText(toast.text).width+30;
-  ctx.fillStyle='rgba(69,230,165,.18)';rr(ctx,W/2-tw/2,544,tw,30,15);ctx.fill();text(toast.text,W/2,559,13,'#45e6a5','center',800);ctx.globalAlpha=1}
- drawLogoFancy(W/2-72,604,26,.7);text('POWERED BY DLICOM',W/2-50,604,12,'#bcd0ff','left',900);
+  ctx.fillStyle='rgba(8,40,30,.95)';rr(ctx,W/2-tw/2,586,tw,28,14);ctx.fill();text(toast.text,W/2,600,13,'#45e6a5','center',800);ctx.globalAlpha=1}
+ else{drawLogoFancy(W/2-72,612,26,.7);text('POWERED BY DLICOM',W/2-50,612,12,'#bcd0ff','left',900)}
  drawDili(W/2+300,190+Math.sin(runT*3)*5,2.4,-1,{carrying:false,pop:newBest?(runT%1.2):0,dizzy:!newBest&&crashes>0});
- text(touchUI?'Tap anywhere to run again':'Enter / Space: run again  ·  S: share  ·  Esc: menu',W/2,H-30,12,'#56627f','center',800);
+ text(touchUI?'Tap anywhere to run again':'Enter / Space: run again  ·  S: share  ·  Esc: menu',W/2,H-22,12,'#56627f','center',800);
+}
+function drawBoard(){
+ const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ for(const s of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;
+ const b=board,cx=W/2,lw=640,lx=cx-lw/2;
+ outlined('🏆 LEADERBOARD',cx,54,40,'#ffd34d');
+ const tabs=[['all','ALL-TIME'],['daily',`📅 DAILY #${today().no}`]];
+ tabs.forEach(([id,l],i)=>{const x=cx-205+i*210,on=b.tab===id;button(l,x,86,200,40,()=>boardTab(id),on);});
+ ctx.fillStyle='rgba(8,12,28,.6)';rr(ctx,lx,140,lw,408,16);ctx.fill();
+ text('#',lx+30,160,11,'#8f9cbc','center',900);text('PLAYER',lx+70,160,11,'#8f9cbc','left',900);text('ZONE',lx+380,160,11,'#8f9cbc','center',900);
+ text('DELIV.',lx+460,160,11,'#8f9cbc','center',900);text('SCORE',lx+lw-24,160,11,'#8f9cbc','right',900);
+ if(!LB_ON)text('Leaderboard is not configured yet',cx,340,16,'#aab8d5','center',800);
+ else if(b.error){text('⚠️ Could not load the leaderboard',cx,320,16,'#ff6473','center',800);text(b.error,cx,346,12,'#8f9cbc','center',700);button('RETRY',cx-60,372,120,38,loadBoard,false)}
+ else if(!b.rows)text('Loading'+'.'.repeat(1+Math.floor(runT*3)%3),cx,340,16,'#aab8d5','center',800);
+ else if(!b.rows.length)text(b.tab==='daily'?'No scores today yet — be the first! 📦':'No scores yet — be the first! 📦',cx,340,16,'#aab8d5','center',800);
+ else b.rows.forEach((r,i)=>{const y=190+i*36,top=r.rank<=3;
+  if(r.is_me){ctx.fillStyle='rgba(69,230,165,.16)';rr(ctx,lx+8,y-15,lw-16,30,10);ctx.fill()}
+  else if(i%2===0){ctx.fillStyle='rgba(255,255,255,.03)';rr(ctx,lx+8,y-15,lw-16,30,10);ctx.fill()}
+  text(top?['🥇','🥈','🥉'][r.rank-1]:String(r.rank),lx+30,y+1,top?18:15,'#fff','center',900);
+  text(String(r.name).slice(0,16)+(r.is_me?'  (you)':''),lx+70,y+1,16,r.is_me?'#45e6a5':'#fff','left',800);
+  const z=ZONES[clamp(r.zone|0,0,ZONES.length-1)];text(z.icon+(r.loop?' '+ROMAN[Math.min(r.loop,9)]:''),lx+380,y+1,15,'#fff','center',800);
+  text(String(r.deliveries),lx+460,y+1,15,'#dfe5f0','center',800);text(fmt(r.score),lx+lw-24,y+1,17,top?'#ffd34d':'#fff','right',900)});
+ if(b.me&&b.rows&&!b.rows.some(r=>r.is_me))text(`Your best: ${fmt(b.me.score)}  ·  Rank #${b.me.rank} of ${b.me.total}`,cx,530,14,'#45e6a5','center',900);
+ else if(b.rows&&!b.me&&LB_ON)text(b.tab==='daily'?'Play today\'s Daily Challenge to get ranked':'Finish a run to get ranked',cx,530,13,'#8f9cbc','center',800);
+ button('← BACK',cx-205,572,130,42,boardBack,false);
+ if(LB_ON)button(playerName?'✏️  '+playerName:'✏️  SET NAME',cx-65,572,270,42,()=>askName(()=>{if(lbSubmit&&lbSubmit.state==='needName')submitScore()}),false,true);
+ text(touchUI?'':'← → switch board  ·  Esc back',cx,H-18,11,'#6b7aa0','center',800);
 }
 // ---------- share card: an image of the run + a post ready for X ----------
 function shareText(){
@@ -1317,6 +1417,7 @@ function draw(){
  buttons=[];ctx.setTransform(RS,0,0,RS,0,0);ctx.imageSmoothingQuality='high';ctx.fillStyle='#0a1330';ctx.fillRect(0,0,W,H);
  if(mode==='splash'){drawSplash();return}
  if(mode==='menu'){drawMenu();return}
+ if(mode==='board'){drawBoard();return}
  ctx.save();ctx.beginPath();ctx.rect(0,HUD,W,ROWS*T);ctx.clip();
  if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
  applyCam();drawWorld();ctx.restore();

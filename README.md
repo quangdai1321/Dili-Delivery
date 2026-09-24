@@ -55,7 +55,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - WASD / Arrow keys: move
 - Space / Shift: dash
 - P / Esc or the ⏸ button (top-left of the map): pause. The pause menu has Resume, Restart, Quit, Fullscreen and Sound (keys: P/Esc, R, Q)
-- D (menu): Daily Challenge · S (game over): share
+- D (menu): Daily Challenge · L (menu): leaderboard · S (game over): share
 - M: sound on/off
 - C: switch camera (close follow cam ↔ full map)
 - F: fullscreen
@@ -71,10 +71,19 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Background music: separate procedural loops for the menu and each of the 6 zones, getting a little faster on every endless loop. It speeds up and adds layers (lead melody, extra drums) as your combo grows, and gets quieter while paused or picking upgrades.
 - Effects: coins fly to the score, shockwave on delivery, result-card stars pop in one by one, combo milestone pop-ups (x3/x5/x10…), glowing combo aura, dash afterimages, dizzy stars after a crash, hit-stop, red vignette when time is low, drifting cloud shadows (Downtown), fireflies (Night) and rain splashes with lightning (Storm).
 
+## Online leaderboard (Supabase)
+The menu has a 🏆 **Ranking** button (or press **L**) with two boards: **All-time** and **today's Daily**. Each player appears once, with their best score. At the end of a run the score is submitted automatically. The first time, the game asks for a name (2–16 characters). The game over screen then shows your rank, e.g. "Rank #4 of 57".
+
+Setup (one time):
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open **SQL Editor**, paste [`supabase/leaderboard.sql`](supabase/leaderboard.sql) and run it.
+3. Open **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key into `SUPABASE_URL` and `SUPABASE_KEY` near the top of the script in `index.html`.
+
+The anon key is designed to be public. Row Level Security only lets players read scores and add new ones. They cannot edit or delete anything. The database rejects impossible scores and allows at most one submission per device every 20 seconds. Scores are still reported by the browser, so a determined cheater could post a fake one: remove it in **Table Editor → scores**. Leave the two constants empty and the leaderboard stays hidden.
+
 ## Play online
 Hosted with GitHub Pages: https://quangdai1321.github.io/Dili-Delivery/
 
 ## Next build
-1. Online leaderboard (needs a small backend).
-2. More zones and levels.
-3. QA pass.
+1. More zones and levels.
+2. QA pass.
