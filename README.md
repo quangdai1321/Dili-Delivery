@@ -38,12 +38,36 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 | # | Zone | Reached after | Hazard |
 |---|---|---|---|
 | 1 | 🏙️ Downtown | start | Light traffic |
-| 2 | 🌃 Night District | 5 deliveries | Dark, alleys, more traffic |
-| 3 | ⛈️ Neon Storm | 10 | Rain, low visibility, lightning |
-| 4 | ⚓ Sunset Harbor | 16 | **Trains**: signals flash red and a bell rings, then a train sweeps the track |
-| 5 | ❄️ Snow Peak | 23 | **Ice**: Dili slides. Snowfall, snowman roadblocks |
-| 6 | 🌙 Moon Base | 31 | **Meteors** land on red target circles. Low gravity, floaty movement |
+| 2 | 🌃 Night District | 5 deliveries | Dark, alleys, 💢 road-rager cars |
+| 3 | 🏜️ Desert Dunes | 9 | **Sand** slows Dili down; **sandstorms** blind you and push you sideways |
+| 4 | ⛈️ Neon Storm | 13 | Rain, low visibility, lightning |
+| 5 | ⚓ Sunset Harbor | 18 | **Trains**: signals flash red and a bell rings, then a train sweeps the track |
+| 6 | 🏮 Night Market | 23 | **Crowds** wander the streets: bumping into people knocks you back, and cars stop for them |
+| 7 | ❄️ Snow Peak | 29 | **Ice**: Dili slides. Snowfall, snowman roadblocks |
+| 8 | 🌙 Moon Base | 36 | **Meteors** land on red target circles. Low gravity, floaty movement |
 | ∞ | 🌙 Moon Base II, III… | every 8 more | +15% traffic, train and meteor speed per loop |
+
+### Order types (from the 4th delivery)
+| Order | Rule | Reward |
+|---|---|---|
+| 🔥 Urgent | A countdown starts at pickup. Too late and the order is lost | x2 |
+| 🥚 Fragile | One crash while carrying and it breaks | x2 |
+| 👑 VIP | Much longer trip | x3 |
+| 📦 2 Drops | One pickup, two doors, any order | Each door counts as a delivery |
+
+### Random events (every ~25–35s)
+🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe)
+
+### Dili Style (wardrobe) and achievements
+Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend them in **🎨 Skins** on the menu (or press **K**):
+- **Colors**: Classic blue, Sunny, Mint, and 😠 Grumpy Rose (frowns; unlocked by crashing 25 times)
+- **Hats**: Delivery cap, Headphones, Party hat, 👑 Crown (reach Moon Base), 😇 Halo (10 clean deliveries in a row)
+- **Dash trails**: Sparkles, Coin rain, 🔥 Fire (combo x15), 🌈 Rainbow (beat a friend's challenge)
+
+13 achievements give coins and unlock the rare items. The equipped colour shows next to your name on the leaderboard.
+
+### Challenge a friend
+Every run uses a random seed. **⚔️ Challenge** on the game over screen shares a link (`?c=…`). Whoever opens it plays the **same city, orders, upgrade offers and events** and sees "▼ 345 TO BEAT PHUC" on the HUD. The result appears on their game over screen.
 
 Within each zone: 1 extra car joins every 2 deliveries, and traffic speeds up.
 Between zones: a "Zone Clear" screen shows the next zone's hazard.
@@ -55,7 +79,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - WASD / Arrow keys: move. Lane steering keeps Dili centred on the road: hold a direction early and Dili takes the next turn that way; diagonals and analog stick input follow the lane at full speed instead of grinding on corners
 - Space / Shift: dash
 - P / Esc or the ⏸ button (top-left of the map): pause. The pause menu has Resume, Restart, Quit, Fullscreen and Sound (keys: P/Esc, R, Q)
-- D (menu): Daily Challenge · L (menu): leaderboard · S (game over): share
+- D (menu): Daily Challenge · L (menu): leaderboard · K (menu): skins · S (game over): share / challenge
 - M: sound on/off
 - C: switch camera (close follow cam ↔ full map)
 - F: fullscreen
@@ -77,7 +101,8 @@ The menu has a 🏆 **Ranking** button (or press **L**) with two boards: **All-t
 Setup (one time):
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor**, paste [`supabase/leaderboard.sql`](supabase/leaderboard.sql) and run it.
-3. Open **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key into `SUPABASE_URL` and `SUPABASE_KEY` near the top of the script in `index.html`.
+3. Also run [`supabase/leaderboard_v2.sql`](supabase/leaderboard_v2.sql) (new zones + skins).
+4. Open **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key into `SUPABASE_URL` and `SUPABASE_KEY` near the top of the script in `index.html`.
 
 The anon key is designed to be public. Row Level Security only lets players read scores and add new ones. They cannot edit or delete anything. The database rejects impossible scores and allows at most one submission per device every 20 seconds. Scores are still reported by the browser, so a determined cheater could post a fake one: remove it in **Table Editor → scores**. Leave the two constants empty and the leaderboard stays hidden.
 
