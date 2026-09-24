@@ -47,6 +47,22 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 | 8 | 🌙 Moon Base | 36 | **Meteors** land on red target circles. Low gravity, floaty movement |
 | ∞ | 🌙 Moon Base II, III… | every 8 more | +15% traffic, train and meteor speed per loop |
 
+### Zone bosses
+The last delivery of every zone is a **💀 BOSS order**. Deliver it while the zone's boss hazard is active to defeat it (+500 per loop, +25 🪙, +6s):
+
+| Zone | Boss |
+|---|---|
+| 🏙️ Downtown | 🚚 Monster Truck: chases you along the shortest path |
+| 🌃 Night District | 🌑 Blackout: near-darkness, every driver is a road rager |
+| 🏜️ Desert Dunes | 🌪️ Mega Sandstorm: a sandstorm that never stops, strong wind |
+| ⛈️ Neon Storm | ⚡ Thunderstorm: lightning strikes the glowing circles |
+| ⚓ Sunset Harbor | 🚆 Train Rush: trains come back almost immediately |
+| 🏮 Night Market | 🎆 Festival Crowd: three times the crowd |
+| ❄️ Snow Peak | ☃️ Avalanche: giant snowballs drop where you're heading |
+| 🌙 Moon Base | ☄️ Meteor Storm: meteors three times as often |
+
+Achievements: 💀 Boss Slayer (first boss) and 👹 Boss Hunter (all 8, unlocks the BOSS HORNS hat).
+
 ### Order types (from the 4th delivery)
 | Order | Rule | Reward |
 |---|---|---|
@@ -87,13 +103,15 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Mobile: drag on the left side to move (the stick follows your thumb), tap the right side to dash, ⏸ button (top-left) to pause. The phone vibrates on crashes and deliveries, and the screen stays awake during a run. The first tap switches to fullscreen landscape (Android/desktop). On iPhone, use Share → Add to Home Screen to play fullscreen.
 
 ## Camera & rendering
+- Full screen on any display: the height is fixed and the width follows the screen's aspect ratio (up to 2.4:1), so wide phones get a wider view of the city. Menus stay centred.
 - Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.
 - 3/4 perspective: buildings show their front walls and cast shadows, and cars have depth.
 - Renders at the device pixel ratio for sharp visuals. Resolution lowers automatically if the device can't hold ~45fps, and long frames are sub-stepped so game speed stays real-time.
 
 ## Audio & effects
-- Background music: separate procedural loops for the menu and each of the 6 zones, getting a little faster on every endless loop. It speeds up and adds layers (lead melody, extra drums) as your combo grows, and gets quieter while paused or picking upgrades.
-- Effects: coins fly to the score, shockwave on delivery, result-card stars pop in one by one, combo milestone pop-ups (x3/x5/x10…), glowing combo aura, dash afterimages, dizzy stars after a crash, hit-stop, red vignette when time is low, drifting cloud shadows (Downtown), fireflies (Night) and rain splashes with lightning (Storm).
+- Everything is synthesized live with WebAudio: a master compressor and a generated reverb give the music and effects depth, with no audio files.
+- Background music: a procedural loop for the menu and for each zone, with a cymbal at every phrase and a snare fill before the next. It speeds up and adds layers as your combo grows, goes to full intensity during a boss, and gets quieter while paused.
+- Effects: an iris opening at the start of a run, camera zoom kicks on deliveries, combos and boss wins, star sparkles on delivery, speed lines while dashing, a red pulse on crashes, a glowing screen edge on combo milestones, coins flying to the score, hit-stop, dizzy stars and zone weather.
 
 ## Online leaderboard (Supabase)
 The menu has a 🏆 **Ranking** button (or press **L**) with two boards: **All-time** and **today's Daily**. Each player appears once, with their best score. At the end of a run the score is submitted automatically. The first time, the game asks for a name (2–16 characters). The game over screen then shows your rank, e.g. "Rank #4 of 57".
