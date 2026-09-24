@@ -950,7 +950,7 @@ canvas.addEventListener('pointerdown',e=>{
  const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
  if(mode==='board'||mode==='shop')return;
  if(mode==='menu')return; // only the buttons start a run; tapping empty space does nothing
- if(mode==='over'){if(overDelay<=0)startRun();return}
+ if(mode==='over')return; // same as the menu: only RUN AGAIN / SHARE / MENU react to taps
  if(mode==='paused'){mode='play';return}
  if(mode==='stage'){if(stageT>1.2&&stageT<2.7)stageT=2.7;return}
  if(mode!=='play')return;
@@ -1616,7 +1616,7 @@ function drawOver(){
   ctx.fillStyle='rgba(8,40,30,.95)';rr(ctx,W/2-tw/2,586,tw,28,14);ctx.fill();text(toast.text,W/2,600,13,'#45e6a5','center',800);ctx.globalAlpha=1}
  else{drawLogoFancy(W/2-72,612,26,.7);text('POWERED BY DAI2985',W/2-50,612,12,'#bcd0ff','left',900)}
  drawDili(W/2+300,190+Math.sin(runT*3)*5,2.4,-1,{carrying:false,pop:newBest?(runT%1.2):0,dizzy:!newBest&&crashes>0});
- text(touchUI?'Tap anywhere to run again':'Enter / Space: run again  ·  S: share  ·  Esc: menu',W/2,H-22,12,'#56627f','center',800);
+ text(touchUI?'Tap RUN AGAIN to play again':'Enter / Space: run again  ·  S: share  ·  Esc: menu',W/2,H-22,12,'#56627f','center',800);
 }
 // ---------- wardrobe: spend coins on Dili colours, hats and dash trails; achievements unlock the rare ones ----------
 const shop={tab:'color',msg:null};
