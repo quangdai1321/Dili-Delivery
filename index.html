@@ -169,7 +169,7 @@ function keepAwake(on){try{if(on&&!wakeLock&&navigator.wakeLock)navigator.wakeLo
 
 // ---------- online leaderboard (Supabase REST, no SDK) ----------
 // Paste your project's URL and anon / publishable key. They are meant to be public: RLS only allows reading and adding scores.
-const SUPABASE_URL='',SUPABASE_KEY='';
+const SUPABASE_URL='https://emydavuztizrokjtblkv.supabase.co',SUPABASE_KEY='sb_publishable_lmRgXN0cCCFuuOfXcoy4mw_7io6nkRu';
 const LB_ON=!!(SUPABASE_URL&&SUPABASE_KEY);
 const deviceId=store.get('diliDelivery.device',null)||(()=>{const b=crypto.getRandomValues(new Uint8Array(16));b[6]=b[6]&15|64;b[8]=b[8]&63|128;
  const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join(''),id=`${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;store.set('diliDelivery.device',id);return id})();
