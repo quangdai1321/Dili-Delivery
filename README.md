@@ -137,6 +137,11 @@ Setup (one time):
 
 The anon key is designed to be public. Row Level Security only lets players read scores and add new ones. They cannot edit or delete anything. The database rejects impossible scores and allows at most one submission per device every 20 seconds. Scores are still reported by the browser, so a determined cheater could post a fake one: remove it in **Table Editor → scores**. Leave the two constants empty and the leaderboard stays hidden.
 
+## Anonymous run stats
+To see how the game really runs on players' devices, each finished run (time up, quit, restart or tab closed; at least 8s of play) sends one anonymous row: average and low FPS, render scale, graphics/motion/control settings, screen size, zone reached, deliveries, score, what caused each crash, and the active boss. No names or personal data. Players can turn it off in **Settings → Share anonymous stats**.
+
+Setup: run [`supabase/telemetry.sql`](supabase/telemetry.sql) once in the Supabase SQL Editor. The table is insert-only for the public key; read it in the dashboard (the file ends with ready-made queries). Until the table exists the game silently skips sending.
+
 ## Play online
 Hosted on Vercel: https://dili-delivery-seven.vercel.app/
 

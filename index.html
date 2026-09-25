@@ -291,6 +291,22 @@ async function sb(path,body,prefer){
  const t=await r.text();if(!r.ok){let m=t;try{m=JSON.parse(t).message||t}catch(e){}throw new Error(m.slice(0,80))}return t?JSON.parse(t):null;
 }
 let lastRun=null,lbSubmit=null,board=null;
+// ---------- anonymous run stats (Settings > Share anonymous stats); needs supabase/telemetry.sql, silently skipped otherwise ----------
+const VERSION='2026.09.25';
+let frameHist=new Uint16Array(101),frameN=0,frameSum=0,crashCauses={},statsSent=false;
+function resetRunStats(){frameHist=new Uint16Array(101);frameN=0;frameSum=0;crashCauses={};statsSent=false}
+function sendRunStats(reason){
+ if(statsSent||!LB_ON||!settings.stats||!player||runClock<8)return;statsSent=true;
+ let acc=0,p95=0;const lim=frameN*.95;for(let i=0;i<=100;i++){acc+=frameHist[i];if(acc>=lim){p95=Math.max(1,i);break}}
+ const row={device_id:deviceId,version:VERSION,reason,mode:runKind,touch:touchUI,dpr:+(window.devicePixelRatio||1).toFixed(2),
+  screen_w:Math.round(window.innerWidth),screen_h:Math.round(window.innerHeight),gfx:settings.gfx,motion:settings.motion,ctrl:touchUI?ctrlMode:'keyboard',
+  avg_fps:frameSum?+(frameN/frameSum).toFixed(1):null,low_fps:p95?+(1000/p95).toFixed(1):null,res_scale:+(canvas.width/(canvas.getBoundingClientRect().width||canvas.width)).toFixed(2), // canvas px per CSS px
+  
+  duration:+runClock.toFixed(1),zone:zone.id,loop,deliveries,score:Math.round(score),crashes:crashCauses,boss:boss?boss.name:null};
+ // keepalive lets the request finish even if the tab is being closed
+ try{fetch(SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/run_stats',{method:'POST',keepalive:true,headers:Object.assign({'Content-Type':'application/json',apikey:SUPABASE_KEY,Prefer:'return=minimal'},
+  SUPABASE_KEY.startsWith('eyJ')?{Authorization:'Bearer '+SUPABASE_KEY}:{}),body:JSON.stringify(row)}).catch(()=>{})}catch(e){}
+}
 async function submitScore(){
  const r=lastRun;if(!LB_ON||!r||!playerName)return;lbSubmit={state:'sending'};
  try{
@@ -880,7 +896,8 @@ function enterZone(i,first,lp=0){
 }
 // kind: 'normal' | 'daily' | 'challenge' (booleans kept for old call sites: true = daily)
 function startRun(kind=runKind){
- ensureAudio();keepAwake(true);
+ if(player&&(mode==='play'||mode==='paused'||mode==='settings'))sendRunStats('restart');
+ ensureAudio();keepAwake(true);resetRunStats();
  if(kind===true)kind='daily';else if(kind===false)kind='normal';if(kind==='challenge'&&!CH)kind='normal';
  runKind=kind;daily=kind==='daily';chRun=kind==='challenge'?CH:null;
  if(daily){const t=today(),rec=dailyRec();rec.tries++;store.set('diliDelivery.daily',rec);missionTrack('dailyplay');dailyNo=t.no;dailySeed=hashSeed(t.key);dailyTries=rec.tries;paceRef=rec.pace;runSeed=dailySeed;unlockAch('daily')}
@@ -896,6 +913,7 @@ function startRun(kind=runKind){
  enterZone(0,true);newOrder();mode='play';SFX.go();irisT=.75;
 }
 function endRun(){
+ sendRunStats('time');
  mode='over';overDelay=.6;joy=null;resultCard=null;banner=null;hype=null;dispScore=score;keepAwake(false);
  paceLog.push(score);endEvent(true);
  if(score>=10000)unlockAch('score10k');
@@ -967,6 +985,7 @@ function crash(sx,sy,by='car'){
   rings.push({x:player.x,y:player.y,t:.4,max:.4,r0:18,r1:50,color:'#9fd0ff'});
   floats.push({x:player.x,y:player.y-30,text:'🛡️ SHIELD',color:'#9fd0ff',t:1,max:1,size:20});return}
  // repeated crashes on the same order hurt more: -3s, -4s, -5s, -6s
+ crashCauses[by]=(crashCauses[by]||0)+1;
  const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;lastCrashBy=by;cleanStreak=0;
  meta.crashes=(meta.crashes||0)+1;saveMeta();if(meta.crashes>=25)unlockAch('grumpy');if(by==='police')chaseCaught=true;
  combo=0;order.clean=false;shiftTime=Math.max(0,shiftTime-pen);player.inv=1.2;player.dizzy=1.2;flash=.35;flashColor='#ff4d5e';
@@ -1108,6 +1127,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>{keys.clear();joy=null;if(mode==='play')mode='paused'});
+addEventListener('pagehide',()=>{if(mode==='play'||mode==='paused'||mode==='upgrade'||mode==='stage')sendRunStats('abandon')});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')mode='paused';
  if(!document.hidden&&['play','paused','upgrade','stage'].includes(mode))keepAwake(true)}); // the OS drops the wake lock when hidden
 function toCanvas(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*SW/r.width-UX,y:(e.clientY-r.top)*H/r.height}}
@@ -1900,6 +1920,7 @@ function drawSettings(){
   ['🗺️','Minimap',showMini?'ON':'OFF',()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)}],
   ['🎥','Camera',camClose?'CLOSE':'FULL MAP',()=>{camClose=!camClose;store.set('diliDelivery.cam',camClose)}],
   ['📈','Show FPS',settings.fps?'ON':'OFF',tog('fps')],
+  LB_ON&&['📊','Share anonymous stats',settings.stats?'ON':'OFF',tog('stats'),'FPS, zone reached, what hit you. No name, no personal data'],
  ].filter(Boolean);
  const rh=touchUI?50:52,y0=88,w=640,x=W/2-w/2;
  rows.forEach(([ic,label,val,act,sub],i)=>{const y=y0+i*rh;
@@ -2111,7 +2132,7 @@ function drawStage(){
  if(t<=2.7){const e=-UX+cover*(SW+300);ctx.beginPath();ctx.moveTo(e,0);ctx.lineTo(e+8,0);ctx.lineTo(e-292,H);ctx.lineTo(e-300,H);ctx.fill()}
  ctx.globalAlpha=1;
 }
-function quitToMenu(){mode='menu';joy=null;keepAwake(false)}
+function quitToMenu(){sendRunStats('quit');mode='menu';joy=null;keepAwake(false)}
 function drawPaused(){
  ctx.fillStyle='rgba(6,10,24,.78)';ctx.fillRect(-UX,0,SW,H);
  outlined('PAUSED',W/2,H/2-150,56,'#fff');
@@ -2156,6 +2177,7 @@ function frame(now){
    if(avg>1/50&&resCap>.6){resCap=Math.max(.6,resCap*.8);goodT=0;resize()}
    else if(avg<1/57){if((goodT+=1.5)>=6&&resCap<gfxMax()){resCap=Math.min(gfxMax(),resCap*1.15);goodT=0;resize()}}else goodT=0}}
  // sub-step long frames so game speed stays real-time on slow devices
+ if(mode==='play'&&!document.hidden){frameHist[Math.min(100,Math.round(dt*1000))]++;frameN++;frameSum+=dt}
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
  draw();requestAnimationFrame(frame);
 }
