@@ -131,10 +131,13 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 ## Online leaderboard (Supabase)
 The menu has a 🏆 **Ranking** button (or press **L**) with two boards: **All-time** and **today's Daily**. Each player appears once, with their best score. At the end of a run the score is submitted automatically. The first time, the game asks for a name (2–16 characters). The game over screen then shows your rank, e.g. "Rank #4 of 57".
 
+Three boards: **All-time**, **This week** (resets Monday 00:00 UTC) and **today's Daily**. The **top 3 of each week** receive the exclusive 🏆 **Champion Trophy** hat and 150 🪙 the next time they open the game.
+
 Setup (one time):
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor**, paste [`supabase/leaderboard.sql`](supabase/leaderboard.sql) and run it.
 3. Also run [`supabase/leaderboard_v2.sql`](supabase/leaderboard_v2.sql) (new zones + skins).
+   Then [`supabase/leaderboard_v3.sql`](supabase/leaderboard_v3.sql) (weekly board + last week's podium).
 4. Open **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key into `SUPABASE_URL` and `SUPABASE_KEY` near the top of the script in `index.html`.
 
 The anon key is designed to be public. Row Level Security only lets players read scores and add new ones. They cannot edit or delete anything. The database rejects impossible scores and allows at most one submission per device every 20 seconds. Scores are still reported by the browser, so a determined cheater could post a fake one: remove it in **Table Editor → scores**. Leave the two constants empty and the leaderboard stays hidden.
