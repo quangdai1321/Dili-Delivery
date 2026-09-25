@@ -1824,7 +1824,9 @@ function drawMenu(){
  if(canBuySomething()){const p=.6+.4*Math.sin(runT*6);ctx.fillStyle=`rgba(255,77,94,${p})`;ctx.beginPath();ctx.arc(240,20,7,0,7);ctx.fill()}
  button('⚙️',fsOK&&!standalone?W-262:W-64,16,48,38,()=>openSettings('menu'),false);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
- else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,70,11,'#bcd0ff','right',700);
+ if(installEvt&&!standalone){button('📲  INSTALL APP',W-206,62,190,38,installApp,false,true);
+  const p=.5+.5*Math.sin(runT*4);ctx.strokeStyle=`rgba(111,211,255,${.3+.5*p})`;ctx.lineWidth=2;rr(ctx,W-206,62,190,38,19);ctx.stroke()}
+ if(!(fsOK&&!standalone)&&touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,70,11,'#bcd0ff','right',700);
  outlined('DILI',cx,160,92,'#fff');outlined('DELIVERY',cx,226,52,BRAND.sky);
  text('Deliver · Dodge · Combo',cx,264,17,'#bcd0ff','center',700);
  button('START DELIVERY',cx-150,286,300,58,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false))ctrlPrompt=true;else startRun(false)});
@@ -2164,6 +2166,13 @@ function draw(){
  drawAchPop();
 }
 
+// ---------- installable app (PWA): offline play via sw.js, install button where the browser supports it ----------
+let installEvt=null,installed=false;
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))
+ addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e});
+addEventListener('appinstalled',()=>{installEvt=null;installed=true;achPops.push({a:{icon:'📲',name:'Dili Delivery is on your home screen',coins:0,head:'APP INSTALLED'},t:3,max:3})});
+function installApp(){const e=installEvt;if(!e)return;installEvt=null;e.prompt();e.userChoice.then(c=>{if(c.outcome!=='accepted')installEvt=e}).catch(()=>{})}
 // ---------- boot ----------
 resize();genMap({c:12,r:6});spawnCars();
 let last=performance.now(),perfAcc=0,perfN=0,goodT=0,fpsVal=60;

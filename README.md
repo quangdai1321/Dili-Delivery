@@ -5,6 +5,8 @@ Browser game for the Dlicom AI Game Jam. One HTML file plus `assets/` (Dili rend
 ## Run
 Open `index.html` in a modern browser. (`index.v1.html` is the original prototype.)
 
+**Install as an app:** the game is a PWA (`manifest.webmanifest` + `sw.js`). Chrome/Edge/Android show **📲 Install app** on the menu; on iPhone use Share → Add to Home Screen. Once loaded it also plays **offline**: the page is network-first (new deploys arrive on the next visit) and assets are cache-first.
+
 ## Gameplay
 Each shift starts with 60 seconds.
 
