@@ -410,7 +410,8 @@ let loop=0,zoneDeliveries=0,stageT=0,stageInfo=null,pendingZone=null,pendingUpgr
 let player=null,order=null,upg={speed:0,dash:0,shield:0,magnet:0};
 let score=0,dispScore=0,combo=0,runBestCombo=0,deliveries=0,shiftTime=60,fastest=null,totalDist=0,newBest=false;
 let resultCard=null,banner=null,hype=null,shake=0,flash=0,flashColor='#fff',comboPulse=0,scorePulse=0,hitStop=0,lastTickSec=99,overDelay=0,runT=0,lightningT=6;
-let ctrlMode=store.get('diliDelivery.ctrl','dpad'),dpad=null; // touch controls: fixed D-pad (default) or floating joystick
+let ctrlMode=store.get('diliDelivery.ctrl','dpad'),dpad=null,ctrlPrompt=false;
+let showMini=store.get('diliDelivery.mini',!matchMedia('(pointer:coarse)').matches); // phones: path dots + edge arrow instead of a minimap over the streets // touch controls: fixed D-pad (default) or floating joystick
 let pathCache=[],pathTimer=0,upgradeChoices=[],joy=null,touchUI=false,mouse={x:-1,y:-1},buttons=[];
 // daily + rage stats
 let daily=false,dailyNo=0,dailySeed=null,dailyTries=0,crashes=0,crashLost=0,orderCrashes=0,lastCrashBy=null,nearMisses=0,nearCd=0,slowmo=0;
@@ -1036,6 +1037,7 @@ addEventListener('keydown',e=>{
  if(mode==='splash'){mode='menu';return}
  if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab(board.tab==='all'?'daily':'all')}return}
  if(mode==='shop'){if(e.code==='Escape'||e.code==='Backspace')mode='menu';return}
+ if(mode==='menu'&&ctrlPrompt){if(e.code==='Escape')ctrlPrompt=false;return}
  if(mode==='menu'&&chPrompt){if(go)startRun('challenge'),chPrompt=false;else if(e.code==='Escape')chPrompt=false;return}
  if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true);else if(e.code==='KeyK')openShop();else if(e.code==='KeyL'&&LB_ON)openBoard('all','menu')}
  else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun();else if(e.code==='KeyS')shareRun();else if(e.code==='Escape')mode='menu'}
@@ -1076,7 +1078,7 @@ canvas.addEventListener('pointerdown',e=>{
  try{canvas.setPointerCapture(e.pointerId)}catch(err){}
 });
 const JOY_R=55;
-const DPAD={r:112,b:40},dpadC=()=>({x:-UX+DPAD.r+34,y:H-DPAD.r-30});
+const DPAD={r:94,b:34},dpadC=()=>({x:-UX+DPAD.r+18,y:H-DPAD.r-14});
 function dpadDir(p){const c=dpadC(),dx=p.x-c.x,dy=p.y-c.y,l=Math.hypot(dx,dy);if(l<14)return null;
  const ax=Math.abs(dx)/l,ay=Math.abs(dy)/l;return{x:ax>.38?Math.sign(dx):0,y:ay>.38?Math.sign(dy):0}}
 function toggleCtrl(){ctrlMode=ctrlMode==='dpad'?'stick':'dpad';store.set('diliDelivery.ctrl',ctrlMode);joy=null;dpad=null}
@@ -1262,6 +1264,10 @@ function drawTarget(tg,kind,secondary){
  if(!secondary){const ay=tg.y-66-Math.abs(Math.sin(runT*5))*10;ctx.fillStyle=col;ctx.strokeStyle='rgba(10,14,30,.8)';ctx.lineWidth=2.5;
   ctx.beginPath();ctx.moveTo(tg.x-11,ay-12);ctx.lineTo(tg.x+11,ay-12);ctx.lineTo(tg.x,ay+2);ctx.closePath();ctx.stroke();ctx.fill()}
  ctx.save();ctx.translate(tg.x,tg.y);ctx.scale(appear,appear);ctx.translate(-tg.x,-tg.y);
+ if(!secondary){ // contrast plate: a dark disc with a bold dark+white rim separates the marker from busy, colourful blocks
+  ctx.fillStyle='rgba(10,14,30,.62)';ctx.beginPath();ctx.arc(tg.x,tg.y,pickRadius()+4,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(10,14,30,.9)';ctx.lineWidth=7;ctx.beginPath();ctx.arc(tg.x,tg.y,pickRadius()+pulse*3,0,7);ctx.stroke();
+  ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.globalAlpha=.8+.2*pulse;ctx.beginPath();ctx.arc(tg.x,tg.y,pickRadius()+7+pulse*3,0,7);ctx.stroke();ctx.globalAlpha=1}
  ctx.strokeStyle=col;ctx.lineWidth=3;ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(tg.x,tg.y,pickRadius()+pulse*3,0,7);ctx.stroke();
  ctx.setLineDash([6,8]);ctx.lineDashOffset=-runT*30;ctx.globalAlpha=.5;ctx.beginPath();ctx.arc(tg.x,tg.y,pickRadius()+10,0,7);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
  const by=tg.y-6+pulse*3;
@@ -1519,7 +1525,7 @@ function drawPointer(){
  outlined(Math.round(Math.hypot(tg.x-player.x,tg.y-player.y)/T*10)+'m',px,clamp(py+30,HUD+10,H-10),11,col);
 }
 function drawMinimap(){
- if(cam.z<1.08||mode==='stage')return;
+ if(!showMini||cam.z<1.08||mode==='stage')return;
  const mw=132,k=mw/W,mh=ROWS*T*k,mx=W+UX-mw-10,my=HUD+10,Q=p=>({x:mx+p.x*k,y:my+(p.y-HUD)*k});
  // fade out whenever it would hide Dili or the current target
  const under=p=>{if(!p)return false;const s=toScreen(p);return s.x>mx-40&&s.x<mx+mw+40&&s.y>my-40&&s.y<my+mh+40};
@@ -1665,18 +1671,20 @@ function drawPauseBtn(){ // visible on every platform, not only touch
 function drawTouch(){
  if(!touchUI||mode!=='play')return;
  if(ctrlMode==='dpad'){ // fixed D-pad bottom-left: the thumb never covers Dili
-  const c=dpadC(),R=DPAD.r,d=dpad&&dpad.dir;ctx.fillStyle='rgba(8,12,28,.35)';ctx.beginPath();ctx.arc(c.x,c.y,R+8,0,7);ctx.fill();
+  const c=dpadC(),R=DPAD.r,d=dpad&&dpad.dir,live=!!dpad;ctx.save();ctx.globalAlpha=live?1:.55; // see-through until touched so tiles stay visible
+  if(live){ctx.fillStyle='rgba(8,12,28,.3)';ctx.beginPath();ctx.arc(c.x,c.y,R+8,0,7);ctx.fill()}
   for(const[dx,dy,a]of[[0,-1,-Math.PI/2],[0,1,Math.PI/2],[-1,0,Math.PI],[1,0,0]]){const on=d&&((dx&&d.x===dx)||(dy&&d.y===dy)),bx=c.x+dx*R*.62,by=c.y+dy*R*.62;
-   ctx.fillStyle=on?'rgba(111,211,255,.55)':'rgba(255,255,255,.16)';ctx.beginPath();ctx.arc(bx,by,DPAD.b,0,7);ctx.fill();
+   ctx.fillStyle=on?'rgba(111,211,255,.55)':'rgba(8,12,28,.28)';ctx.beginPath();ctx.arc(bx,by,DPAD.b,0,7);ctx.fill();
    ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=2.5;ctx.stroke();
-   ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-7,-12);ctx.lineTo(-7,12);ctx.closePath();ctx.fill();ctx.restore()}
+   ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,-10);ctx.lineTo(-6,10);ctx.closePath();ctx.fill();ctx.restore()}
+  ctx.restore();
  }
  if(ctrlMode==='stick'&&(!joy||joy.fixed)){const c=dpadC(),BR=DPAD.r*.8,on=!!joy; // visible thumbstick
-  ctx.fillStyle='rgba(8,12,28,.4)';ctx.beginPath();ctx.arc(c.x,c.y,BR+10,0,7);ctx.fill();
+  ctx.save();ctx.globalAlpha=on?1:.55;if(on){ctx.fillStyle='rgba(8,12,28,.3)';ctx.beginPath();ctx.arc(c.x,c.y,BR+10,0,7);ctx.fill()}
   ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(c.x,c.y,BR,0,7);ctx.stroke();
   let kx=c.x,ky=c.y;if(joy){const dx=joy.x-c.x,dy=joy.y-c.y,l=Math.hypot(dx,dy),m=Math.min(l,BR*.72)/(l||1);kx=c.x+dx*m;ky=c.y+dy*m}
-  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.55)';ctx.beginPath();ctx.arc(kx,ky,34,0,7);ctx.fill();
-  ctx.strokeStyle='rgba(10,14,30,.5)';ctx.lineWidth=2;ctx.stroke()}
+  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(kx,ky,30,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(10,14,30,.5)';ctx.lineWidth=2;ctx.stroke();ctx.restore()}
  else if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
   const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,JOY_R)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
  const R=66,cx=W+UX-R-26,cy=H-R-26,cd=player.dashCd/dashCooldown(),ready=cd<=0;
@@ -1734,7 +1742,7 @@ function drawMenu(){
  else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,30,11,'#bcd0ff','right',700);
  outlined('DILI',cx,160,92,'#fff');outlined('DELIVERY',cx,226,52,BRAND.sky);
  text('Deliver · Dodge · Combo',cx,264,17,'#bcd0ff','center',700);
- button('START DELIVERY',cx-150,286,300,58,()=>startRun(false));
+ button('START DELIVERY',cx-150,286,300,58,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false))ctrlPrompt=true;else startRun(false)});
  {const d=dailyRec(),t=today(),dw=LB_ON?146:300,lbl=`📅 DAILY #${t.no}`+(LB_ON?'':d.best?`  ·  BEST ${fmt(d.best)}`:d.tries?'':'  ·  NEW!');
   button(lbl,cx-150,354,dw,40,()=>startRun(true),false);
   if(!d.tries){const p=.6+.4*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,cx-150,354,dw,40,20);ctx.stroke()}
@@ -1851,7 +1859,25 @@ function drawShop(){
  for(const p of particles)if(!p.dust){ctx.globalAlpha=Math.max(0,p.t/p.max);ctx.fillStyle=p.color;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size*.6)}
  for(const p of particles)if(p.dust){ctx.globalAlpha=Math.max(0,p.t/p.max);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,7);ctx.fill()}ctx.globalAlpha=1;
 }
+function drawCtrlPrompt(){
+ buttons=[]; // modal: only the prompt's own buttons take taps
+ ctx.fillStyle='rgba(4,8,20,.84)';ctx.fillRect(-UX,0,SW,H);outlined('🎮 CHOOSE YOUR CONTROLS',W/2,110,34,'#fff');
+ text('You can switch any time from the menu or the Pause screen',W/2,150,15,'#aab8d5','center',700);
+ const pickC=m=>{ctrlMode=m;store.set('diliDelivery.ctrl',m);store.set('diliDelivery.ctrlChosen',true);ctrlPrompt=false;joy=null;dpad=null;startRun(false)};
+ [['dpad','D-PAD','4 arrow buttons · precise turns'],['stick','JOYSTICK','Thumbstick · smooth analog moves']].forEach(([m,l,sub],i)=>{
+  const x=W/2-300+i*320,y=190,w=280,h=300,hov=hit(mouse,{x,y,w,h});
+  ctx.fillStyle=hov?'rgba(111,163,255,.2)':'rgba(255,255,255,.07)';rr(ctx,x,y,w,h,22);ctx.fill();ctx.strokeStyle=ctrlMode===m?'#6fd3ff':'rgba(255,255,255,.2)';ctx.lineWidth=3;ctx.stroke();
+  const cx=x+w/2,cy=y+118;
+  if(m==='dpad')for(const[dx,dy,a]of[[0,-1,-Math.PI/2],[0,1,Math.PI/2],[-1,0,Math.PI],[1,0,0]]){const bx=cx+dx*52,by=cy+dy*52;
+   ctx.fillStyle='rgba(111,211,255,.25)';ctx.beginPath();ctx.arc(bx,by,28,0,7);ctx.fill();ctx.strokeStyle='#6fd3ff';ctx.lineWidth=2.5;ctx.stroke();
+   ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(-6,-9);ctx.lineTo(-6,9);ctx.closePath();ctx.fill();ctx.restore()}
+  else{ctx.strokeStyle='#6fd3ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,78,0,7);ctx.stroke();const k=Math.sin(runT*2)*30;
+   ctx.fillStyle='rgba(111,211,255,.85)';ctx.beginPath();ctx.arc(cx+k,cy-k*.4,32,0,7);ctx.fill()}
+  text(l,cx,y+234,24,'#fff','center',900);text(sub,cx,y+264,13,'#aab8d5','center',700);
+  buttons.push({x,y,w,h,act:()=>pickC(m)})});
+}
 function drawChallengePrompt(){
+ buttons=[]; // modal: only the prompt's own buttons take taps
  ctx.fillStyle='rgba(4,8,20,.8)';ctx.fillRect(-UX,0,SW,H);const w=600,h=330,x=W/2-w/2,y=H/2-h/2-10;
  ctx.fillStyle='#0c1a44';rr(ctx,x,y,w,h,24);ctx.fill();ctx.strokeStyle='#ffd34d';ctx.lineWidth=3;ctx.stroke();
  outlined('⚔️ YOU\'VE BEEN CHALLENGED!',W/2,y+50,30,'#ffd34d');
@@ -1984,14 +2010,16 @@ function drawPaused(){
  button('✕  QUIT',W/2+5,H/2,135,44,quitToMenu,false);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W/2-140,H/2+56,280,40,toggleFullscreen,false);
  button(muted?'🔇  SOUND OFF':'🔊  SOUND ON',W/2-140,H/2+(fsOK&&!standalone?108:56),280,40,toggleMute,false);
- if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',W/2-140,H/2+(fsOK&&!standalone?160:108),280,40,toggleCtrl,false);
+ const py=H/2+(fsOK&&!standalone?160:108);
+ if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',W/2-140,py,280,40,toggleCtrl,false);
+ button(showMini?'🗺️  MINIMAP: ON':'🗺️  MINIMAP: OFF',W/2-140,py+(touchUI?52:0),280,40,()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)},false);
  text(touchUI?'Tap outside the buttons to resume':'P / Esc resume  ·  R restart  ·  Q quit',W/2,H-34,12,'#6b7aa0','center',800);
 }
 function draw(){
  // 'low' smoothing: 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it shows
  buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
  if(mode==='splash'){drawSplash();return}
- if(mode==='menu'||mode==='board'||mode==='shop'){({menu:drawMenu,board:drawBoard,shop:drawShop})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();drawAchPop();return}
+ if(mode==='menu'||mode==='board'||mode==='shop'){({menu:drawMenu,board:drawBoard,shop:drawShop})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
  if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
  applyCam();drawWorld();ctx.restore();
