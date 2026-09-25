@@ -97,6 +97,12 @@ The menu shows which zones you have unlocked.
 
 Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace) and Daily Challenge results are saved in `localStorage` on this browser only.
 
+## Settings
+**⚙️** on the menu (top-right) or **Settings** in Pause:
+- **Graphics**: Auto (adapts resolution to stay smooth) · High (always sharp) · Battery saver (lower resolution, fewer particles and ambient effects)
+- **Screen effects**: Full · Reduced (no shake, zoom kicks, big flashes or speed lines)
+- Music and sound effects separately, controls and vibration (phones), minimap, camera, and an FPS counter to include when you report lag
+
 ## Controls
 - WASD / Arrow keys: move. Lane steering keeps Dili centred on the road: hold a direction early and Dili takes the next turn that way; diagonals and analog stick input follow the lane at full speed instead of grinding on corners
 - Space / Shift: dash

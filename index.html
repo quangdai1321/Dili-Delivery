@@ -267,7 +267,12 @@ function unlockAch(id){
 }
 const equipped=()=>({color:skinItem(meta.equip.color)||SKINS.color[0],hat:meta.equip.hat,trail:meta.equip.trail});
 // mobile niceties (all best-effort)
-const buzz=p=>{try{if(touchUI&&navigator.vibrate)navigator.vibrate(p)}catch(e){}};
+// ---------- player settings ----------
+const settings=Object.assign({gfx:'auto',motion:'full',music:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
+const saveSettings=()=>store.set('diliDelivery.settings',settings);
+const LOWFX=()=>settings.gfx==='saver';     // battery saver: fewer particles / ambient effects
+const CALM=()=>settings.motion==='reduced'; // reduced motion: no shake, zoom kicks, big flashes or speed lines
+const buzz=p=>{try{if(touchUI&&settings.vibe&&navigator.vibrate)navigator.vibrate(p)}catch(e){}};
 let wakeLock=null;
 function keepAwake(on){try{if(on&&!wakeLock&&navigator.wakeLock)navigator.wakeLock.request('screen').then(l=>{wakeLock=l;l.addEventListener('release',()=>{wakeLock=null})}).catch(()=>{});
  else if(!on&&wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
@@ -335,13 +340,13 @@ function ensureAudio(){
 }
 function getNoise(){if(!noiseBuf){noiseBuf=actx.createBuffer(1,actx.sampleRate*.5,actx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}return noiseBuf}
 function tone(f,d,type='square',v=.1,slide=1,delay=0){
- if(!actx||muted)return;const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
+ if(!actx||muted||!settings.sfx)return;const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
  o.type=type;o.frequency.setValueAtTime(f,t);if(slide!==1)o.frequency.exponentialRampToValueAtTime(f*slide,t+d);
  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);
  o.connect(g).connect(master);if(verbIn)g.connect(verbIn);o.start(t);o.stop(t+d+.03);
 }
 function noise(d,v=.2,freq=900,delay=0,type='lowpass',dest){
- if(!actx||muted)return;const t=actx.currentTime+delay,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
+ if(!actx||muted||!settings.sfx)return;const t=actx.currentTime+delay,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
  s.buffer=getNoise();f.type=type;f.frequency.value=freq;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);
  s.connect(f).connect(g).connect(dest||master);if(verbIn&&!dest)g.connect(verbIn);s.start(t);s.stop(t+d+.02);
 }
@@ -423,11 +428,11 @@ function playStep(tr,step,t,spb){
 function musicTick(){
  if(!actx||!music.gain)return;
  const now=actx.currentTime;if(music.next<now-.1)music.next=now+.05;
- const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?'menu':String(zone.id);
+ const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||(mode==='settings'&&settingsFrom==='menu')?'menu':String(zone.id);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
   const tr=TRACKS[music.track],spb=60/(tr.bpm*(mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
-  if(!muted)playStep(tr,music.step,music.next,spb);
+  if(!muted&&settings.music)playStep(tr,music.step,music.next,spb);
   music.next+=spb;music.step++;
  }
  const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?.3:mode==='over'?.12:.14;
@@ -487,7 +492,7 @@ function updateCam(dt,snap){
  cam.x+=(cx-cam.x)*k;cam.y+=(clamp(ty,HUD+vh/2,H-vh/2)-cam.y)*k;
  cam.x=vw>=W?W/2:clamp(cam.x,vw/2,W-vw/2);cam.y=clamp(cam.y,HUD+vh/2,H-vh/2);
 }
-function applyCam(){const z=cam.z*(1+camPunch);ctx.translate(W/2,HUD+ROWS*T/2);ctx.scale(z,z);ctx.translate(-cam.x,-cam.y)}
+function applyCam(){const z=cam.z*(1+(CALM()?0:camPunch));ctx.translate(W/2,HUD+ROWS*T/2);ctx.scale(z,z);ctx.translate(-cam.x,-cam.y)}
 const toScreen=p=>({x:(p.x-cam.x)*cam.z+W/2,y:(p.y-cam.y)*cam.z+HUD+ROWS*T/2});
 
 const isRoad=(c,r)=>inb(c,r)&&grid[r][c]>0;
@@ -1087,6 +1092,7 @@ addEventListener('keydown',e=>{
  if(mode==='splash'){mode='menu';return}
  if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab(board.tab==='all'?'daily':'all')}return}
  if(mode==='shop'||mode==='missions'){if(e.code==='Escape'||e.code==='Backspace')mode='menu';return}
+ if(mode==='settings'){if(e.code==='Escape'||e.code==='Backspace')mode=settingsFrom;return}
  if(mode==='menu'&&ctrlPrompt){if(e.code==='Escape')ctrlPrompt=false;return}
  if(mode==='menu'&&chPrompt){if(go)startRun('challenge'),chPrompt=false;else if(e.code==='Escape')chPrompt=false;return}
  if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true);else if(e.code==='KeyK')openShop();else if(e.code==='KeyL'&&LB_ON)openBoard('all','menu')}
@@ -1111,9 +1117,10 @@ canvas.addEventListener('pointerdown',e=>{
  if(mode==='splash'){mode='menu';return}
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
  const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
- if(mode==='board'||mode==='shop'||mode==='missions')return;
+ if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
  if(mode==='menu')return; // only the buttons start a run; tapping empty space does nothing
  if(mode==='over')return; // same as the menu: only RUN AGAIN / SHARE / MENU react to taps
+ if(mode==='settings')return;
  if(mode==='paused'){mode='play';return}
  if(mode==='stage'){if(stageT>1.2&&stageT<2.7)stageT=2.7;return}
  if(mode!=='play')return;
@@ -1131,6 +1138,8 @@ const JOY_R=55;
 const DPAD={r:94,b:34},dpadC=()=>({x:-UX+DPAD.r+18,y:H-DPAD.r-14});
 function dpadDir(p){const c=dpadC(),dx=p.x-c.x,dy=p.y-c.y,l=Math.hypot(dx,dy);if(l<14)return null;
  const ax=Math.abs(dx)/l,ay=Math.abs(dy)/l;return{x:ax>.38?Math.sign(dx):0,y:ay>.38?Math.sign(dy):0}}
+const gfxMax=()=>settings.gfx==='saver'?.75:RES_MAX; // highest render scale the chosen quality allows
+function applyGfx(){resCap=gfxMax();resize()}
 function toggleCtrl(){ctrlMode=ctrlMode==='dpad'?'stick':'dpad';store.set('diliDelivery.ctrl',ctrlMode);joy=null;dpad=null}
 canvas.addEventListener('pointermove',e=>{const p=toCanvas(e);mouse=p;if(dpad&&e.pointerId===dpad.id){const d=dpadDir(p);if(d&&(!dpad.dir||d.x!==dpad.dir.x||d.y!==dpad.dir.y))buzz(4);dpad.dir=d}
  if(joy&&e.pointerId===joy.id){joy.x=p.x;joy.y=p.y;
@@ -1145,6 +1154,7 @@ canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
 // ---------- particles ----------
 function burst(x,y,n,colors,confetti){
+ if(LOWFX())n=Math.ceil(n*.4);
  for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),s=rand(80,confetti?330:240);
   particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(confetti?120:0),t:rand(.45,.9),max:.9,size:rand(3,6),color:pick(colors),g:confetti?420:0,rot:rand(0,6)})}
 }
@@ -1174,7 +1184,7 @@ function update(dt){
  dispShift+=(shiftTime-dispShift)*Math.min(1,dt*6);if(mode!=='menu')updateCam(dt);
  if(mode==='splash'){splashT+=dt;if(splashT>=2.6)mode='menu';return}
  if(mode==='menu'){updateCars(dt);return}
- if(mode==='board'||mode==='shop'||mode==='missions')return;
+ if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(null,tileOf(player))}
   if(stageT>=3.2){mode='play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
@@ -1537,7 +1547,7 @@ function drawWorld(){
   drawShade(px,py,big?120:45,big?560:blackout?190:240,'3,5,16',dk,0,HUD,W,ROWS*T);
   drawHeadlights();
  }
- if(zone.fireflies){ctx.save();ctx.globalCompositeOperation='lighter';const spr=glowSprite(zone.flyColor||'255,226,120');
+ if(zone.fireflies&&!LOWFX()){ctx.save();ctx.globalCompositeOperation='lighter';const spr=glowSprite(zone.flyColor||'255,226,120');
   for(const a of ambient){ctx.globalAlpha=.35+.35*Math.sin(a.p);ctx.drawImage(spr,a.x-8,a.y-8,16,16)}ctx.restore()}
  if(order){if(order.carrying)for(const d of order.drops)drawTarget(d,'drop',d!==order.drop);else drawTarget(order.pickup,'pickup')}
  if(stormA>.01){ // sandstorm: thick dust everywhere except a small bubble around Dili
@@ -1649,14 +1659,14 @@ function drawBossPill(){
 }
 function drawScreenFx(){
  const x0=-UX,x1=W+UX,y0=HUD,y1=H,cx=W/2,cy=(y0+y1)/2;
- if(player&&player.dash>0&&mode==='play'){ // speed lines streaming past the screen edges
+ if(player&&player.dash>0&&mode==='play'&&!CALM()&&!LOWFX()){ // speed lines streaming past the screen edges
   ctx.save();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=2;ctx.beginPath();
   for(let i=0;i<26;i++){const a=i/26*Math.PI*2+runT*.7,r0=280+((runT*900+i*97)%160),r1=r0+60;
    ctx.moveTo(cx+Math.cos(a)*r0*1.6,cy+Math.sin(a)*r0*.8);ctx.lineTo(cx+Math.cos(a)*r1*1.6,cy+Math.sin(a)*r1*.8)}ctx.stroke();ctx.restore()}
- if(crashFx>0)drawShade(cx,cy,(y1-y0)*.3,(x1-x0)*.62,'255,30,60',.55*crashFx/.45,x0,y0,x1-x0,y1-y0);
- if(comboGlow>0){ctx.save();const a=Math.min(1,comboGlow/.4);ctx.strokeStyle=glowColor; // soft edge glow from a few stroked rings (no shadowBlur: too costly full-screen)
+ if(crashFx>0)drawShade(cx,cy,(y1-y0)*.3,(x1-x0)*.62,'255,30,60',(CALM()?.2:.55)*crashFx/.45,x0,y0,x1-x0,y1-y0);
+ if(comboGlow>0&&!CALM()){ctx.save();const a=Math.min(1,comboGlow/.4);ctx.strokeStyle=glowColor; // soft edge glow from a few stroked rings (no shadowBlur: too costly full-screen)
   for(let i=0;i<4;i++){ctx.globalAlpha=a*(.55-i*.12);ctx.lineWidth=6+i*8;ctx.strokeRect(x0+3+i*4,y0+3+i*4,x1-x0-6-i*8,y1-y0-6-i*8)}ctx.restore()}
- if(irisT>0&&player){ // opening iris centred on Dili
+ if(irisT>0&&player&&!CALM()){ // opening iris centred on Dili
   const q=toScreen(player),u=1-irisT/.75,r=Math.max(1,u*u*(x1-x0));ctx.save();ctx.fillStyle='#050a18';ctx.beginPath();ctx.rect(x0,0,x1-x0,y1);ctx.moveTo(q.x+r,q.y);ctx.arc(q.x,q.y,r,0,Math.PI*2,true);ctx.fill('evenodd');
   ctx.strokeStyle='rgba(111,163,255,.8)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(q.x,q.y,r,0,7);ctx.stroke();ctx.restore()}
 }
@@ -1792,8 +1802,9 @@ function drawMenu(){
   if(n<3){const p=.6+.4*Math.sin(runT*5);ctx.fillStyle=`rgba(255,211,77,${p})`;ctx.beginPath();ctx.arc(240,68,6,0,7);ctx.fill()}}
  if(!canBuySomething()&&meta.coins<120)text('Deliver packages to earn 🪙 for skins',22,118,11,'#bcd0ff','left',800);
  if(canBuySomething()){const p=.6+.4*Math.sin(runT*6);ctx.fillStyle=`rgba(255,77,94,${p})`;ctx.beginPath();ctx.arc(240,20,7,0,7);ctx.fill()}
+ button('⚙️',fsOK&&!standalone?W-262:W-64,16,48,38,()=>openSettings('menu'),false);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
- else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,30,11,'#bcd0ff','right',700);
+ else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,70,11,'#bcd0ff','right',700);
  outlined('DILI',cx,160,92,'#fff');outlined('DELIVERY',cx,226,52,BRAND.sky);
  text('Deliver · Dodge · Combo',cx,264,17,'#bcd0ff','center',700);
  button('START DELIVERY',cx-150,286,300,58,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false))ctrlPrompt=true;else startRun(false)});
@@ -1869,6 +1880,34 @@ function shopPick(it,kind){
  if(meta.coins>=it.cost){meta.coins-=it.cost;meta.owned.push(it.id);meta.equip[kind]=it.id;saveMeta();SFX.buy();shop.msg={text:`✨ ${it.name} unlocked!`,t:2.5};
   for(let i=0;i<3;i++)burst(rand(120,320),rand(200,400),20,CONFETTI,true)}
  else{shop.msg={text:`Need ${fmt(it.cost-meta.coins)} more 🪙 — keep delivering!`,t:2.5,bad:true};SFX.nope()}
+}
+let settingsFrom='menu';
+function openSettings(from){settingsFrom=from;mode='settings';joy=null;dpad=null}
+function drawSettings(){
+ const fromGame=settingsFrom==='paused';
+ if(fromGame){ctx.fillStyle='rgba(6,10,24,.92)';ctx.fillRect(-UX,0,SW,H)}
+ else{const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H)}
+ outlined('⚙️ SETTINGS',W/2,52,36,'#fff');
+ const cyc=(k,vals)=>()=>{settings[k]=vals[(vals.indexOf(settings[k])+1)%vals.length];saveSettings();if(k==='gfx')applyGfx();SFX.pickup()};
+ const tog=k=>()=>{settings[k]=!settings[k];saveSettings();if(k==='sfx'||k==='music')ensureAudio();SFX.pickup()};
+ const rows=[
+  ['🖼️','Graphics',{auto:'AUTO',high:'HIGH',saver:'BATTERY SAVER'}[settings.gfx],cyc('gfx',['auto','high','saver']),{auto:'Adjusts resolution to keep it smooth',high:'Always sharp (needs a strong device)',saver:'Lower resolution, fewer effects'}[settings.gfx]],
+  ['🌀','Screen effects',settings.motion==='full'?'FULL':'REDUCED',cyc('motion',['full','reduced']),settings.motion==='full'?'Shake, zoom kicks and flashes':'No shake, zoom kicks or big flashes'],
+  ['🎵','Music',settings.music?'ON':'OFF',tog('music')],
+  ['🔊','Sound effects',settings.sfx?'ON':'OFF',tog('sfx')],
+  touchUI&&['🎮','Controls',ctrlMode==='dpad'?'D-PAD':'JOYSTICK',()=>{toggleCtrl();store.set('diliDelivery.ctrlChosen',true)}],
+  touchUI&&['📳','Vibration',settings.vibe?'ON':'OFF',tog('vibe')],
+  ['🗺️','Minimap',showMini?'ON':'OFF',()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)}],
+  ['🎥','Camera',camClose?'CLOSE':'FULL MAP',()=>{camClose=!camClose;store.set('diliDelivery.cam',camClose)}],
+  ['📈','Show FPS',settings.fps?'ON':'OFF',tog('fps')],
+ ].filter(Boolean);
+ const rh=touchUI?50:52,y0=88,w=640,x=W/2-w/2;
+ rows.forEach(([ic,label,val,act,sub],i)=>{const y=y0+i*rh;
+  ctx.fillStyle=i%2?'rgba(255,255,255,.04)':'rgba(255,255,255,.08)';rr(ctx,x,y,w,rh-6,14);ctx.fill();
+  text(ic,x+30,y+(rh-6)/2,20,'#fff','center');text(label,x+58,y+(sub?(rh-6)/2-8:(rh-6)/2),16,'#fff','left',900);
+  if(sub)text(sub,x+58,y+(rh-6)/2+11,11,'#8f9cbc','left',700);
+  button(val,x+w-218,y+4,210,rh-14,act,false)});
+ button('← BACK',W/2-90,Math.min(H-56,y0+rows.length*rh+10),180,44,()=>{mode=settingsFrom},false);
 }
 function drawMissions(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
@@ -2081,41 +2120,41 @@ function drawPaused(){
  button('↻  RESTART',W/2-140,H/2,135,44,()=>startRun(),false);
  button('✕  QUIT',W/2+5,H/2,135,44,quitToMenu,false);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W/2-140,H/2+56,280,40,toggleFullscreen,false);
- button(muted?'🔇  SOUND OFF':'🔊  SOUND ON',W/2-140,H/2+(fsOK&&!standalone?108:56),280,40,toggleMute,false);
- const py=H/2+(fsOK&&!standalone?160:108);
- if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',W/2-140,py,280,40,toggleCtrl,false);
- button(showMini?'🗺️  MINIMAP: ON':'🗺️  MINIMAP: OFF',W/2-140,py+(touchUI?52:0),280,40,()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)},false);
+ button('⚙️  SETTINGS',W/2-140,H/2+(fsOK&&!standalone?108:56),280,40,()=>openSettings('paused'),false);
  text(touchUI?'Tap outside the buttons to resume':'P / Esc resume  ·  R restart  ·  Q quit',W/2,H-34,12,'#6b7aa0','center',800);
 }
 function draw(){
  // 'low' smoothing: 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it shows
  buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
  if(mode==='splash'){drawSplash();return}
+ if(mode==='settings'&&settingsFrom==='menu'){drawSettings();drawAchPop();return}
  if(mode==='menu'||mode==='board'||mode==='shop'||mode==='missions'){({menu:drawMenu,board:drawBoard,shop:drawShop,missions:drawMissions})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
- if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
+ if(shake>0&&!CALM()){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
  applyCam();drawWorld();ctx.restore();
  drawPointer();drawMinimap();
  drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill()}drawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawScreenFx();drawHUD();drawCoins();
- if(flash>0){ctx.globalAlpha=Math.min(.45,flash);ctx.fillStyle=flashColor;ctx.fillRect(-UX,HUD,SW,ROWS*T);ctx.globalAlpha=1}
+ if(settings.fps){ctx.font=font(11,900);const t=`${Math.round(fpsVal)} FPS · ${(RS*SW/W).toFixed(2)}x`,w=ctx.measureText(t).width+14;ctx.fillStyle='rgba(8,12,28,.75)';const fy=showMini&&cam.z>=1.08?HUD+96:HUD+10;rr(ctx,W+UX-w-10,fy,w,18,9);ctx.fill();text(t,W+UX-10-w/2,fy+9,11,fpsVal<45?'#ff8a95':'#45e6a5','center',900)}
+ if(flash>0){ctx.globalAlpha=Math.min(CALM()?.12:.45,flash);ctx.fillStyle=flashColor;ctx.fillRect(-UX,HUD,SW,ROWS*T);ctx.globalAlpha=1}
  drawStage();
- if(mode==='over')drawOver();else if(mode==='upgrade')drawUpgrade();else if(mode==='paused')drawPaused();
+ if(mode==='over')drawOver();else if(mode==='upgrade')drawUpgrade();else if(mode==='paused')drawPaused();else if(mode==='settings')drawSettings();
  if(mode==='over'){for(const p of particles)if(!p.dust){ctx.globalAlpha=Math.max(0,p.t/p.max);ctx.fillStyle=p.color;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size*.6)}ctx.globalAlpha=1}
  drawAchPop();
 }
 
 // ---------- boot ----------
 resize();genMap({c:12,r:6});spawnCars();
-let last=performance.now(),perfAcc=0,perfN=0,goodT=0;
+let last=performance.now(),perfAcc=0,perfN=0,goodT=0,fpsVal=60;
 function frame(now){
  const dt=Math.min(.1,(now-last)/1000);last=now;
  // adaptive resolution: every 1.5s look at the average frame time; below ~50fps render fewer pixels,
  // after 6s of solid 60fps try a little more. Phones heat up and slow down over a session, so this keeps adjusting.
- if(!document.hidden){perfAcc+=dt;perfN++;
+ fpsVal+=(1/Math.max(dt,1e-3)-fpsVal)*.05;
+ if(!document.hidden&&settings.gfx!=='high'){perfAcc+=dt;perfN++;
   if(perfAcc>=1.5){const avg=perfAcc/perfN;perfAcc=0;perfN=0;
    if(avg>1/50&&resCap>.6){resCap=Math.max(.6,resCap*.8);goodT=0;resize()}
-   else if(avg<1/57){if((goodT+=1.5)>=6&&resCap<RES_MAX){resCap=Math.min(RES_MAX,resCap*1.15);goodT=0;resize()}}else goodT=0}}
+   else if(avg<1/57){if((goodT+=1.5)>=6&&resCap<gfxMax()){resCap=Math.min(gfxMax(),resCap*1.15);goodT=0;resize()}}else goodT=0}}
  // sub-step long frames so game speed stays real-time on slow devices
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
  draw();requestAnimationFrame(frame);
