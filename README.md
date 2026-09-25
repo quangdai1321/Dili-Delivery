@@ -82,6 +82,9 @@ Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend
 
 13 achievements give coins and unlock the rare items. The equipped colour shows next to your name on the leaderboard.
 
+### 👻 Race your ghost
+After a normal run, **👻 Race your ghost** (or press **G**) replays the **same city, orders and events** while a see-through Dili retraces your best run on that map. Beat it and your new run becomes the ghost. In the Daily Challenge, your best attempt of the day is the ghost automatically. Each order starts from the previous door, so a seed always produces the same chain of orders whatever route you take.
+
 ### Challenge a friend
 Every run uses a random seed. **⚔️ Challenge** on the game over screen shares a link (`?c=…`). Whoever opens it plays the **same city, orders, upgrade offers and events** and sees "▼ 345 TO BEAT PHUC" on the HUD. The result appears on their game over screen.
 
