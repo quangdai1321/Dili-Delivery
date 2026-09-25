@@ -17,13 +17,15 @@
 <meta name="twitter:image" content="https://dili-delivery-seven.vercel.app/assets/dili-hero.webp">
 <link rel="icon" id="favicon" href="assets/dlicom-logo.png">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#050a18;color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:none}
+html,body{margin:0;height:100%;background:#050a18;color:#fff;font-family:Nunito,Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:none}
 body{display:flex;flex-direction:column;align-items:stretch;justify-content:center;padding:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:radial-gradient(ellipse at 80% 0%,#12306f 0%,#050a18 60%)}
 #app{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
 canvas{display:block;flex:none;border-radius:0;background:#0a1330;box-shadow:0 24px 80px #0009,0 0 0 1px #1d3a8a55;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
@@ -122,7 +124,7 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v, key=(c,r)=>c+','+r, inb=(c,r)=>c>=0&&r>=0&&c
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(RNG()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16),f=v=>clamp(Math.round(v+amt*255),0,255);return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
 function rr(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
-const font=(s,w=800)=>`${w} ${s}px Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif`;
+const font=(s,w=800)=>`${w} ${s}px Nunito,Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif`;
 function text(s,x,y,size,color,align='left',weight=800){ctx.font=font(size,weight);ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillStyle=color;ctx.fillText(s,x,y)}
 function outlined(s,x,y,size,color,align='center'){ctx.font=font(size,900);ctx.textAlign=align;ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=5;ctx.strokeStyle='rgba(5,8,20,.85)';ctx.strokeText(s,x,y);ctx.fillStyle=color;ctx.fillText(s,x,y)}
 const center=(c,r)=>({x:c*T+T/2,y:HUD+r*T+T/2});
@@ -242,6 +244,8 @@ const MISSIONS=[
  {id:'police',icon:'🚓',text:'Escape a police chase',n:1,coins:50,metric:'police'},
  {id:'special',icon:'🥚',text:'Deliver 3 urgent or fragile orders',n:3,coins:40,metric:'special'},
  {id:'dash',icon:'⚡',text:'Dash 25 times',n:25,coins:30,metric:'dash'},
+ {id:'jump',icon:'🚧',text:'Jump 5 barriers with DASH',n:5,coins:40,metric:'jump'},
+ {id:'power',icon:'🚀',text:'Grab 4 power-ups',n:4,coins:40,metric:'power'},
  {id:'dailyplay',icon:'📅',text:"Play today's Daily Challenge",n:1,coins:30,metric:'dailyplay'},
 ];
 const MISSION_BONUS=50;
@@ -400,6 +404,8 @@ const SFX={
  stage(){[523,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,.14,'square',.06,1,i*.08))},
  honk(){tone(415,.12,'square',.06);tone(349,.18,'square',.06,1,.14)},
  close(){noise(.22,.12,3000,0,'bandpass');tone(1200,.08,'triangle',.06,1.5)},
+ jump(){tone(520,.12,'square',.07,1.8);tone(880,.1,'triangle',.06,1.4,.06)},
+ power(){[660,880,1175,1568].forEach((f,i)=>tone(f,.12,'triangle',.1,1,i*.05));noise(.3,.08,4000,.05,'highpass')},
  drop(){tone(520,.1,'square',.07,.5);tone(260,.2,'triangle',.08,.6,.08)},
  event(){[659,784,988].forEach((f,i)=>tone(f,.12,'square',.06,1,i*.07));noise(.3,.08,2000,.1,'bandpass')},
  siren(hi){tone(hi?960:720,.4,'sawtooth',.025)},
@@ -482,7 +488,9 @@ let runKind='normal',runSeed=0,chRun=null,sandTiles=new Set(),stormT=10,stormOn=
 let event=null,evT=25,evCount=0,cop=null,pickups=[],cleanStreak=0,failedOrders=0,chaseCaught=false;
 let MR=2;const mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
-let SW=W,UX=0; // screen width in logical px (>= W) and the offset of the centered 1152-wide UI box
+let SW=W,UX=0,RSU=1; // RSU: UI scale (always sharp); RS: world-layer scale (adaptive)
+const wcv=document.createElement('canvas'),wctx=wcv.getContext('2d'); // world layer, blitted under the UI each frame
+const UI_MAX=matchMedia('(pointer:coarse)').matches?2:2.5; // screen width in logical px (>= W) and the offset of the centered 1152-wide UI box
 const RES_MAX=matchMedia('(pointer:coarse)').matches?1.5:2.5; // phones start lighter; adaptive scaling moves between .6 and this
 let RS=1,resCap=RES_MAX,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
 function resize(){
@@ -490,8 +498,11 @@ function resize(){
  const aspect=r.width/r.height,minA=W/H,maxA=2.4;let cw,ch;
  if(aspect>=minA){SW=Math.round(H*Math.min(aspect,maxA));ch=r.height;cw=ch*SW/H}else{SW=W;cw=r.width;ch=cw*H/W}
  UX=(SW-W)/2;canvas.style.width=cw+'px';canvas.style.height=ch+'px';
- const dpr=Math.min(resCap,window.devicePixelRatio||1),w=Math.max(Math.round(SW*.35),Math.round(cw*dpr)),h=Math.round(H*w/SW);
- if(w===canvas.width&&h===canvas.height)return;RS=w/SW;canvas.width=w;canvas.height=h;
+ // UI stays ~2x sharper than the world layer but never above what is needed (fill-rate on phones)
+ const dev=window.devicePixelRatio||1,uw=Math.round(cw*Math.min(UI_MAX,dev,Math.max(1.25,resCap*2))),uh=Math.round(H*uw/SW); // UI: device sharpness (capped)
+ if(uw!==canvas.width||uh!==canvas.height){canvas.width=uw;canvas.height=uh;RSU=uw/SW}
+ const dpr=Math.min(resCap,dev),w=Math.min(uw,Math.max(Math.round(SW*.35),Math.round(cw*dpr))),h=Math.round(H*w/SW); // world: adaptive, never above the UI
+ if(w===wcv.width&&h===wcv.height)return;RS=w/SW;wcv.width=w;wcv.height=h;
  // the pre-rendered map only needs as many pixels as the zoomed-in camera can show
  const mr=clamp(Math.ceil(RS*1.6*2)/2,1,2);if(mr!==MR){MR=mr;mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;if(grid.length)renderMap()}}
 addEventListener('resize',resize);
@@ -522,10 +533,10 @@ const toScreen=p=>({x:(p.x-cam.x)*cam.z+W/2,y:(p.y-cam.y)*cam.z+HUD+ROWS*T/2});
 
 const isRoad=(c,r)=>inb(c,r)&&grid[r][c]>0;
 const walkable=(c,r)=>isRoad(c,r)&&!barriers.has(key(c,r));
-const playerSpeed=()=>170*(1+.1*upg.speed)*(zone.lowgrav?1.08:1);
+const playerSpeed=()=>170*(1+.1*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1);
 const diff=()=>1+.15*loop+.035*Math.min(zoneDeliveries,10);
 const dashCooldown=()=>2.2*Math.pow(.85,upg.dash);
-const pickRadius=()=>24*(1+.4*upg.magnet);
+const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1);
 
 // ---------- map generation ----------
 function bfs(sc,sr){
@@ -539,8 +550,29 @@ function connected(){
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)){total++;if(!start)start=[c,r]}
  if(!start)return false;const{dist}=bfs(start[0],start[1]);let n=0;for(const d of dist)if(d>=0)n++;return n===total;
 }
+let hurdles=new Set(),hurdleHint=false;
+// power-ups: one appears every ~12s (max 2), vanish after 15s. Seeded, so challenge/ghost runs get the same ones
+const POWERS={shield:{icon:'🛡️',name:'SHIELD',col:'120,190,255'},magnet:{icon:'🧲',name:'MAGNET',col:'255,110,130',dur:8},
+ turbo:{icon:'🚀',name:'TURBO',col:'255,170,60',dur:6},ghost:{icon:'👻',name:'GHOST MODE',col:'200,215,255',dur:5},time:{icon:'⏱️',name:'+5 SEC',col:'69,230,165'}};
+let powerups=[],powT=10,powN=0,buffs={turbo:0,magnet:0,ghost:0};
+function updatePowerups(dt,P){
+ for(const k in buffs)buffs[k]=Math.max(0,buffs[k]-dt);
+ if(deliveries>=1&&(powT-=dt)<=0&&powerups.length<2){powT=rand(10,14);
+  seeded(hashSeed(runSeed+powN*977+3),()=>{const pt=tileOf(P),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=Math.abs(c-pt.c)+Math.abs(r-pt.r);if(walkable(c,r)&&!hurdles.has(key(c,r))&&d>=3&&d<=9)road.push({c,r})}
+   if(!road.length)return;const t=pick(road),ty=pick(['shield','magnet','turbo','ghost','time']);if(ty==='shield'&&upg.shield>=3)return;const q=center(t.c,t.r);powerups.push({x:q.x,y:q.y,type:ty,t:15,ph:rand(0,7)})});powN++}
+ for(const u of powerups){u.t-=dt;u.ph+=dt*4;if(Math.hypot(P.x-u.x,P.y-u.y)<26){u.got=true;const d=POWERS[u.type];
+  if(u.type==='shield')upg.shield=Math.min(3,upg.shield+1);else if(u.type==='time')shiftTime=Math.min(99,shiftTime+5);else{buffs[u.type]=d.dur;if(u.type==='ghost')P.inv=Math.max(P.inv,d.dur)}
+  floats.push({x:u.x,y:u.y-30,text:`${d.icon} ${d.name}!`,color:`rgb(${d.col})`,t:1.2,max:1.2,size:19});rings.push({x:u.x,y:u.y,t:.4,max:.4,r0:10,r1:60,color:`rgb(${d.col})`});SFX.power();buzz(20);missionTrack('power')}}
+ powerups=powerups.filter(u=>!u.got&&u.t>0);
+}
+function drawPowerups(){
+ for(const u of powerups){const d=POWERS[u.type];if(u.t<3&&Math.sin(u.t*20)<0)continue; // blink before vanishing
+  const y=u.y-6+Math.sin(u.ph)*4;ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite(d.col,.7),u.x-30,y-30,60,60);ctx.restore();
+  ctx.fillStyle='rgba(10,14,30,.8)';ctx.beginPath();ctx.arc(u.x,y,15,0,7);ctx.fill();ctx.strokeStyle=`rgb(${d.col})`;ctx.lineWidth=2.5;ctx.stroke();
+  text(d.icon,u.x,y+1,17,'#fff','center')}
+}
 function genMap(spawn){
- grid=[];deco=[];barriers=new Set();
+ grid=[];deco=[];barriers=new Set();hurdles=new Set();
  for(let r=0;r<ROWS;r++){grid.push([]);deco.push([]);
   for(let c=0;c<COLS;c++){grid[r].push(ROAD_ROWS.includes(r)||ROAD_COLS.includes(c)?1:0);deco[r].push(null)}}
  for(const[c0,c1]of BLOCK_C)for(const[r0,r1]of BLOCK_R){ // alleys (value 2 = no traffic)
@@ -572,6 +604,13 @@ function genMap(spawn){
  for(const r of ROAD_ROWS)lines.push({h:true,idx:r,dir:RNG()<.5?1:-1});
  for(const c of ROAD_COLS)lines.push({h:false,idx:c,dir:RNG()<.5?1:-1});
  lines=lines.filter(l=>!(l.h&&rails.includes(l.idx))).filter(l=>![...barriers].some(b=>{const[bc,br]=b.split(',').map(Number);return l.h?br===l.idx:bc===l.idx}));
+ // hurdles: low barriers across alleys (no traffic there). Walkable for the path, but you must DASH to jump them
+ {const hc=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c]!==2||barriers.has(key(c,r))||Math.abs(c-sp.c)+Math.abs(r-sp.r)<3)continue;
+   const Lr=walkable(c-1,r),Rr=walkable(c+1,r),U=isRoad(c,r-1),D=isRoad(c,r+1),Lw=walkable(c,r-1),Dw=walkable(c,r+1);
+   let nearWork=false;for(const b of barriers){const[bc,br]=b.split(',').map(Number);if(Math.abs(bc-c)+Math.abs(br-r)<3)nearWork=true} // never next to roadworks: it must be jumpable
+   if(!nearWork&&((Lr&&Rr&&!U&&!D)||(Lw&&Dw&&!isRoad(c-1,r)&&!isRoad(c+1,r))))hc.push({c,r})}
+  shuffle(hc);const want=2+Math.floor(zoneIdx/2)+loop;
+  for(const t of hc){if(hurdles.size>=want)break;let near=false;for(const h of hurdles){const[hx,hy]=h.split(',').map(Number);if(Math.abs(hx-t.c)+Math.abs(hy-t.r)<3)near=true}if(!near)hurdles.add(key(t.c,t.r))}}
  // desert: drifts of sand on the road slow Dili down (never on the spawn tile)
  sandTiles=new Set();
  if(zone.sand){const road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-sp.c)+Math.abs(r-sp.r)>=3)road.push(key(c,r));
@@ -587,7 +626,7 @@ function genAmbient(){
 }
 function nearestRoad(t){
  let bestT=null,bd=1e9;
- for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(isRoad(c,r)&&!barriers.has(key(c,r))){const d=Math.abs(c-t.c)+Math.abs(r-t.r);if(d<bd){bd=d;bestT={c,r}}}
+ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(isRoad(c,r)&&!barriers.has(key(c,r))&&!hurdles.has(key(c,r))){const d=Math.abs(c-t.c)+Math.abs(r-t.r);if(d<bd){bd=d;bestT={c,r}}}
  return bestT;
 }
 function renderMap(){
@@ -726,7 +765,7 @@ function adjacentBuilding(c,r){for(const[dc,dr]of shuffle(DIRS.slice())){const b
 function chooseSpot(from,[mn,mx],avoid){
  const{dist}=bfs(from.c,from.r);const cands=[],fallback=[];
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=dist[r*COLS+c];if(d<2||!walkable(c,r))continue;
-  if(avoid&&avoid.some(a=>Math.abs(a.c-c)+Math.abs(a.r-r)<2))continue;
+  if(avoid&&avoid.some(a=>Math.abs(a.c-c)+Math.abs(a.r-r)<2))continue;if(hurdles.has(key(c,r)))continue;
   const b=adjacentBuilding(c,r);if(!b)continue;
   (d>=mn&&d<=mx?cands:fallback).push({c,r,d,b});}
  if(cands.length)return pick(cands);
@@ -904,7 +943,7 @@ function startStage(i,lp){
 function enterZone(i,first,lp=0){
  zoneIdx=i;zone=ZONES[i];loop=lp;zoneDeliveries=0;
  const sp=seeded(hashSeed(runSeed^(zone.id*104729+lp*7)),()=>{const s=genMap(first?{c:12,r:6}:lastDrop||tileOf(player)),q=center(s.c,s.r);player.x=q.x;player.y=q.y;spawnCars();spawnPeds();return s}),c=center(sp.c,sp.r);
- stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
+ stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;powerups=[];if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
  player.x=c.x;player.y=c.y;player.vx=player.vy=0;player.inv=Math.max(player.inv,1.2);player.trail=[];updateCam(0,true);
  rain=[];
  if(zone.rain)for(let n=0;n<140;n++)rain.push({x:rand(0,W),y:rand(HUD,H),l:rand(10,22),s:rand(520,760)});
@@ -924,7 +963,7 @@ function startRun(kind=runKind){
  else if(kind==='retry'&&lastGhost){dailySeed=null;runSeed=lastGhost.seed;paceRef=lastGhost.pace} // race your own ghost on the same city
  else{if(kind==='retry')runKind='normal';dailySeed=null;runSeed=(Math.random()*4294967296)>>>0;paceRef=best.pace||null}
  ghostRef=daily?(dailyRec().ghost||null):runKind==='retry'&&lastGhost?lastGhost.log:null;ghostLog=[];lastDrop=null;
- moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
+ powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
  upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
@@ -962,6 +1001,7 @@ const TAUNTS={
  train:['The train had a bell. And lights. And a horn. 🚆','Trains always win.'],
  meteor:['Space rocks: 1 · Dili: 0 ☄️','The red circle was a hint.'],
  roadworks:['It was a traffic cone. It did not move. 🚧','Walked straight into the roadworks. Classic.'],
+ hurdle:['You have a DASH button. It jumps. ⚡','That barrier was knee-high. 🚧'],
  police:['Busted. 🚓 License and registration, please.','You can run, but not from the cop.'],
  boss:['The boss wins this round 💀','Flattened by a monster truck. Classic.'],
  lightning:['Struck by lightning. Twice? ⚡','The glowing circle was a hint.'],
@@ -1068,7 +1108,7 @@ function updateEvent(dt,P){
    if(bestN){cop.tc=bestN.c;cop.tr=bestN.r}}
   if(P.inv<=0&&Math.hypot(P.x-cop.x,P.y-cop.y)<P.r+14)crash(cop.x,cop.y,'police');
  }
- for(const c of pickups){c.ph+=dt*5;if(Math.hypot(P.x-c.x,P.y-c.y)<24){c.got=true;addCoins(1);score+=20;missionTrack('shower');SFX.coin(ri(0,8));
+ for(const c of pickups){c.ph+=dt*5;if(Math.hypot(P.x-c.x,P.y-c.y)<(buffs.magnet>0?70:24)){c.got=true;addCoins(1);score+=20;missionTrack('shower');SFX.coin(ri(0,8));
   floats.push({x:c.x,y:c.y-20,text:'+🪙',color:'#ffd34d',t:.7,max:.7,size:16});burst(c.x,c.y,8,['#ffd34d','#fff3b0'])}}
  pickups=pickups.filter(c=>!c.got);
 }
@@ -1265,7 +1305,7 @@ function update(dt){
  if(order.carrying){order.clock+=dt;order.dist+=moved;
   if(order.type==='urgent'&&order.clock>order.deadline){failOrder('⏰ TOO LATE!');return}}
 
- updateCars(dt);updatePeds(dt);updateEvent(dt,P);updateBoss(dt,P);if(mode!=='play')return;
+ updateCars(dt);updatePeds(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
  if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);if(d<P.r+8){
@@ -1303,6 +1343,15 @@ function update(dt){
  for(const b of barriers){const[bc,br]=b.split(',').map(Number),R={x:bc*T+BI,y:HUD+br*T+BI,w:T-2*BI,h:T-2*BI};if(circleHitsRect(P,R,2)){touching=R;break}}
  if(touching&&!P.touching){if(P.inv<=0)crash(touching.x+touching.w/2,touching.y+touching.h/2,'roadworks');else SFX.bump()}
  P.touching=!!touching;
+ // hurdles: dashing over one is a jump (+50), walking into it is a crash
+ {let hit=null;for(const h of hurdles){const[hc,hr]=h.split(',').map(Number),c=center(hc,hr),horiz=isRoad(hc-1,hr)&&isRoad(hc+1,hr),
+   R=horiz?{x:c.x-5,y:c.y-T/2+4,w:10,h:T-8}:{x:c.x-T/2+4,y:c.y-5,w:T-8,h:10};
+   if(!hurdleHint&&Math.hypot(P.x-c.x,P.y-c.y)<T*2.2){hurdleHint=true;floats.push({x:c.x,y:c.y-40,text:'⚡ DASH to jump!',color:'#ffd34d',t:2.2,max:2.2,size:17})}
+   if(circleHitsRect(P,R,1)){hit={h,c};break}}
+  if(hit&&P.dash>0){if(P.jumped!==hit.h){P.jumped=hit.h;const pts=50*(evOn('happy')?2:1);score+=pts;addCoins(1);missionTrack('jump');
+    floats.push({x:hit.c.x,y:hit.c.y-34,text:`JUMP! +${pts}`,color:'#ffd34d',t:.9,max:.9,size:17});rings.push({x:hit.c.x,y:hit.c.y,t:.3,max:.3,r0:10,r1:36,color:'#ffd34d'});SFX.jump()}}
+  else if(hit&&!P.hTouch&&P.inv<=0){P.hTouch=true;crash(hit.c.x,hit.c.y,'hurdle')}
+  else if(!hit){P.hTouch=false;if(P.dash<=0)P.jumped=null}}
 
  if(order.carrying){ // any remaining door counts; the path follows the nearest one
   let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
@@ -1387,6 +1436,15 @@ function drawPath(){
    ctx.fillStyle='rgba(10,14,30,.55)';ctx.beginPath();ctx.arc(px,py,5.6,0,7);ctx.fill();ctx.fillStyle=col;ctx.beginPath();ctx.arc(px,py,4.2,0,7);ctx.fill()}
   acc-=len}
  ctx.globalAlpha=1;
+}
+function drawHurdle(c,r){ // low striped bar across the alley, on two feet
+ const p=center(c,r),horiz=isRoad(c-1,r)&&isRoad(c+1,r);ctx.save();ctx.translate(p.x,p.y);if(horiz)ctx.rotate(Math.PI/2);
+ ctx.fillStyle='rgba(0,0,0,.28)';rr(ctx,-20,2,40,8,4);ctx.fill();
+ ctx.fillStyle='#3a3f52';ctx.fillRect(-18,-2,3,9);ctx.fillRect(15,-2,3,9);
+ ctx.fillStyle='#ffd34d';rr(ctx,-21,-7,42,8,3);ctx.fill();ctx.save();rr(ctx,-21,-7,42,8,3);ctx.clip();ctx.fillStyle='#1b2440';
+ for(let i=-4;i<6;i++){ctx.beginPath();ctx.moveTo(-21+i*9,1);ctx.lineTo(-16+i*9,-7);ctx.lineTo(-12+i*9,-7);ctx.lineTo(-17+i*9,1);ctx.fill()}ctx.restore();
+ ctx.restore();
+ if(player&&Math.hypot(player.x-p.x,player.y-p.y)<T*2.5){const a=.55+.45*Math.sin(runT*8);ctx.globalAlpha=a;text('⚡',p.x,p.y-22,14,'#fff','center');ctx.globalAlpha=1}
 }
 function drawBarrier(c,r){
  const p=center(c,r),horiz=isRoad(c-1,r)&&isRoad(c+1,r);
@@ -1548,6 +1606,15 @@ function dashFx(P){
  else if(tr==='t_rainbow'){particles.push({x:P.x+rand(-6,6),y:P.y+rand(-12,8),vx:0,vy:0,t:.45,max:.45,size:rand(5,8),color:`hsl(${(runT*500)%360},100%,62%)`,g:0,dust:true,glow:true})}
 }
 const trailColor=()=>{const tr=meta.equip.trail;return tr==='t_rainbow'?`hsl(${(runT*500)%360},100%,65%)`:tr==='t_fire'?'#ff8a2a':tr==='t_coin'?'#ffd34d':equipped().color.body};
+const shakeOff=()=>shake>0&&!CALM()?{x:Math.sin(runT*53)*6*shake/.3,y:Math.cos(runT*47)*5*shake/.3}:{x:0,y:0};
+// floating texts (+score, CLOSE CALL, DROPPED!...) are drawn on the sharp UI layer at their on-screen position
+function drawFloatsUI(){
+ if(!floats.length)return;const z=cam.z*(1+(CALM()?0:camPunch)),sk=shakeOff();
+ ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
+ for(const f of floats){const age=f.max-f.t,s=easeOutBack(Math.min(1,age/.25))*z,qx=(f.x-cam.x)*z+W/2+sk.x,qy=(f.y-cam.y)*z+HUD+ROWS*T/2+sk.y;
+  ctx.save();ctx.globalAlpha=Math.min(1,f.t/f.max*2);ctx.translate(qx,qy);ctx.scale(s,s);outlined(f.text,0,0,f.size,f.color);ctx.restore()}
+ ctx.restore();
+}
 function drawWorld(){
  ctx.drawImage(mapCanvas,0,HUD,W,ROWS*T);
  for(const s of scorches){ctx.fillStyle=`rgba(10,5,20,${Math.min(.5,s.t/4*.5)})`;ctx.beginPath();ctx.ellipse(s.x,s.y,26,18,0,0,7);ctx.fill()}
@@ -1561,7 +1628,8 @@ function drawWorld(){
  }
  for(const s of splashes){const a=s.t/.3;ctx.strokeStyle=`rgba(170,200,255,${a*.5})`;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(s.x,s.y,(1-a)*7+1,(1-a)*3+.5,0,0,7);ctx.stroke()}
  for(const b of barriers){const[c,r]=b.split(',').map(Number);drawBarrier(c,r)}
- drawPickups();
+ for(const h of hurdles){const[c,r]=h.split(',').map(Number);drawHurdle(c,r)}
+ drawPickups();drawPowerups();
  for(const k of cars)drawCar(k);
  for(const p of peds)drawPed(p);
  drawCop();drawBossTruck();
@@ -1576,7 +1644,8 @@ function drawWorld(){
   {const gc=trailColor();for(const g of P.trail){ctx.globalAlpha=g.t/.22*.35;drawDili(g.x,g.y,1,P.faceS,{ghost:true,ghostColor:gc})}}ctx.globalAlpha=1;
   if(combo>=5){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite(combo>=10?'255,170,60':'111,163,255',.45),P.x-34,P.y-34,68,68);ctx.restore()}
   if(P.inv>0&&Math.floor(P.inv*14)%2===0)ctx.globalAlpha=.4;
-  drawDili(P.x,P.y,1,P.faceS,{moving:P.moving,pop:P.pop,carrying:order&&order.carrying,dizzy:P.dizzy>0,float:zone.lowgrav,step:P.step,lean:P.lean,land:P.land});ctx.globalAlpha=1;
+  {const hop=P.dash>0?Math.sin(Math.PI*(1-P.dash/.22))*16:0;if(hop>1){ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(P.x,P.y+17,11-hop*.25,4,0,0,7);ctx.fill()}
+  ctx.save();ctx.translate(0,-hop);drawDili(P.x,P.y,1,P.faceS,{moving:P.moving,pop:P.pop,carrying:order&&order.carrying,dizzy:P.dizzy>0,float:zone.lowgrav,step:P.step,lean:P.lean,land:P.land});ctx.restore()}ctx.globalAlpha=1;
   if(P.dizzy>0)for(let i=0;i<3;i++){const a=runT*6+i*2.1;drawStar(P.x+3+Math.cos(a)*14,P.y-32+Math.sin(a)*4,4,'#ffd34d')}
   if(upg.shield>0){ctx.strokeStyle='rgba(120,190,255,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(P.x,P.y-4,24+Math.sin(runT*5)*1.5,0,7);ctx.stroke()}
  }
@@ -1606,7 +1675,7 @@ function drawWorld(){
   else if(p.coin){ctx.strokeStyle='#b8860b';ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(0,0,p.size*Math.abs(Math.cos(p.rot))+1,p.size,0,0,7);ctx.fill();ctx.stroke()}
   else{ctx.rotate(p.rot);ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*.6)}ctx.restore()}
  ctx.globalAlpha=1;
- for(const f of floats){const age=f.max-f.t,s=easeOutBack(Math.min(1,age/.25));ctx.save();ctx.globalAlpha=Math.min(1,f.t/f.max*2);ctx.translate(f.x,f.y);ctx.scale(s,s);outlined(f.text,0,0,f.size,f.color);ctx.restore()}
+ // floats are drawn later on the UI layer (drawFloatsUI)
  ctx.globalAlpha=1;
 }
 
@@ -1695,6 +1764,9 @@ function drawCoinPill(){
  const s=1+coinPulse*.5,x=14-UX,y=touchUI?HUD+66:H-44;ctx.save();ctx.translate(x+48,y+15);ctx.scale(s,s);
  ctx.fillStyle='rgba(8,12,28,.8)';rr(ctx,-48,-15,96,30,15);ctx.fill();ctx.strokeStyle=coinPulse>0?'#ffd34d':'rgba(255,211,77,.35)';ctx.lineWidth=2;ctx.stroke();
  text(`🪙 ${fmt(meta.coins)}`,0,1,14,'#ffd34d','center',900);ctx.restore();
+ let bx=x+104;for(const k in buffs){if(buffs[k]<=0)continue;const d=POWERS[k],w=74;ctx.fillStyle='rgba(8,12,28,.8)';rr(ctx,bx,y,w,30,15);ctx.fill();
+  ctx.strokeStyle=`rgb(${d.col})`;ctx.lineWidth=2;ctx.stroke();ctx.fillStyle=`rgba(${d.col},.3)`;rr(ctx,bx,y,Math.max(30,w*buffs[k]/d.dur),30,15);ctx.fill();
+  text(`${d.icon} ${Math.ceil(buffs[k])}s`,bx+w/2,y+16,13,'#fff','center',900);bx+=w+6}
 }
 function drawBossPill(){
  if(!boss||resultCard||mode==='over'||mode==='stage')return;const w=380,x=W/2-w/2,y=HUD+12,p=.6+.4*Math.sin(runT*6);
@@ -2188,13 +2260,16 @@ function drawPaused(){
 }
 function draw(){
  // 'low' smoothing: 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it shows
- buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
+ buttons=[];ctx.setTransform(RSU,0,0,RSU,RSU*UX,0);ctx.imageSmoothingQuality='low';
  if(mode==='splash'){drawSplash();return}
  if(mode==='settings'&&settingsFrom==='menu'){drawSettings();drawAchPop();return}
  if(mode==='menu'||mode==='board'||mode==='shop'||mode==='missions'){({menu:drawMenu,board:drawBoard,shop:drawShop,missions:drawMissions})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
- ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
- if(shake>0&&!CALM()){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
- applyCam();drawWorld();ctx.restore();
+ {const main=ctx;ctx=wctx; // world pass on its own (possibly lower-resolution) layer
+  ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,HUD,SW,ROWS*T);
+  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
+  const sk=shakeOff();ctx.translate(sk.x,sk.y);applyCam();drawWorld();ctx.restore();ctx=main}
+ ctx.drawImage(wcv,0,Math.round(HUD*RS),wcv.width,Math.round(ROWS*T*RS),-UX,HUD,SW,ROWS*T);
+ drawFloatsUI();
  drawPointer();drawMinimap();
  drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill()}drawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawScreenFx();drawHUD();drawCoins();

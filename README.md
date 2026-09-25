@@ -65,6 +65,12 @@ The last delivery of every zone is a **💀 BOSS order**. Deliver it while the z
 
 Achievements: 💀 Boss Slayer (first boss) and 👹 Boss Hunter (all 8, unlocks the BOSS HORNS hat).
 
+### 🚧 Jump barriers
+Low striped barriers block some alleys (the traffic-free shortcuts). Walk into one and you crash; **DASH to jump it** (+50 points, +1 🪙). Every dash is now a little hop.
+
+### Power-ups
+From the 2nd delivery a power-up appears on the road every ~12s (max 2, gone after 15s, seeded like the rest of the run): 🛡️ **Shield** (absorbs a crash), 🧲 **Magnet** (8s, 1.8x pickup range, pulls coin-shower coins), 🚀 **Turbo** (6s, +35% speed), 👻 **Ghost mode** (5s, pass through everything), ⏱️ **+5 seconds**. Active ones show as timers next to the coin counter.
+
 ### Order types (from the 4th delivery)
 | Order | Rule | Reward |
 |---|---|---|
@@ -124,6 +130,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.
 - 3/4 perspective: buildings show their front walls and cast shadows, and cars have depth.
 - Adaptive resolution: every 1.5s the game checks its frame time. Under ~50fps it renders fewer pixels (down to 0.6x); after 6s of smooth 60fps it steps back up. Phones start at 1.5x. Long frames are sub-stepped so game speed stays real-time.
+- Two layers: the world is drawn at the adaptive resolution while the HUD, text and pop-ups are drawn on a sharper layer, so text stays crisp even when a phone drops the world to 0.6x. Font: Nunito.
 - Glows, darkness, sandstorm and warning vignettes are pre-rendered sprites, not per-frame gradients, and the map texture matches the real render scale.
 
 ## Audio & effects
