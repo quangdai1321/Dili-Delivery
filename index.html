@@ -304,7 +304,7 @@ function sendRunStats(reason){
  let acc=0,p95=0;const lim=frameN*.95;for(let i=0;i<=100;i++){acc+=frameHist[i];if(acc>=lim){p95=Math.max(1,i);break}}
  const row={device_id:deviceId,version:VERSION,reason,mode:runKind,touch:touchUI,dpr:+(window.devicePixelRatio||1).toFixed(2),
   screen_w:Math.round(window.innerWidth),screen_h:Math.round(window.innerHeight),gfx:settings.gfx,motion:settings.motion,ctrl:touchUI?ctrlMode:'keyboard',
-  avg_fps:frameSum?+(frameN/frameSum).toFixed(1):null,low_fps:p95?+(1000/p95).toFixed(1):null,res_scale:+(canvas.width/(canvas.getBoundingClientRect().width||canvas.width)).toFixed(2), // canvas px per CSS px
+  avg_fps:frameSum?+(frameN/frameSum).toFixed(1):null,low_fps:p95?+(1000/p95).toFixed(1):null,res_scale:+(wcv.width/(canvas.getBoundingClientRect().width||wcv.width)).toFixed(2), // canvas px per CSS px
   
   duration:+runClock.toFixed(1),zone:zone.id,loop,deliveries,score:Math.round(score),crashes:crashCauses,boss:boss?boss.name:null};
  // keepalive lets the request finish even if the tab is being closed
@@ -551,13 +551,13 @@ function connected(){
  if(!start)return false;const{dist}=bfs(start[0],start[1]);let n=0;for(const d of dist)if(d>=0)n++;return n===total;
 }
 let hurdles=new Set(),hurdleHint=false;
-// power-ups: one appears every ~12s (max 2), vanish after 15s. Seeded, so challenge/ghost runs get the same ones
+// power-ups: one appears every ~12s (max 2), vanish after 15s. Timing and type are seeded; placement is near the player
 const POWERS={shield:{icon:'🛡️',name:'SHIELD',col:'120,190,255'},magnet:{icon:'🧲',name:'MAGNET',col:'255,110,130',dur:8},
  turbo:{icon:'🚀',name:'TURBO',col:'255,170,60',dur:6},ghost:{icon:'👻',name:'GHOST MODE',col:'200,215,255',dur:5},time:{icon:'⏱️',name:'+5 SEC',col:'69,230,165'}};
 let powerups=[],powT=10,powN=0,buffs={turbo:0,magnet:0,ghost:0};
 function updatePowerups(dt,P){
  for(const k in buffs)buffs[k]=Math.max(0,buffs[k]-dt);
- if(deliveries>=1&&(powT-=dt)<=0&&powerups.length<2){powT=rand(10,14);
+ if(deliveries>=1&&(powT-=dt)<=0&&powerups.length<2){powT=seeded(hashSeed(runSeed+powN*31+1),()=>rand(10,14));
   seeded(hashSeed(runSeed+powN*977+3),()=>{const pt=tileOf(P),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=Math.abs(c-pt.c)+Math.abs(r-pt.r);if(walkable(c,r)&&!hurdles.has(key(c,r))&&d>=3&&d<=9)road.push({c,r})}
    if(!road.length)return;const t=pick(road),ty=pick(['shield','magnet','turbo','ghost','time']);if(ty==='shield'&&upg.shield>=3)return;const q=center(t.c,t.r);powerups.push({x:q.x,y:q.y,type:ty,t:15,ph:rand(0,7)})});powN++}
  for(const u of powerups){u.t-=dt;u.ph+=dt*4;if(Math.hypot(P.x-u.x,P.y-u.y)<26){u.got=true;const d=POWERS[u.type];
@@ -785,12 +785,12 @@ function newOrder(force,from){
  const pt=from||tileOf(player);
  seeded(hashSeed(runSeed+deliveries*7919+failedOrders*131),()=>{
   const r=RNG();let type=force||'normal';
-  if(!force&&deliveries>=3){if(r<.08)type='vip';else if(r<.22)type='urgent';else if(r<.34)type='fragile';else if(r<.45&&zoneIdx>=1)type='double'}
+  if(!force&&deliveries>=3){if(r<.08)type='vip';else if(r<.22)type='urgent';else if(r<.34)type='fragile';else if(r<.45&&zoneIdx>=1&&deliveries+2<nextZoneAt())type='double'}
   const p=chooseSpot(pt,[4,11],[pt]),route=type==='vip'||type==='boss'?[zone.route[1],zone.route[1]+12]:zone.route,d=chooseSpot(p,route,[p,pt]),dist=bfs(p.c,p.r).dist;
   const mk=s=>Object.assign({},s,center(s.c,s.r),{len:Math.max(1,dist[s.r*COLS+s.c])});
   const drops=[mk(d)];if(type==='double'){const d2=chooseSpot(p,[6,zone.route[1]],[p,pt,d]);if(d2.b&&(d2.c!==d.c||d2.r!==d.r))drops.push(mk(d2));else type='normal'}
   const pathLen=drops.length>1?drops[0].len+Math.max(1,bfs(drops[0].c,drops[0].r).dist[drops[1].r*COLS+drops[1].c]):drops[0].len;
-  order={type,pickup:Object.assign({},p,center(p.c,p.r)),drops,drop:drops[0],carrying:false,pathLen,clock:0,dist:0,par:0,deadline:0,clean:true,born:runT}});
+  order={type,origin:{c:pt.c,r:pt.r},chain:{c:d.c,r:d.r},pickup:Object.assign({},p,center(p.c,p.r)),drops,drop:drops[0],carrying:false,pathLen,clock:0,dist:0,par:0,deadline:0,clean:true,born:runT}});
  orderCrashes=0;pathTimer=0;
  if(order.type!=='normal'){const o=ORDER_TYPES[order.type];floats.push({x:order.pickup.x,y:order.pickup.y-54,text:`${o.icon} ${o.label} ORDER`,color:o.color,t:2.4,max:2.4,size:20})}
 }
@@ -879,7 +879,7 @@ function failOrder(msg){
  const at=player;failedOrders++;combo=0;cleanStreak=0;
  floats.push({x:at.x,y:at.y-40,text:msg,color:'#ff6473',t:1.4,max:1.4,size:24});
  burst(at.x,at.y,24,['#ff6473','#ffd34d','#fff']);flash=.3;flashColor='#ff4d5e';shake=Math.max(shake,.2);SFX.drop();buzz([30,30,60]);
- newOrder();
+ newOrder(null,order.origin); // same seed => same next order, wherever Dili is standing
 }
 function doPickup(){
  if(order.pickup.dropped){ // re-grab a package knocked loose in a crash: the order clock keeps running
@@ -894,7 +894,7 @@ function doPickup(){
  burst(order.pickup.x,order.pickup.y,22,CONFETTI);player.pop=.35;SFX.pickup();pathTimer=0;
 }
 function doDeliver(di=0){
- const drop=order.drops[di];lastDrop={c:drop.c,r:drop.r};const t=order.clock,fast=t<=order.par,clean=order.clean,dx=drop.x,dy=drop.y,ot=order.type,om=ORDER_TYPES[ot];
+ const drop=order.drops[di];lastDrop=order.chain||{c:drop.c,r:drop.r};const t=order.clock,fast=t<=order.par,clean=order.clean,dx=drop.x,dy=drop.y,ot=order.type,om=ORDER_TYPES[ot];
  order.drops.splice(di,1);const final=!order.drops.length;if(!final)order.drop=order.drops[0];
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
  const happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy;
@@ -978,14 +978,14 @@ function endRun(){
  const prevBest=daily?dailyRec().best:best.score;
  rage=rageReport(prevBest);
  if(chRun){const d=Math.round(score-chRun.score);chRun.won=d>0;
-  rage.line=d>0?`You beat ${chRun.name} by ${fmt(d)}! 😎`:`${chRun.name} wins by ${fmt(-d)} 😤`;if(d>0){unlockAch('challenge');rage.taunt='Send it back and watch them rage 😏'}}
+  rage.line=d>0?`You beat ${chRun.name} by ${fmt(d)}! 😎`:`${chRun.name} wins by ${fmt(-d)} 😤`;if(d>0){if(chRun.score>=3000)unlockAch('challenge');rage.taunt='Send it back and watch them rage 😏'}}
  newBest=score>prevBest&&score>0;
  if(daily){const rec=dailyRec();if(newBest){rec.best=score;rec.pace=paceLog;rec.ghost=ghostLog}store.set('diliDelivery.daily',rec)}
  if(runKind==='retry'&&lastGhost&&!chRun){const d=Math.round(score-lastGhost.score); // ghost race verdict
   rage.line=d>0?`👻 You beat your ghost by ${fmt(d)}!`:d<0?`👻 Your ghost wins by ${fmt(-d)} 😤`:'👻 Dead heat with your ghost!';rage.taunt=d>0?'New ghost saved. Can you beat THAT one?':'Same city, same orders. Only you changed.'}
  // keep the best ghost of this city for "race your ghost"
  if(!daily&&!chRun&&(runKind!=='retry'||!lastGhost||score>lastGhost.score))lastGhost={seed:runSeed,log:ghostLog,pace:paceLog,score};
- else if(newBest)best.pace=paceLog;
+ if(newBest&&!daily&&!chRun)best.pace=paceLog;
  best.score=Math.max(best.score,score);best.combo=Math.max(best.combo,runBestCombo);
  best.deliveries=Math.max(best.deliveries,deliveries);if(fastest!=null)best.time=best.time==null?fastest:Math.min(best.time,fastest);
  best.maxZone=Math.max(best.maxZone||0,zoneIdx);best.runs++;store.set('diliDelivery.best',best);SFX.over();buzz([30,40,30]);
@@ -1144,7 +1144,12 @@ function collideWorld(p){
   const c0=Math.floor((p.x-p.r)/T),c1=Math.floor((p.x+p.r)/T),r0=Math.floor((p.y-HUD-p.r)/T),r1=Math.floor((p.y-HUD+p.r)/T);
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){
    if(!inb(c,r)||!grid[r][c])pushOut(p,c*T,HUD+r*T,T,T);
-   else if(barriers.has(key(c,r)))pushOut(p,c*T+BI,HUD+r*T+BI,T-2*BI,T-2*BI);
+   else if(barriers.has(key(c,r))){
+    // in a one-tile corridor, roadworks only push back along the corridor (a sideways push would shove Dili into a wall)
+    const vert=!isRoad(c-1,r)&&!isRoad(c+1,r),horz=!isRoad(c,r-1)&&!isRoad(c,r+1),x0=c*T+BI,y0=HUD+r*T+BI,s=T-2*BI;
+    if(vert&&circleHitsRect(p,{x:c*T,y:y0,w:T,h:s}))p.y=p.y<y0+s/2?y0-p.r:y0+s+p.r;
+    else if(horz&&circleHitsRect(p,{x:x0,y:HUD+r*T,w:s,h:T}))p.x=p.x<x0+s/2?x0-p.r:x0+s+p.r;
+    else if(!vert&&!horz)pushOut(p,x0,y0,s,s)}
   }
  }
 }
@@ -1266,7 +1271,7 @@ function update(dt){
  if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(null,tileOf(player))}
-  if(stageT>=3.2){mode='play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
+  if(stageT>=3.2){mode=document.hidden?'paused':'play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
  if(mode!=='play')return;
  if(hitStop>0){hitStop-=dt;return}
  if(slowmo>0){slowmo-=dt;dt*=.45} // brief slow-motion on a close call
@@ -1295,6 +1300,9 @@ function update(dt){
  for(const g of P.trail)g.t-=dt;P.trail=P.trail.filter(g=>g.t>0);
  const ox=P.x,oy=P.y;
  P.x+=P.vx*dt;collideWorld(P);P.y+=P.vy*dt;collideWorld(P);
+ // safety net: collision keeps Dili's centre on a road tile, so a centre inside a building means he got wedged
+ // (e.g. squeezed sideways off roadworks in a one-tile alley). Never leave the player stuck: snap to the nearest road.
+ {const tc=tileOf(P);if(!isRoad(tc.c,tc.r)){if((P.stuckT=(P.stuckT||0)+dt)>.4){const t=nearestRoad(tc),c=center(t.c,t.r);P.x=c.x;P.y=c.y;P.vx=P.vy=0;P.stuckT=0}}else P.stuckT=0}
  const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>40*dt;
  if(Math.abs(P.vx)>20)P.face=Math.sign(P.vx);
  P.faceS+=(P.face-P.faceS)*Math.min(1,dt*14);P.step+=moved*.11;
@@ -1316,7 +1324,7 @@ function update(dt){
  // near miss: a car passes within a hair of Dili without a hit
  for(const k of cars){const R=carRect(k);
   if(circleHitsRect(P,R,11)){if(P.inv<=0&&k.v>50)k.nm=true}
-  else if(k.nm&&!circleHitsRect(P,R,28)){k.nm=false;if(P.inv<=0&&nearCd<=0)nearMiss()}}
+  else if(k.nm&&!circleHitsRect(P,R,28)){k.nm=false;if(P.inv<=0&&nearCd<=0&&P.moving)nearMiss()}}
  for(const tr of trains){tr.t-=dt;const ry=HUD+tr.row*T+T/2;
   if(tr.state==='idle'&&tr.t<=0){tr.state='warn';tr.t=1.5;tr.dir=Math.random()<.5?1:-1;tr.ding=0;
    if(Math.abs(P.y-ry)<T*2.5)floats.push({x:P.x,y:P.y-36,text:'⚠ TRAIN!',color:'#ff6473',t:1,max:1,size:18})}
@@ -1348,8 +1356,8 @@ function update(dt){
    R=horiz?{x:c.x-5,y:c.y-T/2+4,w:10,h:T-8}:{x:c.x-T/2+4,y:c.y-5,w:T-8,h:10};
    if(!hurdleHint&&Math.hypot(P.x-c.x,P.y-c.y)<T*2.2){hurdleHint=true;floats.push({x:c.x,y:c.y-40,text:'⚡ DASH to jump!',color:'#ffd34d',t:2.2,max:2.2,size:17})}
    if(circleHitsRect(P,R,1)){hit={h,c};break}}
-  if(hit&&P.dash>0){if(P.jumped!==hit.h){P.jumped=hit.h;const pts=50*(evOn('happy')?2:1);score+=pts;addCoins(1);missionTrack('jump');
-    floats.push({x:hit.c.x,y:hit.c.y-34,text:`JUMP! +${pts}`,color:'#ffd34d',t:.9,max:.9,size:17});rings.push({x:hit.c.x,y:hit.c.y,t:.3,max:.3,r0:10,r1:36,color:'#ffd34d'});SFX.jump()}}
+  if(hit&&P.dash>0){if(P.jumped!==hit.h){P.jumped=hit.h;const cd=(P.hcd||(P.hcd={}))[hit.h]||-99;if(runT-cd>6){P.hcd[hit.h]=runT;const pts=50*(evOn('happy')?2:1);score+=pts;addCoins(1);missionTrack('jump');
+    floats.push({x:hit.c.x,y:hit.c.y-34,text:`JUMP! +${pts}`,color:'#ffd34d',t:.9,max:.9,size:17});rings.push({x:hit.c.x,y:hit.c.y,t:.3,max:.3,r0:10,r1:36,color:'#ffd34d'});SFX.jump()}else SFX.jump()}}
   else if(hit&&!P.hTouch&&P.inv<=0){P.hTouch=true;crash(hit.c.x,hit.c.y,'hurdle')}
   else if(!hit){P.hTouch=false;if(P.dash<=0)P.jumped=null}}
 
@@ -1712,7 +1720,7 @@ function drawMinimap(){
  for(const m of meteors){const q=Q(m);ctx.fillStyle='#ff4d5e';ctx.beginPath();ctx.arc(q.x,q.y,2.5,0,7);ctx.fill()}
  if(order){const q=Q(order.carrying?order.drop:order.pickup);ctx.fillStyle=order.carrying?'#45e6a5':'#ffd34d';ctx.beginPath();ctx.arc(q.x,q.y,3.5+Math.sin(runT*8),0,7);ctx.fill()}
  if(player){const q=Q(player);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y,3.6,0,7);ctx.fill();ctx.fillStyle=BRAND.bright;ctx.beginPath();ctx.arc(q.x,q.y,2.3,0,7);ctx.fill()}
- const vw=W/cam.z,vh=ROWS*T/cam.z;ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1;ctx.strokeRect(mx+(cam.x-vw/2)*k,my+(cam.y-HUD-vh/2)*k,vw*k,vh*k);
+ const vw=Math.min(W,SW/cam.z),vh=ROWS*T/cam.z;ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1;ctx.strokeRect(mx+(cam.x-vw/2)*k,my+(cam.y-HUD-vh/2)*k,vw*k,vh*k);
  ctx.restore();
 }
 function drawHUD(){
@@ -2303,7 +2311,7 @@ function frame(now){
  // sub-step long frames so game speed stays real-time on slow devices
  if(mode==='play'&&!document.hidden){frameHist[Math.min(100,Math.round(dt*1000))]++;frameN++;frameSum+=dt}
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
- draw();if(momentPend&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
+ draw();if(momentPend&&(mode==='play'||mode==='stage')&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script>

@@ -148,6 +148,7 @@ Setup (one time):
 2. Open **SQL Editor**, paste [`supabase/leaderboard.sql`](supabase/leaderboard.sql) and run it.
 3. Also run [`supabase/leaderboard_v2.sql`](supabase/leaderboard_v2.sql) (new zones + skins).
    Then [`supabase/leaderboard_v3.sql`](supabase/leaderboard_v3.sql) (weekly board + last week's podium).
+   Then [`supabase/leaderboard_v4.sql`](supabase/leaderboard_v4.sql) (hides players' device ids: the table becomes insert-only, reads go through the functions).
 4. Open **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key into `SUPABASE_URL` and `SUPABASE_KEY` near the top of the script in `index.html`.
 
 The anon key is designed to be public. Row Level Security only lets players read scores and add new ones. They cannot edit or delete anything. The database rejects impossible scores and allows at most one submission per device every 20 seconds. Scores are still reported by the browser, so a determined cheater could post a fake one: remove it in **Table Editor → scores**. Leave the two constants empty and the leaderboard stays hidden.
