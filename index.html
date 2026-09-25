@@ -142,6 +142,19 @@ function drawLogo(g,x,y,size){
  dia(66,gr);dia(50,'#fff');dia(30,gr);
  g.restore();
 }
+// ---------- cached sprites: per-frame gradients / glows are the main fill-rate cost on phones ----------
+const spriteCache={};
+function sprite(key,w,h,paint){let c=spriteCache[key];if(c)return c;c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);return spriteCache[key]=c}
+const glowSprite=(rgb,a=1)=>sprite('glow'+rgb+a,64,64,(g,w)=>{const r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,`rgba(${rgb},${a})`);r.addColorStop(1,`rgba(${rgb},0)`);g.fillStyle=r;g.fillRect(0,0,w,w)});
+// full-screen "vignette" shades (darkness, sandstorm, low-time, crash): radial sprite + solid fill outside it
+function drawShade(px,py,r0,r1,rgb,alpha,x0,y0,w,h){
+ if(alpha<=.005)return;const k=Math.round(r0/r1*50)/50,spr=sprite('shade'+k+rgb,256,256,(g)=>{const r=g.createRadialGradient(128,128,128*k,128,128,128);r.addColorStop(0,`rgba(${rgb},0)`);r.addColorStop(1,`rgba(${rgb},1)`);g.fillStyle=r;g.fillRect(0,0,256,256)});
+ ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(spr,px-r1,py-r1,r1*2,r1*2);ctx.fillStyle=`rgb(${rgb})`;
+ const L=px-r1,R=px+r1,Tp=py-r1,B=py+r1,x1=x0+w,y1=y0+h;
+ if(Tp>y0)ctx.fillRect(x0,y0,w,Tp-y0);if(B<y1)ctx.fillRect(x0,B,w,y1-B);
+ const top=Math.max(y0,Tp),bot=Math.min(y1,B);if(bot>top){if(L>x0)ctx.fillRect(x0,top,L-x0,bot-top);if(R<x1)ctx.fillRect(R,top,x1-R,bot-top)}
+ ctx.restore();
+}
 // shadowBlur is costly every frame: the glowing logo is rendered once per size into a sprite
 const logoGlowCache={};
 function logoGlow(size,glow){const k=size+'|'+glow;let c=logoGlowCache[k];if(c)return c;
@@ -397,6 +410,7 @@ let loop=0,zoneDeliveries=0,stageT=0,stageInfo=null,pendingZone=null,pendingUpgr
 let player=null,order=null,upg={speed:0,dash:0,shield:0,magnet:0};
 let score=0,dispScore=0,combo=0,runBestCombo=0,deliveries=0,shiftTime=60,fastest=null,totalDist=0,newBest=false;
 let resultCard=null,banner=null,hype=null,shake=0,flash=0,flashColor='#fff',comboPulse=0,scorePulse=0,hitStop=0,lastTickSec=99,overDelay=0,runT=0,lightningT=6;
+let ctrlMode=store.get('diliDelivery.ctrl','dpad'),dpad=null; // touch controls: fixed D-pad (default) or floating joystick
 let pathCache=[],pathTimer=0,upgradeChoices=[],joy=null,touchUI=false,mouse={x:-1,y:-1},buttons=[];
 // daily + rage stats
 let daily=false,dailyNo=0,dailySeed=null,dailyTries=0,crashes=0,crashLost=0,orderCrashes=0,lastCrashBy=null,nearMisses=0,nearCd=0,slowmo=0;
@@ -404,17 +418,20 @@ let runClock=0,paceLog=[],paceRef=null,rage=null,shareFile=null,toast=null;
 // v2: seeded runs (challenge links), zone hazards, random events, order types
 let runKind='normal',runSeed=0,chRun=null,sandTiles=new Set(),stormT=10,stormOn=0,stormA=0,windDir=1,peds=[],bumpCd=0;
 let event=null,evT=25,evCount=0,cop=null,pickups=[],cleanStreak=0,failedOrders=0,chaseCaught=false;
-const MR=2,mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
+let MR=2;const mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
 let SW=W,UX=0; // screen width in logical px (>= W) and the offset of the centered 1152-wide UI box
-let RS=1,resCap=matchMedia('(pointer:coarse)').matches?2:2.5,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
+const RES_MAX=matchMedia('(pointer:coarse)').matches?1.5:2.5; // phones start lighter; adaptive scaling moves between .6 and this
+let RS=1,resCap=RES_MAX,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
 function resize(){
  const app=document.getElementById('app'),r=app.getBoundingClientRect();if(!r.width||!r.height)return;
  const aspect=r.width/r.height,minA=W/H,maxA=2.4;let cw,ch;
  if(aspect>=minA){SW=Math.round(H*Math.min(aspect,maxA));ch=r.height;cw=ch*SW/H}else{SW=W;cw=r.width;ch=cw*H/W}
  UX=(SW-W)/2;canvas.style.width=cw+'px';canvas.style.height=ch+'px';
- const dpr=Math.min(resCap,window.devicePixelRatio||1),w=Math.max(Math.round(SW*.5),Math.round(cw*dpr)),h=Math.round(H*w/SW);
- if(w===canvas.width&&h===canvas.height)return;RS=w/SW;canvas.width=w;canvas.height=h}
+ const dpr=Math.min(resCap,window.devicePixelRatio||1),w=Math.max(Math.round(SW*.35),Math.round(cw*dpr)),h=Math.round(H*w/SW);
+ if(w===canvas.width&&h===canvas.height)return;RS=w/SW;canvas.width=w;canvas.height=h;
+ // the pre-rendered map only needs as many pixels as the zoomed-in camera can show
+ const mr=clamp(Math.ceil(RS*1.6*2)/2,1,2);if(mr!==MR){MR=mr;mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;if(grid.length)renderMap()}}
 addEventListener('resize',resize);
 if(window.ResizeObserver)new ResizeObserver(()=>resize()).observe(document.getElementById('app'));
 const fsOK=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
@@ -578,6 +595,7 @@ function renderMap(){
    if(d.neon){g.strokeStyle=d.neon;g.lineWidth=1.5;g.globalAlpha=.8;rr(g,bx,top,bw,rh,5);g.stroke();g.globalAlpha=1}
   }
  }
+ if(zone.tint){g.fillStyle=zone.tint;g.fillRect(0,0,W,ROWS*T)}
  if(zone.dark>0){g.globalCompositeOperation='lighter';
   for(const r of ROAD_ROWS)for(const c of ROAD_COLS){const p={x:c*T+T/2,y:r*T+T/2},gr=g.createRadialGradient(p.x,p.y,4,p.x,p.y,64);
    gr.addColorStop(0,zone.neon?'rgba(255,79,216,.22)':'rgba(255,205,120,.2)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(p.x-64,p.y-64,128,128)}
@@ -636,7 +654,7 @@ function drawPed(p){
  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(p.x,p.y+8,7,3,0,0,7);ctx.fill();
  ctx.fillStyle=p.shirt;rr(ctx,p.x-6,p.y-6-b,12,12,5);ctx.fill();
  ctx.fillStyle='#f1c7a0';ctx.beginPath();ctx.arc(p.x,p.y-10-b,5,0,7);ctx.fill();ctx.fillStyle='#2a1d2a';ctx.beginPath();ctx.arc(p.x,p.y-12-b,4.5,Math.PI,0);ctx.fill();
- if(p.lantern){ctx.save();ctx.globalCompositeOperation='lighter';const g=ctx.createRadialGradient(p.x+8,p.y-4,1,p.x+8,p.y-4,22);g.addColorStop(0,'rgba(255,120,80,.5)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(p.x-14,p.y-26,44,44);ctx.restore();
+ if(p.lantern){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite('255,120,80',.5),p.x-14,p.y-26,44,44);ctx.restore();
   ctx.fillStyle='#ff5a5a';ctx.beginPath();ctx.ellipse(p.x+8,p.y-4-b,3.5,4.5,0,0,7);ctx.fill()}
  if(p.oof)text('💢',p.x,p.y-24,12,'#fff','center');
 }
@@ -1004,6 +1022,7 @@ function inputVec(){
  let x=(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0);
  let y=(keys.has('ArrowDown')||keys.has('KeyS')?1:0)-(keys.has('ArrowUp')||keys.has('KeyW')?1:0);
  if(joy){const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(l>6){const m=Math.min(1,(l-6)/36);x=dx/l*m;y=dy/l*m}}
+ if(dpad&&dpad.dir){x=dpad.dir.x;y=dpad.dir.y}
  const l=Math.hypot(x,y);return l>1?{x:x/l,y:y/l}:{x,y};
 }
 addEventListener('keydown',e=>{
@@ -1051,16 +1070,22 @@ canvas.addEventListener('pointerdown',e=>{
  if(p.y<HUD+(touchUI?16:0)&&p.x>W-40){toggleMute();return}
  if(p.y<HUD+(touchUI?16:0)&&p.x>W-78){toggleCam();return}
  if(e.pointerType!=='mouse'&&p.x>-UX+SW*.62){tryDash();return}
+ if(e.pointerType!=='mouse'&&ctrlMode==='dpad'){const c=dpadC();if(Math.hypot(p.x-c.x,p.y-c.y)<DPAD.r*1.7){dpad={id:e.pointerId,dir:dpadDir(p)};buzz(6);try{canvas.setPointerCapture(e.pointerId)}catch(err){}}return}
  joy={id:e.pointerId,ox:p.x,oy:p.y,x:p.x,y:p.y};try{canvas.setPointerCapture(e.pointerId)}catch(err){}
 });
 const JOY_R=55;
-canvas.addEventListener('pointermove',e=>{const p=toCanvas(e);mouse=p;if(joy&&e.pointerId===joy.id){joy.x=p.x;joy.y=p.y;
+const DPAD={r:112,b:40},dpadC=()=>({x:-UX+DPAD.r+34,y:H-DPAD.r-30});
+function dpadDir(p){const c=dpadC(),dx=p.x-c.x,dy=p.y-c.y,l=Math.hypot(dx,dy);if(l<14)return null;
+ const ax=Math.abs(dx)/l,ay=Math.abs(dy)/l;return{x:ax>.38?Math.sign(dx):0,y:ay>.38?Math.sign(dy):0}}
+function toggleCtrl(){ctrlMode=ctrlMode==='dpad'?'stick':'dpad';store.set('diliDelivery.ctrl',ctrlMode);joy=null;dpad=null}
+canvas.addEventListener('pointermove',e=>{const p=toCanvas(e);mouse=p;if(dpad&&e.pointerId===dpad.id){const d=dpadDir(p);if(d&&(!dpad.dir||d.x!==dpad.dir.x||d.y!==dpad.dir.y))buzz(4);dpad.dir=d}
+ if(joy&&e.pointerId===joy.id){joy.x=p.x;joy.y=p.y;
  // floating stick: the base follows the thumb so you never run out of travel
  const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(l>JOY_R){joy.ox=joy.x-dx/l*JOY_R;joy.oy=joy.y-dy/l*JOY_R}}});
 // buttons flagged `up` fire on release: Web Share / popups need the user activation that pointerup (not touch pointerdown) grants
 let pressedBtn=null;
 canvas.addEventListener('pointerup',e=>{const b=pressedBtn;pressedBtn=null;if(b&&hit(toCanvas(e),b))b.act()});
-const endJoy=e=>{if(joy&&e.pointerId===joy.id)joy=null};
+const endJoy=e=>{if(joy&&e.pointerId===joy.id)joy=null;if(dpad&&e.pointerId===dpad.id)dpad=null};
 canvas.addEventListener('pointerup',endJoy);canvas.addEventListener('pointercancel',e=>{pressedBtn=null;endJoy(e)});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
@@ -1229,11 +1254,9 @@ function drawTarget(tg,kind,secondary){
  if(secondary){ctx.save();ctx.globalAlpha=.55}
  const age=runT-(order.born||0),appear=kind==='pickup'?easeOutBack(Math.min(1,age/.35)):1;
  ctx.save();ctx.globalCompositeOperation='lighter';
- const gr=ctx.createRadialGradient(tg.x,tg.y,4,tg.x,tg.y,74);gr.addColorStop(0,kind==='pickup'?'rgba(255,211,77,.75)':'rgba(69,230,165,.7)');gr.addColorStop(1,'rgba(0,0,0,0)');
- ctx.fillStyle=gr;ctx.fillRect(tg.x-74,tg.y-74,148,148);
+ const rgb=kind==='pickup'?'255,211,77':'69,230,165';ctx.drawImage(glowSprite(rgb,.75),tg.x-74,tg.y-74,148,148);
  // light beam + bouncing arrow so the target pops out from far away
- const bm=ctx.createLinearGradient(0,tg.y-120,0,tg.y);bm.addColorStop(0,'rgba(0,0,0,0)');bm.addColorStop(1,kind==='pickup'?'rgba(255,211,77,.45)':'rgba(69,230,165,.4)');
- ctx.fillStyle=bm;ctx.fillRect(tg.x-10,tg.y-120,20,120);ctx.restore();
+ ctx.drawImage(sprite('beam'+rgb,4,64,(g)=>{const b=g.createLinearGradient(0,0,0,64);b.addColorStop(0,`rgba(${rgb},0)`);b.addColorStop(1,`rgba(${rgb},.45)`);g.fillStyle=b;g.fillRect(0,0,4,64)}),tg.x-10,tg.y-120,20,120);ctx.restore();
  if(!secondary){const ay=tg.y-66-Math.abs(Math.sin(runT*5))*10;ctx.fillStyle=col;ctx.strokeStyle='rgba(10,14,30,.8)';ctx.lineWidth=2.5;
   ctx.beginPath();ctx.moveTo(tg.x-11,ay-12);ctx.lineTo(tg.x+11,ay-12);ctx.lineTo(tg.x,ay+2);ctx.closePath();ctx.stroke();ctx.fill()}
  ctx.save();ctx.translate(tg.x,tg.y);ctx.scale(appear,appear);ctx.translate(-tg.x,-tg.y);
@@ -1294,12 +1317,12 @@ function drawCar(k){
  ctx.restore();
  if(k.angry){const s=1+Math.sin(runT*16)*.12;ctx.save();ctx.translate(R.x+R.w/2,R.y-10);ctx.scale(s,s);text('💢',0,0,16,'#fff','center');ctx.restore()}
 }
+const HEADLIGHT=()=>sprite('headlight',80,70,(g)=>{const gr=g.createLinearGradient(0,0,80,0);gr.addColorStop(0,'rgba(255,240,180,.38)');gr.addColorStop(1,'rgba(255,240,180,0)');
+ g.fillStyle=gr;g.beginPath();g.moveTo(0,18);g.lineTo(80,0);g.lineTo(80,70);g.lineTo(0,52);g.closePath();g.fill()});
 function drawHeadlights(){
  ctx.save();ctx.globalCompositeOperation='lighter';
  for(const k of cars){ctx.save();carTransform(k);const L=k.len;
-  const g=ctx.createLinearGradient(L/2,0,L/2+80,0);g.addColorStop(0,'rgba(255,240,180,.38)');g.addColorStop(1,'rgba(255,240,180,0)');
-  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(L/2,-k.wid/2+2);ctx.lineTo(L/2+80,-k.wid/2-16);ctx.lineTo(L/2+80,k.wid/2+16);ctx.lineTo(L/2,k.wid/2-2);ctx.fill();
-  ctx.fillStyle='rgba(255,60,80,.5)';ctx.beginPath();ctx.arc(-L/2,0,8,0,7);ctx.fill();ctx.restore()}
+  ctx.drawImage(HEADLIGHT(),L/2,-(k.wid/2+16),80,k.wid+32);ctx.drawImage(glowSprite('255,60,80',.5),-L/2-9,-9,18,18);ctx.restore()}
  ctx.restore();
 }
 function drawTrain(tr){
@@ -1437,8 +1460,7 @@ function drawWorld(){
  ctx.globalAlpha=1;
  if(player){const P=player;
   {const gc=trailColor();for(const g of P.trail){ctx.globalAlpha=g.t/.22*.35;drawDili(g.x,g.y,1,P.faceS,{ghost:true,ghostColor:gc})}}ctx.globalAlpha=1;
-  if(combo>=5){ctx.save();ctx.globalCompositeOperation='lighter';const gr=ctx.createRadialGradient(P.x,P.y,4,P.x,P.y,34);
-   gr.addColorStop(0,combo>=10?'rgba(255,170,60,.45)':'rgba(111,163,255,.45)');gr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gr;ctx.fillRect(P.x-34,P.y-34,68,68);ctx.restore()}
+  if(combo>=5){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite(combo>=10?'255,170,60':'111,163,255',.45),P.x-34,P.y-34,68,68);ctx.restore()}
   if(P.inv>0&&Math.floor(P.inv*14)%2===0)ctx.globalAlpha=.4;
   drawDili(P.x,P.y,1,P.faceS,{moving:P.moving,pop:P.pop,carrying:order&&order.carrying,dizzy:P.dizzy>0,float:zone.lowgrav,step:P.step,lean:P.lean,land:P.land});ctx.globalAlpha=1;
   if(P.dizzy>0)for(let i=0;i<3;i++){const a=runT*6+i*2.1;drawStar(P.x+3+Math.cos(a)*14,P.y-32+Math.sin(a)*4,4,'#ffd34d')}
@@ -1447,20 +1469,19 @@ function drawWorld(){
  for(const a of ambient)if(a.gull){const f=Math.sin(a.p)*5,d=Math.sign(a.vx);
   ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+14-8,a.y+34+f);ctx.lineTo(a.x+14,a.y+34);ctx.lineTo(a.x+14+8,a.y+34+f);ctx.stroke();
   ctx.strokeStyle='#fff';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(a.x-9,a.y+f);ctx.quadraticCurveTo(a.x-4,a.y-3,a.x+d,a.y+1);ctx.quadraticCurveTo(a.x+4,a.y-3,a.x+9,a.y+f);ctx.stroke()}
- if(zone.tint){ctx.fillStyle=zone.tint;ctx.fillRect(0,HUD,W,ROWS*T)}
+
  if(zone.clouds){ctx.fillStyle='rgba(20,30,70,.10)';for(const a of ambient){ctx.beginPath();ctx.ellipse(a.x,a.y,a.rx,a.ry,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(a.x+a.rx*.4,a.y-a.ry*.3,a.rx*.6,a.ry*.7,0,0,7);ctx.fill()}}
  const blackout=boss&&boss.kind==='blackout';
  if(zone.dark>0||blackout){
   const px=player?player.x:W/2,py=player?player.y:H/2,big=zone.dark<.5&&!blackout,dk=blackout?.94:zone.dark;
-  const g=ctx.createRadialGradient(px,py,big?120:45,px,py,big?560:blackout?190:240);
-  g.addColorStop(0,'rgba(3,5,16,0)');g.addColorStop(1,`rgba(3,5,16,${dk})`);ctx.fillStyle=g;ctx.fillRect(0,HUD,W,ROWS*T);
+  drawShade(px,py,big?120:45,big?560:blackout?190:240,'3,5,16',dk,0,HUD,W,ROWS*T);
   drawHeadlights();
  }
- if(zone.fireflies){ctx.save();ctx.globalCompositeOperation='lighter';for(const a of ambient){const al=.35+.35*Math.sin(a.p);const fc=zone.flyColor||'255,226,120';ctx.fillStyle=`rgba(${fc},${al})`;ctx.beginPath();ctx.arc(a.x,a.y,2.2,0,7);ctx.fill();ctx.fillStyle=`rgba(${fc},${al*.25})`;ctx.beginPath();ctx.arc(a.x,a.y,7,0,7);ctx.fill()}ctx.restore()}
+ if(zone.fireflies){ctx.save();ctx.globalCompositeOperation='lighter';const spr=glowSprite(zone.flyColor||'255,226,120');
+  for(const a of ambient){ctx.globalAlpha=.35+.35*Math.sin(a.p);ctx.drawImage(spr,a.x-8,a.y-8,16,16)}ctx.restore()}
  if(order){if(order.carrying)for(const d of order.drops)drawTarget(d,'drop',d!==order.drop);else drawTarget(order.pickup,'pickup')}
  if(stormA>.01){ // sandstorm: thick dust everywhere except a small bubble around Dili
-  const px=player?player.x:W/2,py=player?player.y:H/2,g=ctx.createRadialGradient(px,py,70,px,py,330);
-  g.addColorStop(0,'rgba(214,160,90,0)');g.addColorStop(1,`rgba(214,160,90,${.72*stormA})`);ctx.fillStyle=g;ctx.fillRect(0,HUD,W,ROWS*T);
+  const px=player?player.x:W/2,py=player?player.y:H/2;drawShade(px,py,70,330,'214,160,90',.72*stormA,0,HUD,W,ROWS*T);
   ctx.strokeStyle=`rgba(255,230,180,${.35*stormA})`;ctx.lineWidth=1.5;ctx.beginPath();
   for(let i=0;i<70;i++){const x=((i*97+runT*520*windDir)%W+W)%W,y=HUD+(i*53)%(ROWS*T);ctx.moveTo(x,y);ctx.lineTo(x-windDir*26,y+3)}ctx.stroke()}
  for(const m of meteors)drawMeteor(m);
@@ -1556,7 +1577,7 @@ function paceDelta(){
 }
 function drawCoinPill(){
  if(mode!=='play'&&mode!=='paused'&&mode!=='upgrade')return;coinPulse=Math.max(0,coinPulse-1/60);
- const s=1+coinPulse*.5,x=14-UX,y=H-44;ctx.save();ctx.translate(x+48,y+15);ctx.scale(s,s);
+ const s=1+coinPulse*.5,x=14-UX,y=touchUI&&ctrlMode==='dpad'?HUD+66:H-44; // the D-pad owns the bottom-left corner on phonesctx.save();ctx.translate(x+48,y+15);ctx.scale(s,s);
  ctx.fillStyle='rgba(8,12,28,.8)';rr(ctx,-48,-15,96,30,15);ctx.fill();ctx.strokeStyle=coinPulse>0?'#ffd34d':'rgba(255,211,77,.35)';ctx.lineWidth=2;ctx.stroke();
  text(`🪙 ${fmt(meta.coins)}`,0,1,14,'#ffd34d','center',900);ctx.restore();
 }
@@ -1571,8 +1592,7 @@ function drawScreenFx(){
   ctx.save();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=2;ctx.beginPath();
   for(let i=0;i<26;i++){const a=i/26*Math.PI*2+runT*.7,r0=280+((runT*900+i*97)%160),r1=r0+60;
    ctx.moveTo(cx+Math.cos(a)*r0*1.6,cy+Math.sin(a)*r0*.8);ctx.lineTo(cx+Math.cos(a)*r1*1.6,cy+Math.sin(a)*r1*.8)}ctx.stroke();ctx.restore()}
- if(crashFx>0){const a=crashFx/.45,g=ctx.createRadialGradient(cx,cy,(y1-y0)*.3,cx,cy,(x1-x0)*.62);
-  g.addColorStop(0,'rgba(255,30,60,0)');g.addColorStop(1,`rgba(255,30,60,${.55*a})`);ctx.fillStyle=g;ctx.fillRect(x0,y0,x1-x0,y1-y0)}
+ if(crashFx>0)drawShade(cx,cy,(y1-y0)*.3,(x1-x0)*.62,'255,30,60',.55*crashFx/.45,x0,y0,x1-x0,y1-y0);
  if(comboGlow>0){ctx.save();const a=Math.min(1,comboGlow/.4);ctx.strokeStyle=glowColor; // soft edge glow from a few stroked rings (no shadowBlur: too costly full-screen)
   for(let i=0;i<4;i++){ctx.globalAlpha=a*(.55-i*.12);ctx.lineWidth=6+i*8;ctx.strokeRect(x0+3+i*4,y0+3+i*4,x1-x0-6-i*8,y1-y0-6-i*8)}ctx.restore()}
  if(irisT>0&&player){ // opening iris centred on Dili
@@ -1625,8 +1645,7 @@ function drawHype(){
 }
 function drawVignette(){
  if(mode!=='play'||shiftTime>=10)return;
- const a=.22+.14*Math.sin(runT*8),g=ctx.createRadialGradient(W/2,H/2,H*.35,W/2,H/2,H*.9);
- g.addColorStop(0,'rgba(255,40,60,0)');g.addColorStop(1,`rgba(255,40,60,${a})`);ctx.fillStyle=g;ctx.fillRect(-UX,HUD,SW,ROWS*T);
+ drawShade(W/2,H/2,H*.35,H*.9,'255,40,60',.22+.14*Math.sin(runT*8),-UX,HUD,SW,ROWS*T);
 }
 function drawTutorial(){
  if(best.runs>1||deliveries>2||mode!=='play')return;
@@ -1642,6 +1661,13 @@ function drawPauseBtn(){ // visible on every platform, not only touch
 }
 function drawTouch(){
  if(!touchUI||mode!=='play')return;
+ if(ctrlMode==='dpad'){ // fixed D-pad bottom-left: the thumb never covers Dili
+  const c=dpadC(),R=DPAD.r,d=dpad&&dpad.dir;ctx.fillStyle='rgba(8,12,28,.35)';ctx.beginPath();ctx.arc(c.x,c.y,R+8,0,7);ctx.fill();
+  for(const[dx,dy,a]of[[0,-1,-Math.PI/2],[0,1,Math.PI/2],[-1,0,Math.PI],[1,0,0]]){const on=d&&((dx&&d.x===dx)||(dy&&d.y===dy)),bx=c.x+dx*R*.62,by=c.y+dy*R*.62;
+   ctx.fillStyle=on?'rgba(111,211,255,.55)':'rgba(255,255,255,.16)';ctx.beginPath();ctx.arc(bx,by,DPAD.b,0,7);ctx.fill();
+   ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=2.5;ctx.stroke();
+   ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-7,-12);ctx.lineTo(-7,12);ctx.closePath();ctx.fill();ctx.restore()}
+ }
  if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
   const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,JOY_R)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
  const R=66,cx=W+UX-R-26,cy=H-R-26,cd=player.dashCd/dashCooldown(),ready=cd<=0;
@@ -1716,7 +1742,7 @@ function drawMenu(){
  if(mouse.y>505&&mouse.y<550){const i=Math.round((mouse.x-cx)/ZS+Z0);if(i>=0&&i<ZONES.length)text(i<=(best.maxZone||0)?ZONES[i].name+' · '+ZONES[i].tag:'Locked — reach it in a run',cx,558,11,'#bcd0ff','center',800)}
  text('📦 Pick up  →  follow the dots  →  🏠 Drop off   ·   Fast x2 · No crash x3',cx,580,13,'#dfe5f0','center',700);
  text('8 zones · sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
- text(touchUI?'Drag the left side to move · Tap the right side to dash':'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
+ text(touchUI?(ctrlMode==='dpad'?'D-pad (bottom-left) moves · DASH (bottom-right) · switch controls in Pause':'Drag the left side to move · Tap the right side to dash'):'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
  text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap START DELIVERY to play':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
 }
 function drawOver(){
@@ -1948,10 +1974,11 @@ function drawPaused(){
  button('✕  QUIT',W/2+5,H/2,135,44,quitToMenu,false);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W/2-140,H/2+56,280,40,toggleFullscreen,false);
  button(muted?'🔇  SOUND OFF':'🔊  SOUND ON',W/2-140,H/2+(fsOK&&!standalone?108:56),280,40,toggleMute,false);
+ if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',W/2-140,H/2+(fsOK&&!standalone?160:108),280,40,toggleCtrl,false);
  text(touchUI?'Tap outside the buttons to resume':'P / Esc resume  ·  R restart  ·  Q quit',W/2,H-34,12,'#6b7aa0','center',800);
 }
 function draw(){
- buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='high';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
+ buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low'; // 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it showsctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
  if(mode==='splash'){drawSplash();return}
  if(mode==='menu'||mode==='board'||mode==='shop'){({menu:drawMenu,board:drawBoard,shop:drawShop})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();drawAchPop();return}
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
@@ -1969,12 +1996,15 @@ function draw(){
 
 // ---------- boot ----------
 resize();genMap({c:12,r:6});spawnCars();
-let last=performance.now();
+let last=performance.now(),perfAcc=0,perfN=0,goodT=0;
 function frame(now){
  const dt=Math.min(.1,(now-last)/1000);last=now;
- // adaptive resolution: if the device can't hold ~45fps, render at a lower pixel ratio
- if(dt>1/45)slowT+=dt;else slowT=Math.max(0,slowT-dt*.5);
- if(slowT>1&&resCap>1){resCap=Math.max(1,resCap-.5);slowT=0;resize()}
+ // adaptive resolution: every 1.5s look at the average frame time; below ~50fps render fewer pixels,
+ // after 6s of solid 60fps try a little more. Phones heat up and slow down over a session, so this keeps adjusting.
+ if(!document.hidden){perfAcc+=dt;perfN++;
+  if(perfAcc>=1.5){const avg=perfAcc/perfN;perfAcc=0;perfN=0;
+   if(avg>1/50&&resCap>.6){resCap=Math.max(.6,resCap*.8);goodT=0;resize()}
+   else if(avg<1/57){if((goodT+=1.5)>=6&&resCap<RES_MAX){resCap=Math.min(RES_MAX,resCap*1.15);goodT=0;resize()}}else goodT=0}}
  // sub-step long frames so game speed stays real-time on slow devices
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
  draw();requestAnimationFrame(frame);

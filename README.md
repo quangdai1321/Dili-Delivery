@@ -100,13 +100,14 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - C: switch camera (close follow cam ↔ full map)
 - F: fullscreen
 - R: restart
-- Mobile: drag on the left side to move (the stick follows your thumb), tap the right side to dash, ⏸ button (top-left) to pause. The phone vibrates on crashes and deliveries, and the screen stays awake during a run. The first tap switches to fullscreen landscape (Android/desktop). On iPhone, use Share → Add to Home Screen to play fullscreen.
+- Mobile: a fixed **D-pad** in the bottom-left corner moves Dili (slide your thumb between arrows), **DASH** is the big button bottom-right, ⏸ top-left pauses. Prefer the old floating stick? Pause → **Controls: Joystick**. The phone vibrates on crashes and deliveries, and the screen stays awake during a run.
 
 ## Camera & rendering
 - Full screen on any display: the height is fixed and the width follows the screen's aspect ratio (up to 2.4:1), so wide phones get a wider view of the city. Menus stay centred.
 - Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.
 - 3/4 perspective: buildings show their front walls and cast shadows, and cars have depth.
-- Renders at the device pixel ratio for sharp visuals. Resolution lowers automatically if the device can't hold ~45fps, and long frames are sub-stepped so game speed stays real-time.
+- Adaptive resolution: every 1.5s the game checks its frame time. Under ~50fps it renders fewer pixels (down to 0.6x); after 6s of smooth 60fps it steps back up. Phones start at 1.5x. Long frames are sub-stepped so game speed stays real-time.
+- Glows, darkness, sandstorm and warning vignettes are pre-rendered sprites, not per-frame gradients, and the map texture matches the real render scale.
 
 ## Audio & effects
 - Everything is synthesized live with WebAudio: a master compressor and a generated reverb give the music and effects depth, with no audio files.
