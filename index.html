@@ -766,6 +766,14 @@ const BOSSES={
  4:{name:'AVALANCHE',icon:'☃️',tip:'Giant snowballs are falling!',kind:'snow'},
  5:{name:'METEOR STORM',icon:'☄️',tip:'The sky is falling. Keep moving!',kind:'meteor'},
 };
+// best moment of the run: {p: priority, label, bmp: ImageBitmap for the game-over thumbnail, blob for the share card}
+let moment=null,momentPend=null;
+function queueMoment(p,label,delay=.35){if((moment&&moment.p>p)||(momentPend&&momentPend.p>=p))return;momentPend={p,label,t:delay}}
+function captureMoment(){ // called right after draw() so the frame on the canvas is complete
+ const m=momentPend;momentPend=null;
+ try{canvas.toBlob(b=>{if(!b||(moment&&moment.p>m.p))return;const rec={p:m.p,label:m.label,blob:b,bmp:null};moment=rec;
+  if(window.createImageBitmap)createImageBitmap(b).then(bm=>{if(moment===rec)rec.bmp=bm}).catch(()=>{})},'image/jpeg',.88)}catch(e){} // file:// canvases can be tainted: skip
+}
 let lastDrop=null,ghostLog=[],ghostRef=null,lastGhost=null; // ghost: [x,y,zoneCode,face] every 0.1s of run time
 let boss=null,bossEnt=null,strikeT=1,camPunch=0,irisT=0,crashFx=0,comboGlow=0,glowColor='#fff';
 const nextZoneAt=()=>{const L=ZONES.length-1;return zoneIdx<L?ZONE_AT[zoneIdx+1]:ZONE_AT[L]+(loop+1)*LOOP_EVERY};
@@ -789,7 +797,7 @@ function bossDefeated(){
  const b=boss;if(!b)return;endBoss();
  const bonus=500*(1+loop);score+=bonus;shiftTime=Math.min(99,shiftTime+6);addCoins(25);
  meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();missionTrack('boss');unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
- hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +25 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
+ queueMoment(5,`💀 Defeated ${b.icon} ${b.name}`,.5);hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +25 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
  flash=.4;flashColor='#ffd34d';shake=Math.max(shake,.3);camPunch=.18;for(let i=0;i<4;i++)burst(player.x+rand(-60,60),player.y+rand(-50,30),40,CONFETTI,true);
 }
 function updateBoss(dt,P){
@@ -854,7 +862,7 @@ function doDeliver(di=0){
  score+=bonus;
  {const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5);addCoins(cg);floats.push({x:dx+46,y:dy-2,text:`+${cg} 🪙`,color:'#ffd34d',t:1.1,max:1.1,size:16})}
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
- if(ot==='vip')unlockAch('vip');if(ot==='fragile')unlockAch('fragile');
+ if(ot==='vip'){unlockAch('vip');queueMoment(1,'👑 VIP delivery')}if(ot==='fragile')unlockAch('fragile');
  missionTrack('deliveries');if(ot==='vip')missionTrack('vip');if(ot==='urgent'||ot==='fragile')missionTrack('special');missionTrack('combo',combo);missionTrack('clean',cleanStreak);
  if(om.label)floats.push({x:dx,y:dy-54,text:`${om.icon} ${om.label} x${om.mult>1?om.mult:''}`.replace(/ x$/,' ✓'),color:om.color,t:1.2,max:1.2,size:17});
  if(happy>1)floats.push({x:dx,y:dy-4,text:'⭐ HAPPY HOUR x2',color:'#ffd34d',t:1,max:1,size:14});
@@ -871,6 +879,7 @@ function doDeliver(di=0){
  rings.push({x:dx,y:dy,t:.25,max:.25,r0:4,r1:46,color:'#ffffff'});
  SFX.deliver(combo);SFX.stars(stars);
  if(COMBO_HYPE.includes(combo)||(combo>30&&combo%10===0)){
+  if(combo>=10)queueMoment(combo>=15?3.5:3,`🔥 COMBO x${combo}`);
   hype={text:`COMBO x${combo}!`,sub:combo>=10?'ON FIRE 🔥':combo>=5?'UNSTOPPABLE':'NICE CHAIN',t:1.5,max:1.5};
   flash=.3;flashColor=zone.accent;SFX.hype();SFX.riser();camPunch=Math.max(camPunch,.12);comboGlow=.8;glowColor=combo>=10?'#ffb347':zone.accent;burst(player.x,player.y,30,[zone.accent,'#fff','#ffd34d'],true);
  }
@@ -885,6 +894,7 @@ function doDeliver(di=0){
 }
 function startStage(i,lp){
  stageInfo={cleared:zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:''),i,loop:lp,unlocked:i>(best.maxZone||0)};
+ queueMoment(stageInfo.unlocked?4:2.5,`🗺️ Reached ${ZONES[i].icon} ${ZONES[i].name}${lp?' '+ROMAN[Math.min(lp,9)]:''}`,1.3); // captured on the zone card
  if(stageInfo.unlocked){best.maxZone=i;store.set('diliDelivery.best',best)}
  pendingZone={i,loop:lp};mode='stage';stageT=0;joy=null;shiftTime=Math.min(99,shiftTime+8);SFX.stage();
  addCoins(10);if(i===ZONES.length-1)unlockAch('moon');endEvent(true);
@@ -914,7 +924,7 @@ function startRun(kind=runKind){
  else if(kind==='retry'&&lastGhost){dailySeed=null;runSeed=lastGhost.seed;paceRef=lastGhost.pace} // race your own ghost on the same city
  else{if(kind==='retry')runKind='normal';dailySeed=null;runSeed=(Math.random()*4294967296)>>>0;paceRef=best.pace||null}
  ghostRef=daily?(dailyRec().ghost||null):runKind==='retry'&&lastGhost?lastGhost.log:null;ghostLog=[];lastDrop=null;
- boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
+ moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
  upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
@@ -1040,7 +1050,7 @@ function startEvent(){
 }
 function endEvent(silent){
  if(!event)return;const e=event;event=null;
- if(e.id==='police'){if(!chaseCaught&&!silent&&player){unlockAch('police');missionTrack('police');score+=150;addCoins(5);floats.push({x:player.x,y:player.y-40,text:'🚓 ESCAPED! +150',color:'#6fa3ff',t:1.3,max:1.3,size:20});SFX.up()}cop=null}
+ if(e.id==='police'){if(!chaseCaught&&!silent&&player){unlockAch('police');missionTrack('police');queueMoment(2,'🚓 Escaped the police');score+=150;addCoins(5);floats.push({x:player.x,y:player.y-40,text:'🚓 ESCAPED! +150',color:'#6fa3ff',t:1.3,max:1.3,size:20});SFX.up()}cop=null}
  if(e.id==='rain'&&e.madeRain)rain=[];
  if(e.id==='rush')cars=cars.filter(k=>!k.rush);
  if(e.id==='coins')pickups=[];
@@ -1904,6 +1914,9 @@ function drawOver(){
  if(toast){const a=Math.min(1,toast.t);ctx.globalAlpha=a;ctx.font=font(13,800);const tw=ctx.measureText(toast.text).width+30;
   ctx.fillStyle='rgba(8,40,30,.95)';rr(ctx,W/2-tw/2,586,tw,28,14);ctx.fill();text(toast.text,W/2,600,13,'#45e6a5','center',800);ctx.globalAlpha=1}
  else{drawLogoFancy(W/2-72,612,26,.7);text('POWERED BY DAI2985',W/2-50,612,12,'#bcd0ff','left',900)}
+ if(moment&&moment.bmp){const mw=190,mh=Math.round(mw*moment.bmp.height/moment.bmp.width),mx=W/2-400-mw/2+10,my=100,a=Math.min(1,(.6-overDelay)*3+.2);
+  ctx.save();ctx.globalAlpha=a;ctx.translate(mx+mw/2,my+mh/2);ctx.rotate(-.05);ctx.fillStyle='#fff';rr(ctx,-mw/2-6,-mh/2-6,mw+12,mh+34,8);ctx.fill();
+  ctx.drawImage(moment.bmp,-mw/2,-mh/2,mw,mh);text('📸 '+moment.label,0,mh/2+14,11,'#10214d','center',900);ctx.restore()}
  drawDili(W/2+300,190+Math.sin(runT*3)*5,2.4,-1,{carrying:false,pop:newBest?(runT%1.2):0,dizzy:!newBest&&crashes>0});
  text(touchUI?'Tap RUN AGAIN to play again':'Enter / Space: run again  ·  G: race your ghost  ·  S: share  ·  Esc: menu',W/2,H-22,12,'#56627f','center',800);
 }
@@ -2070,18 +2083,27 @@ function drawBoard(){
 function shareText(){
  const where=`${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}`;
  const head=daily?`📅 Dili Delivery Daily #${dailyNo} — ${fmt(score)} pts (attempt #${dailyTries})`:`📦 I scored ${fmt(score)} in Dili Delivery`;
- const pain=newBest?'New personal best 😎':rage&&rage.line?rage.line:'';
+ const pain=(moment?moment.label+'\n':'')+(newBest?'New personal best 😎':rage&&rage.line?rage.line:'');
  // non-daily runs share a challenge link: the friend gets this exact city, orders and events
  const link=daily?GAME_URL:shareLink(),ask=daily?'Can you beat me? 👇':'⚔️ Beat me on the SAME map 👇';
  return `${head}\n${deliveries} deliveries · combo x${runBestCombo} · reached ${where}\n${pain}\n${ask}\n${link}`.replace(/\n\n/g,'\n');
 }
 const shareLink=()=>challengeLink(runSeed,score,playerName||'A friend');
-function makeShareCard(noHero){
+async function makeShareCard(noHero){
+ const mo=moment,mb=mo&&!noHero&&window.createImageBitmap?await createImageBitmap(mo.blob).catch(()=>null):null;
  const c=document.createElement('canvas');c.width=1200;c.height=630;const g=c.getContext('2d'),main=ctx,hero=noHero?null:heroCanvas;ctx=g;
  try{
   const bg=g.createLinearGradient(1200,0,0,630);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');g.fillStyle=bg;g.fillRect(0,0,1200,630);
   for(const s of menuStars){g.globalAlpha=.5;g.fillStyle='#fff';g.beginPath();g.arc(s.x*1200/W,s.y*630/H,s.r,0,7);g.fill()}g.globalAlpha=1;
-  if(hero&&meta.equip.color==='c_blue'&&meta.equip.hat==='h_none'){const hh=560,hw=hh*hero.width/hero.height;g.drawImage(hero,10,630-hh,hw,hh)}else drawDili(250,350,6.5,1,{carrying:true});
+  if(mb){ // the run's best moment, cover-cropped into a rounded frame with its caption
+   const fx=30,fy=34,fw=540,fh=562,s=Math.max(fw/mb.width,fh/mb.height),sw=fw/s,sh=fh/s;
+   // centre crop: the follow camera keeps Dili near the middle, and the celebration text is centred too
+   const cxp=.5,cyp=.5,sx=clamp(cxp*mb.width-sw/2,0,mb.width-sw),sy=clamp(cyp*mb.height-sh/2,0,mb.height-sh);
+   g.save();rr(g,fx,fy,fw,fh,26);g.clip();g.drawImage(mb,sx,sy,sw,sh,fx,fy,fw,fh);
+   const sh2=g.createLinearGradient(0,fy+fh-170,0,fy+fh);sh2.addColorStop(0,'rgba(2,4,12,0)');sh2.addColorStop(1,'rgba(2,4,12,.92)');g.fillStyle=sh2;g.fillRect(fx,fy+fh-170,fw,170);g.restore();
+   g.strokeStyle='rgba(255,211,77,.85)';g.lineWidth=4;rr(g,fx,fy,fw,fh,26);g.stroke();
+   text('📸 BEST MOMENT',fx+26,fy+fh-74,16,'#ffd34d','left',900);outlined(mo.label,fx+26,fy+fh-40,28,'#fff','left')}
+  else if(hero&&meta.equip.color==='c_blue'&&meta.equip.hat==='h_none'){const hh=560,hw=hh*hero.width/hero.height;g.drawImage(hero,10,630-hh,hw,hh)}else drawDili(250,350,6.5,1,{carrying:true});
   const cx=800;
   drawLogo(g,cx-150,58,44);text('DLICOM PRESENTS',cx-118,58,16,'#bcd0ff','left',900);
   outlined('DILI DELIVERY',cx,122,54,'#fff');
@@ -2206,7 +2228,7 @@ function frame(now){
  // sub-step long frames so game speed stays real-time on slow devices
  if(mode==='play'&&!document.hidden){frameHist[Math.min(100,Math.round(dt*1000))]++;frameN++;frameSum+=dt}
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
- draw();requestAnimationFrame(frame);
+ draw();if(momentPend&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script>

@@ -90,6 +90,9 @@ Three missions a day, the same for every player (picked from 12 by the date): de
 ### 👻 Race your ghost
 After a normal run, **👻 Race your ghost** (or press **G**) replays the **same city, orders and events** while a see-through Dili retraces your best run on that map. Beat it and your new run becomes the ghost. In the Daily Challenge, your best attempt of the day is the ghost automatically. Each order starts from the previous door, so a seed always produces the same chain of orders whatever route you take.
 
+### 📸 Best moment
+The game screenshots the best moment of every run a beat after it happens: 💀 a boss defeated, 🗺️ a new zone unlocked, 🔥 combo x10+, 🚓 a police escape or 👑 a VIP delivery (in that order of priority). The game over screen shows it as a polaroid, and **Share / Challenge** uses it as the picture on the score card and mentions it in the post text.
+
 ### Challenge a friend
 Every run uses a random seed. **⚔️ Challenge** on the game over screen shares a link (`?c=…`). Whoever opens it plays the **same city, orders, upgrade offers and events** and sees "▼ 345 TO BEAT PHUC" on the HUD. The result appears on their game over screen.
 
