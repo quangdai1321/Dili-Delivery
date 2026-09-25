@@ -229,6 +229,37 @@ const saveMeta=()=>store.set('diliDelivery.meta',meta);
 let runCoins=0,achPops=[];
 let coinPulse=0;
 function addCoins(n){if(n<=0)return;meta.coins+=n;runCoins+=n;coinPulse=.35;saveMeta()}
+// ---------- daily missions: 3 per day, the same for everyone (seeded by date), progress adds up across runs ----------
+const MISSIONS=[
+ {id:'deliver',icon:'📦',text:'Deliver 15 packages',n:15,coins:40,metric:'deliveries'},
+ {id:'vip',icon:'👑',text:'Deliver 2 VIP orders',n:2,coins:50,metric:'vip'},
+ {id:'boss',icon:'💀',text:'Defeat a zone boss',n:1,coins:60,metric:'boss'},
+ {id:'near',icon:'😎',text:'Get 12 close calls',n:12,coins:40,metric:'near'},
+ {id:'combo',icon:'🔥',text:'Reach combo x8 in one run',n:8,coins:50,metric:'combo',max:true},
+ {id:'shower',icon:'🪙',text:'Grab 8 coins in coin showers',n:8,coins:40,metric:'shower'},
+ {id:'zone',icon:'🏜️',text:'Reach Desert Dunes in one run',n:2,coins:60,metric:'zone',max:true},
+ {id:'clean',icon:'😇',text:'Deliver 6 in a row without crashing',n:6,coins:50,metric:'clean',max:true},
+ {id:'police',icon:'🚓',text:'Escape a police chase',n:1,coins:50,metric:'police'},
+ {id:'special',icon:'🥚',text:'Deliver 3 urgent or fragile orders',n:3,coins:40,metric:'special'},
+ {id:'dash',icon:'⚡',text:'Dash 25 times',n:25,coins:30,metric:'dash'},
+ {id:'dailyplay',icon:'📅',text:"Play today's Daily Challenge",n:1,coins:30,metric:'dailyplay'},
+];
+const MISSION_BONUS=50;
+function missionState(){
+ const t=today();let m=store.get('diliDelivery.missions',null);
+ if(!m||m.key!==t.key){const ids=seeded(hashSeed(t.key*31+7),()=>shuffle(MISSIONS.map(x=>x.id))).slice(0,3);m={key:t.key,ids,prog:{},done:{},bonus:false};store.set('diliDelivery.missions',m)}
+ return m;
+}
+function missionTrack(metric,v=1){
+ const m=missionState();let changed=false;
+ for(const id of m.ids){const d=MISSIONS.find(x=>x.id===id);if(!d||d.metric!==metric||m.done[id])continue;
+  const nv=d.max?Math.max(m.prog[id]||0,v):(m.prog[id]||0)+v;if(nv===m.prog[id])continue;m.prog[id]=nv;changed=true;
+  if(nv>=d.n){m.done[id]=true;meta.coins+=d.coins;runCoins+=d.coins;saveMeta();achPops.push({a:{icon:d.icon,name:d.text,coins:d.coins,head:'📋 MISSION COMPLETE'},t:3.2,max:3.2});try{SFX.up()}catch(e){}}}
+ if(changed&&!m.bonus&&m.ids.every(id=>m.done[id])){m.bonus=true;meta.coins+=MISSION_BONUS;runCoins+=MISSION_BONUS;saveMeta();
+  achPops.push({a:{icon:'🎉',name:'All 3 daily missions done!',coins:MISSION_BONUS,head:'📋 DAILY BONUS'},t:3.4,max:3.4})}
+ if(changed)store.set('diliDelivery.missions',m);
+}
+const missionsDone=()=>{const m=missionState();return m.ids.filter(id=>m.done[id]).length};
 function unlockAch(id){
  const a=ACHS.find(x=>x.id===id);if(!a||meta.ach[id])return;meta.ach[id]=Date.now();meta.coins+=a.coins||0;runCoins+=a.coins||0;
  if(a.item&&!meta.owned.includes(a.item))meta.owned.push(a.item);saveMeta();
@@ -392,14 +423,14 @@ function playStep(tr,step,t,spb){
 function musicTick(){
  if(!actx||!music.gain)return;
  const now=actx.currentTime;if(music.next<now-.1)music.next=now+.05;
- const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'?'menu':String(zone.id);
+ const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?'menu':String(zone.id);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
   const tr=TRACKS[music.track],spb=60/(tr.bpm*(mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
   if(!muted)playStep(tr,music.step,music.next,spb);
   music.next+=spb;music.step++;
  }
- const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'?.3:mode==='over'?.12:.14;
+ const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?.3:mode==='over'?.12:.14;
  if(vol!==music.vol){music.vol=vol;music.gain.gain.setTargetAtTime(vol,now,.2)}
 }
 
@@ -727,7 +758,7 @@ function endBoss(){
 function bossDefeated(){
  const b=boss;if(!b)return;endBoss();
  const bonus=500*(1+loop);score+=bonus;shiftTime=Math.min(99,shiftTime+6);addCoins(25);
- meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
+ meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();missionTrack('boss');unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
  hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +25 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
  flash=.4;flashColor='#ffd34d';shake=Math.max(shake,.3);camPunch=.18;for(let i=0;i<4;i++)burst(player.x+rand(-60,60),player.y+rand(-50,30),40,CONFETTI,true);
 }
@@ -794,6 +825,7 @@ function doDeliver(di=0){
  {const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5);addCoins(cg);floats.push({x:dx+46,y:dy-2,text:`+${cg} 🪙`,color:'#ffd34d',t:1.1,max:1.1,size:16})}
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip')unlockAch('vip');if(ot==='fragile')unlockAch('fragile');
+ missionTrack('deliveries');if(ot==='vip')missionTrack('vip');if(ot==='urgent'||ot==='fragile')missionTrack('special');missionTrack('combo',combo);missionTrack('clean',cleanStreak);
  if(om.label)floats.push({x:dx,y:dy-54,text:`${om.icon} ${om.label} x${om.mult>1?om.mult:''}`.replace(/ x$/,' ✓'),color:om.color,t:1.2,max:1.2,size:17});
  if(happy>1)floats.push({x:dx,y:dy-4,text:'⭐ HAPPY HOUR x2',color:'#ffd34d',t:1,max:1,size:14});
  const stars=1+(fast?1:0)+(clean?1:0)+(t<=order.par*.7?1:0)+(combo>=5?1:0);
@@ -832,7 +864,7 @@ function startStage(i,lp){
 function enterZone(i,first,lp=0){
  zoneIdx=i;zone=ZONES[i];loop=lp;zoneDeliveries=0;
  const sp=seeded(hashSeed(runSeed^(zone.id*104729+lp*7)),()=>{const s=genMap(first?{c:12,r:6}:lastDrop||tileOf(player)),q=center(s.c,s.r);player.x=q.x;player.y=q.y;spawnCars();spawnPeds();return s}),c=center(sp.c,sp.r);
- stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;boss=null;bossEnt=null;
+ stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
  player.x=c.x;player.y=c.y;player.vx=player.vy=0;player.inv=Math.max(player.inv,1.2);player.trail=[];updateCam(0,true);
  rain=[];
  if(zone.rain)for(let n=0;n<140;n++)rain.push({x:rand(0,W),y:rand(HUD,H),l:rand(10,22),s:rand(520,760)});
@@ -846,7 +878,7 @@ function startRun(kind=runKind){
  ensureAudio();keepAwake(true);
  if(kind===true)kind='daily';else if(kind===false)kind='normal';if(kind==='challenge'&&!CH)kind='normal';
  runKind=kind;daily=kind==='daily';chRun=kind==='challenge'?CH:null;
- if(daily){const t=today(),rec=dailyRec();rec.tries++;store.set('diliDelivery.daily',rec);dailyNo=t.no;dailySeed=hashSeed(t.key);dailyTries=rec.tries;paceRef=rec.pace;runSeed=dailySeed;unlockAch('daily')}
+ if(daily){const t=today(),rec=dailyRec();rec.tries++;store.set('diliDelivery.daily',rec);missionTrack('dailyplay');dailyNo=t.no;dailySeed=hashSeed(t.key);dailyTries=rec.tries;paceRef=rec.pace;runSeed=dailySeed;unlockAch('daily')}
  else if(chRun){dailySeed=null;runSeed=chRun.seed;paceRef=null}
  else if(kind==='retry'&&lastGhost){dailySeed=null;runSeed=lastGhost.seed;paceRef=lastGhost.pace} // race your own ghost on the same city
  else{if(kind==='retry')runKind='normal';dailySeed=null;runSeed=(Math.random()*4294967296)>>>0;paceRef=best.pace||null}
@@ -920,7 +952,7 @@ function tryDash(){
  if(mode!=='play'||player.dashCd>0)return;
  const v=steer(player,inputVec()),l=Math.hypot(v.x,v.y); // dash along the lane, not into a wall
  player.dashDir=l>.1?{x:v.x/l,y:v.y/l}:{x:player.face,y:0};
- player.dash=.22;player.dashCd=dashCooldown();SFX.dash();
+ player.dash=.22;player.dashCd=dashCooldown();SFX.dash();missionTrack('dash');
  rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:8,r1:40,color:'#8fd0ff'});
 }
 function crash(sx,sy,by='car'){
@@ -946,7 +978,7 @@ function crash(sx,sy,by='car'){
  }
 }
 function nearMiss(){
- nearMisses++;nearCd=.8;const pts=(25+combo*5)*(evOn('happy')?2:1);score+=pts;slowmo=.18;addCoins(1);if(nearMisses>=10)unlockAch('near10');
+ nearMisses++;nearCd=.8;const pts=(25+combo*5)*(evOn('happy')?2:1);score+=pts;slowmo=.18;addCoins(1);if(nearMisses>=10)unlockAch('near10');missionTrack('near');
  floats.push({x:player.x,y:player.y-34,text:`CLOSE CALL! +${pts}  +1🪙`,color:'#8fe3ff',t:.9,max:.9,size:17});
  rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:30,r1:14,color:'#8fe3ff'});SFX.close();buzz(12);
 }
@@ -975,7 +1007,7 @@ function startEvent(){
 }
 function endEvent(silent){
  if(!event)return;const e=event;event=null;
- if(e.id==='police'){if(!chaseCaught&&!silent&&player){unlockAch('police');score+=150;addCoins(5);floats.push({x:player.x,y:player.y-40,text:'🚓 ESCAPED! +150',color:'#6fa3ff',t:1.3,max:1.3,size:20});SFX.up()}cop=null}
+ if(e.id==='police'){if(!chaseCaught&&!silent&&player){unlockAch('police');missionTrack('police');score+=150;addCoins(5);floats.push({x:player.x,y:player.y-40,text:'🚓 ESCAPED! +150',color:'#6fa3ff',t:1.3,max:1.3,size:20});SFX.up()}cop=null}
  if(e.id==='rain'&&e.madeRain)rain=[];
  if(e.id==='rush')cars=cars.filter(k=>!k.rush);
  if(e.id==='coins')pickups=[];
@@ -993,7 +1025,7 @@ function updateEvent(dt,P){
    if(bestN){cop.tc=bestN.c;cop.tr=bestN.r}}
   if(P.inv<=0&&Math.hypot(P.x-cop.x,P.y-cop.y)<P.r+14)crash(cop.x,cop.y,'police');
  }
- for(const c of pickups){c.ph+=dt*5;if(Math.hypot(P.x-c.x,P.y-c.y)<24){c.got=true;addCoins(1);score+=20;SFX.coin(ri(0,8));
+ for(const c of pickups){c.ph+=dt*5;if(Math.hypot(P.x-c.x,P.y-c.y)<24){c.got=true;addCoins(1);score+=20;missionTrack('shower');SFX.coin(ri(0,8));
   floats.push({x:c.x,y:c.y-20,text:'+🪙',color:'#ffd34d',t:.7,max:.7,size:16});burst(c.x,c.y,8,['#ffd34d','#fff3b0'])}}
  pickups=pickups.filter(c=>!c.got);
 }
@@ -1054,7 +1086,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyF'){toggleFullscreen();return}
  if(mode==='splash'){mode='menu';return}
  if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab(board.tab==='all'?'daily':'all')}return}
- if(mode==='shop'){if(e.code==='Escape'||e.code==='Backspace')mode='menu';return}
+ if(mode==='shop'||mode==='missions'){if(e.code==='Escape'||e.code==='Backspace')mode='menu';return}
  if(mode==='menu'&&ctrlPrompt){if(e.code==='Escape')ctrlPrompt=false;return}
  if(mode==='menu'&&chPrompt){if(go)startRun('challenge'),chPrompt=false;else if(e.code==='Escape')chPrompt=false;return}
  if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true);else if(e.code==='KeyK')openShop();else if(e.code==='KeyL'&&LB_ON)openBoard('all','menu')}
@@ -1079,7 +1111,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(mode==='splash'){mode='menu';return}
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
  const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
- if(mode==='board'||mode==='shop')return;
+ if(mode==='board'||mode==='shop'||mode==='missions')return;
  if(mode==='menu')return; // only the buttons start a run; tapping empty space does nothing
  if(mode==='over')return; // same as the menu: only RUN AGAIN / SHARE / MENU react to taps
  if(mode==='paused'){mode='play';return}
@@ -1142,7 +1174,7 @@ function update(dt){
  dispShift+=(shiftTime-dispShift)*Math.min(1,dt*6);if(mode!=='menu')updateCam(dt);
  if(mode==='splash'){splashT+=dt;if(splashT>=2.6)mode='menu';return}
  if(mode==='menu'){updateCars(dt);return}
- if(mode==='board'||mode==='shop')return;
+ if(mode==='board'||mode==='shop'||mode==='missions')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(null,tileOf(player))}
   if(stageT>=3.2){mode='play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
@@ -1640,7 +1672,7 @@ function drawAchPop(){
  ctx.save();ctx.globalAlpha=a;ctx.translate(W/2,y);ctx.scale(s,s);
  ctx.font=font(15,900);const w=Math.max(300,ctx.measureText(p.a.name).width+110,ctx.measureText(sub).width*.8+110);
  ctx.fillStyle='rgba(12,26,68,.95)';rr(ctx,-w/2,-30,w,60,18);ctx.fill();ctx.strokeStyle='#ffd34d';ctx.lineWidth=2;ctx.stroke();
- text(p.a.icon,-w/2+34,0,26,'#fff','center');text('ACHIEVEMENT UNLOCKED',-w/2+62,-13,10,'#ffd34d','left',900);
+ text(p.a.icon,-w/2+34,0,26,'#fff','center');text(p.a.head||'ACHIEVEMENT UNLOCKED',-w/2+62,-13,10,'#ffd34d','left',900);
  text(p.a.name,-w/2+62,4,15,'#fff','left',900);text(sub,-w/2+62,20,11,'#aab8d5','left',800);ctx.restore();
 }
 function drawResultCard(){
@@ -1756,7 +1788,9 @@ function drawMenu(){
  button(`🎨 SKINS   🪙 ${fmt(meta.coins)}`,16,16,230,40,openShop,false);
  if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',16,H-58,260,42,toggleCtrl,false);
  if(CH&&!chPrompt)button(`⚔️ VS ${CH.name.toUpperCase()} · ${fmt(CH.score)}`,258,16,280,40,()=>{chPrompt=true},false);
- if(!canBuySomething()&&meta.coins<120)text('Deliver packages to earn 🪙 for skins',22,68,11,'#bcd0ff','left',800);
+ {const n=missionsDone();button(`📋 MISSIONS  ${n}/3`,16,64,230,40,()=>{mode='missions'},false);
+  if(n<3){const p=.6+.4*Math.sin(runT*5);ctx.fillStyle=`rgba(255,211,77,${p})`;ctx.beginPath();ctx.arc(240,68,6,0,7);ctx.fill()}}
+ if(!canBuySomething()&&meta.coins<120)text('Deliver packages to earn 🪙 for skins',22,118,11,'#bcd0ff','left',800);
  if(canBuySomething()){const p=.6+.4*Math.sin(runT*6);ctx.fillStyle=`rgba(255,77,94,${p})`;ctx.beginPath();ctx.arc(240,20,7,0,7);ctx.fill()}
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
  else if(touchUI&&!standalone)text('Tip: Share → Add to Home Screen to play fullscreen',W-16,30,11,'#bcd0ff','right',700);
@@ -1835,6 +1869,21 @@ function shopPick(it,kind){
  if(meta.coins>=it.cost){meta.coins-=it.cost;meta.owned.push(it.id);meta.equip[kind]=it.id;saveMeta();SFX.buy();shop.msg={text:`✨ ${it.name} unlocked!`,t:2.5};
   for(let i=0;i<3;i++)burst(rand(120,320),rand(200,400),20,CONFETTI,true)}
  else{shop.msg={text:`Need ${fmt(it.cost-meta.coins)} more 🪙 — keep delivering!`,t:2.5,bad:true};SFX.nope()}
+}
+function drawMissions(){
+ const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
+ for(const st of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+st.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(st.x,st.y,st.r,0,7);ctx.fill()}ctx.globalAlpha=1;
+ const m=missionState(),cx=W/2,now=new Date(),mid=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1),left=Math.max(0,mid-now),hh=Math.floor(left/36e5),mm=Math.floor(left%36e5/6e4);
+ outlined('📋 DAILY MISSIONS',cx,64,38,'#fff');text(`Same missions for every player today · new ones in ${hh}h ${mm}m`,cx,102,14,'#aab8d5','center',700);
+ m.ids.forEach((id,i)=>{const d=MISSIONS.find(x=>x.id===id),done=!!m.done[id],pr=Math.min(d.n,m.prog[id]||0),y=132+i*112,w=640,x=cx-w/2;
+  ctx.fillStyle=done?'rgba(69,230,165,.13)':'rgba(255,255,255,.07)';rr(ctx,x,y,w,96,18);ctx.fill();ctx.strokeStyle=done?'#45e6a5':'rgba(255,255,255,.15)';ctx.lineWidth=2;ctx.stroke();
+  text(d.icon,x+44,y+48,34,'#fff','center');text(d.text,x+86,y+32,19,done?'#45e6a5':'#fff','left',900);
+  const bw=w-86-150;ctx.fillStyle='rgba(0,0,0,.35)';rr(ctx,x+86,y+56,bw,14,7);ctx.fill();ctx.fillStyle=done?'#45e6a5':'#ffd34d';rr(ctx,x+86,y+56,Math.max(14,bw*pr/d.n),14,7);ctx.fill();
+  text(d.max&&d.metric==='zone'?(done?'Reached':'Not yet'):`${pr} / ${d.n}`,x+86+bw+12,y+63,13,'#dfe5f0','left',900);
+  text(done?'✓ +'+d.coins+' 🪙':'+'+d.coins+' 🪙',x+w-20,y+32,16,done?'#45e6a5':'#ffd34d','right',900)});
+ const all=m.ids.every(id=>m.done[id]);ctx.fillStyle=all?'rgba(255,211,77,.18)':'rgba(255,255,255,.05)';rr(ctx,cx-320,470,640,52,16);ctx.fill();
+ text(all?`🎉 All done! +${MISSION_BONUS} 🪙 bonus collected`:`🎁 Complete all 3 for a +${MISSION_BONUS} 🪙 bonus`,cx,496,17,all?'#ffd34d':'#dfe5f0','center',900);
+ button('← BACK',cx-240,548,150,44,()=>{mode='menu'},false);button('▶  PLAY',cx-70,548,310,44,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false)){mode='menu';ctrlPrompt=true}else startRun(false)});
 }
 function drawShop(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
@@ -2042,7 +2091,7 @@ function draw(){
  // 'low' smoothing: 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it shows
  buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
  if(mode==='splash'){drawSplash();return}
- if(mode==='menu'||mode==='board'||mode==='shop'){({menu:drawMenu,board:drawBoard,shop:drawShop})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
+ if(mode==='menu'||mode==='board'||mode==='shop'||mode==='missions'){({menu:drawMenu,board:drawBoard,shop:drawShop,missions:drawMissions})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
  if(shake>0){const q=shake/.3;ctx.translate(Math.sin(runT*53)*6*q,Math.cos(runT*47)*5*q)}
  applyCam();drawWorld();ctx.restore();

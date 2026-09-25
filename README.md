@@ -82,6 +82,9 @@ Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend
 
 13 achievements give coins and unlock the rare items. The equipped colour shows next to your name on the leaderboard.
 
+### 📋 Daily missions
+Three missions a day, the same for every player (picked from 12 by the date): deliveries, VIP orders, a boss, close calls, combos, coin showers, reaching Desert Dunes, clean streaks, escaping the police, special orders, dashes or the Daily Challenge. Progress adds up across runs; each mission pays 30–60 🪙 and finishing all three adds a +50 🪙 bonus. Open them from **📋 Missions** on the menu.
+
 ### 👻 Race your ghost
 After a normal run, **👻 Race your ghost** (or press **G**) replays the **same city, orders and events** while a see-through Dili retraces your best run on that map. Beat it and your new run becomes the ghost. In the Daily Challenge, your best attempt of the day is the ghost automatically. Each order starts from the previous door, so a seed always produces the same chain of orders whatever route you take.
 
