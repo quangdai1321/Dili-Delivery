@@ -100,7 +100,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - C: switch camera (close follow cam ↔ full map)
 - F: fullscreen
 - R: restart
-- Mobile: a fixed **D-pad** in the bottom-left corner moves Dili (slide your thumb between arrows), **DASH** is the big button bottom-right, ⏸ top-left pauses. Prefer the old floating stick? Pause → **Controls: Joystick**. The phone vibrates on crashes and deliveries, and the screen stays awake during a run.
+- Mobile: a fixed **D-pad** in the bottom-left corner moves Dili (slide your thumb between arrows), **DASH** is the big button bottom-right, ⏸ top-left pauses. Prefer a **joystick**? Tap **Controls** on the menu (bottom-left) or in Pause: a visible thumbstick appears in the same corner. The phone vibrates on crashes and deliveries, and the screen stays awake during a run.
 
 ## Camera & rendering
 - Full screen on any display: the height is fixed and the width follows the screen's aspect ratio (up to 2.4:1), so wide phones get a wider view of the city. Menus stay centred.

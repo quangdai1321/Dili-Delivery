@@ -1021,7 +1021,7 @@ const keys=new Set();
 function inputVec(){
  let x=(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0);
  let y=(keys.has('ArrowDown')||keys.has('KeyS')?1:0)-(keys.has('ArrowUp')||keys.has('KeyW')?1:0);
- if(joy){const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(l>6){const m=Math.min(1,(l-6)/36);x=dx/l*m;y=dy/l*m}}
+ if(joy){const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(l>6){const m=Math.min(1,(l-6)/(joy.fixed?50:36));x=dx/l*m;y=dy/l*m}}
  if(dpad&&dpad.dir){x=dpad.dir.x;y=dpad.dir.y}
  const l=Math.hypot(x,y);return l>1?{x:x/l,y:y/l}:{x,y};
 }
@@ -1071,7 +1071,9 @@ canvas.addEventListener('pointerdown',e=>{
  if(p.y<HUD+(touchUI?16:0)&&p.x>W-78){toggleCam();return}
  if(e.pointerType!=='mouse'&&p.x>-UX+SW*.62){tryDash();return}
  if(e.pointerType!=='mouse'&&ctrlMode==='dpad'){const c=dpadC();if(Math.hypot(p.x-c.x,p.y-c.y)<DPAD.r*1.7){dpad={id:e.pointerId,dir:dpadDir(p)};buzz(6);try{canvas.setPointerCapture(e.pointerId)}catch(err){}}return}
- joy={id:e.pointerId,ox:p.x,oy:p.y,x:p.x,y:p.y};try{canvas.setPointerCapture(e.pointerId)}catch(err){}
+ {const c=dpadC(),fixed=e.pointerType!=='mouse'&&Math.hypot(p.x-c.x,p.y-c.y)<DPAD.r*1.7;
+  joy=fixed?{id:e.pointerId,ox:c.x,oy:c.y,x:p.x,y:p.y,fixed:true}:{id:e.pointerId,ox:p.x,oy:p.y,x:p.x,y:p.y};if(fixed)buzz(6)}
+ try{canvas.setPointerCapture(e.pointerId)}catch(err){}
 });
 const JOY_R=55;
 const DPAD={r:112,b:40},dpadC=()=>({x:-UX+DPAD.r+34,y:H-DPAD.r-30});
@@ -1081,7 +1083,7 @@ function toggleCtrl(){ctrlMode=ctrlMode==='dpad'?'stick':'dpad';store.set('diliD
 canvas.addEventListener('pointermove',e=>{const p=toCanvas(e);mouse=p;if(dpad&&e.pointerId===dpad.id){const d=dpadDir(p);if(d&&(!dpad.dir||d.x!==dpad.dir.x||d.y!==dpad.dir.y))buzz(4);dpad.dir=d}
  if(joy&&e.pointerId===joy.id){joy.x=p.x;joy.y=p.y;
  // floating stick: the base follows the thumb so you never run out of travel
- const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(l>JOY_R){joy.ox=joy.x-dx/l*JOY_R;joy.oy=joy.y-dy/l*JOY_R}}});
+ const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy);if(!joy.fixed&&l>JOY_R){joy.ox=joy.x-dx/l*JOY_R;joy.oy=joy.y-dy/l*JOY_R}}});
 // buttons flagged `up` fire on release: Web Share / popups need the user activation that pointerup (not touch pointerdown) grants
 let pressedBtn=null;
 canvas.addEventListener('pointerup',e=>{const b=pressedBtn;pressedBtn=null;if(b&&hit(toCanvas(e),b))b.act()});
@@ -1577,7 +1579,8 @@ function paceDelta(){
 }
 function drawCoinPill(){
  if(mode!=='play'&&mode!=='paused'&&mode!=='upgrade')return;coinPulse=Math.max(0,coinPulse-1/60);
- const s=1+coinPulse*.5,x=14-UX,y=touchUI&&ctrlMode==='dpad'?HUD+66:H-44; // the D-pad owns the bottom-left corner on phonesctx.save();ctx.translate(x+48,y+15);ctx.scale(s,s);
+ // on phones the D-pad / joystick owns the bottom-left corner, so the coin counter sits under the pause button
+ const s=1+coinPulse*.5,x=14-UX,y=touchUI?HUD+66:H-44;ctx.save();ctx.translate(x+48,y+15);ctx.scale(s,s);
  ctx.fillStyle='rgba(8,12,28,.8)';rr(ctx,-48,-15,96,30,15);ctx.fill();ctx.strokeStyle=coinPulse>0?'#ffd34d':'rgba(255,211,77,.35)';ctx.lineWidth=2;ctx.stroke();
  text(`🪙 ${fmt(meta.coins)}`,0,1,14,'#ffd34d','center',900);ctx.restore();
 }
@@ -1668,7 +1671,13 @@ function drawTouch(){
    ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=2.5;ctx.stroke();
    ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-7,-12);ctx.lineTo(-7,12);ctx.closePath();ctx.fill();ctx.restore()}
  }
- if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
+ if(ctrlMode==='stick'&&(!joy||joy.fixed)){const c=dpadC(),BR=DPAD.r*.8,on=!!joy; // visible thumbstick
+  ctx.fillStyle='rgba(8,12,28,.4)';ctx.beginPath();ctx.arc(c.x,c.y,BR+10,0,7);ctx.fill();
+  ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(c.x,c.y,BR,0,7);ctx.stroke();
+  let kx=c.x,ky=c.y;if(joy){const dx=joy.x-c.x,dy=joy.y-c.y,l=Math.hypot(dx,dy),m=Math.min(l,BR*.72)/(l||1);kx=c.x+dx*m;ky=c.y+dy*m}
+  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.55)';ctx.beginPath();ctx.arc(kx,ky,34,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(10,14,30,.5)';ctx.lineWidth=2;ctx.stroke()}
+ else if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
   const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,JOY_R)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
  const R=66,cx=W+UX-R-26,cy=H-R-26,cd=player.dashCd/dashCooldown(),ready=cd<=0;
  ctx.fillStyle=ready?'rgba(111,211,255,.22)':'rgba(255,255,255,.1)';ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();
@@ -1717,6 +1726,7 @@ function drawMenu(){
  const cx=815;
  drawLogoFancy(cx-62,76,56);text('DLICOM',cx-22,68,26,'#fff','left',900);text('PRESENTS',cx-21,92,11,'#bcd0ff','left',800);
  button(`🎨 SKINS   🪙 ${fmt(meta.coins)}`,16,16,230,40,openShop,false);
+ if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',16,H-58,260,42,toggleCtrl,false);
  if(CH&&!chPrompt)button(`⚔️ VS ${CH.name.toUpperCase()} · ${fmt(CH.score)}`,258,16,280,40,()=>{chPrompt=true},false);
  if(!canBuySomething()&&meta.coins<120)text('Deliver packages to earn 🪙 for skins',22,68,11,'#bcd0ff','left',800);
  if(canBuySomething()){const p=.6+.4*Math.sin(runT*6);ctx.fillStyle=`rgba(255,77,94,${p})`;ctx.beginPath();ctx.arc(240,20,7,0,7);ctx.fill()}
@@ -1742,7 +1752,7 @@ function drawMenu(){
  if(mouse.y>505&&mouse.y<550){const i=Math.round((mouse.x-cx)/ZS+Z0);if(i>=0&&i<ZONES.length)text(i<=(best.maxZone||0)?ZONES[i].name+' · '+ZONES[i].tag:'Locked — reach it in a run',cx,558,11,'#bcd0ff','center',800)}
  text('📦 Pick up  →  follow the dots  →  🏠 Drop off   ·   Fast x2 · No crash x3',cx,580,13,'#dfe5f0','center',700);
  text('8 zones · sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
- text(touchUI?(ctrlMode==='dpad'?'D-pad (bottom-left) moves · DASH (bottom-right) · switch controls in Pause':'Drag the left side to move · Tap the right side to dash'):'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
+ text(touchUI?(ctrlMode==='dpad'?'D-pad (bottom-left) moves · DASH (bottom-right) · switch to joystick bottom-left':'Joystick (bottom-left) moves · DASH (bottom-right) · switch to D-pad bottom-left'):'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
  text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap START DELIVERY to play':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
 }
 function drawOver(){
@@ -1978,7 +1988,8 @@ function drawPaused(){
  text(touchUI?'Tap outside the buttons to resume':'P / Esc resume  ·  R restart  ·  Q quit',W/2,H-34,12,'#6b7aa0','center',800);
 }
 function draw(){
- buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low'; // 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it showsctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
+ // 'low' smoothing: 'high' filtering on every scaled blit (map, shades, sprites) costs far more than it shows
+ buttons=[];ctx.setTransform(RS,0,0,RS,RS*UX,0);ctx.imageSmoothingQuality='low';ctx.fillStyle='#0a1330';ctx.fillRect(-UX,0,SW,H);
  if(mode==='splash'){drawSplash();return}
  if(mode==='menu'||mode==='board'||mode==='shop'){({menu:drawMenu,board:drawBoard,shop:drawShop})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();drawAchPop();return}
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
