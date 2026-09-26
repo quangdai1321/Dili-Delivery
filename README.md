@@ -40,21 +40,23 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 | # | Zone | Reached after | Hazard |
 |---|---|---|---|
 | 1 | 🏙️ Downtown | start | Light traffic |
-| 2 | 🌃 Night District | 5 deliveries | Dark, alleys, 💢 road-rager cars |
-| 3 | 🏜️ Desert Dunes | 9 | **Sand** slows Dili down; **sandstorms** blind you and push you sideways |
-| 4 | ⛈️ Neon Storm | 13 | Rain, low visibility, lightning |
-| 5 | ⚓ Sunset Harbor | 18 | **Trains**: signals flash red and a bell rings, then a train sweeps the track |
-| 6 | 🏮 Night Market | 23 | **Crowds** wander the streets: bumping into people knocks you back, and cars stop for them |
-| 7 | ❄️ Snow Peak | 29 | **Ice**: Dili slides. Snowfall, snowman roadblocks |
-| 8 | 🌙 Moon Base | 36 | **Meteors** land on red target circles. Low gravity, floaty movement |
+| 2 | 🐴 Country Village | 5 deliveries | **Animals** on dirt roads: 🐎 horses gallop in long straight runs (a kick knocks you back and costs 2s), 🐄 cows stop to graze in the way, 🐔 chickens slow you down. DASH hops past them |
+| 3 | 🌃 Night District | 9 | Dark, alleys, 💢 road-rager cars |
+| 4 | 🏜️ Desert Dunes | 13 | **Sand** slows Dili down; **sandstorms** blind you and push you sideways |
+| 5 | ⛈️ Neon Storm | 17 | Rain, low visibility, lightning |
+| 6 | ⚓ Sunset Harbor | 22 | **Trains**: signals flash red and a bell rings, then a train sweeps the track |
+| 7 | 🏮 Night Market | 27 | **Crowds** wander the streets: bumping into people knocks you back, and cars stop for them |
+| 8 | ❄️ Snow Peak | 33 | **Ice**: Dili slides. Snowfall, snowman roadblocks |
+| 9 | 🌙 Moon Base | 39 | **Meteors** land on red target circles. Low gravity, floaty movement |
 | ∞ | 🌙 Moon Base II, III… | every 8 more | +15% traffic, train and meteor speed per loop |
 
 ### 🎯 Zone goals
-Every zone has its own side objective, shown at the top of the screen and on the zone card. Completing it pays +300 per zone (times the loop), +15 🪙 and +5s. The zone card shows whether you made it. Complete all 8 for the 🎯 Goal Getter achievement.
+Every zone has its own side objective, shown at the top of the screen and on the zone card. Completing it pays +300 per zone (times the loop), +15 🪙 and +5s. The zone card shows whether you made it. Complete all 9 for the 🎯 Goal Getter achievement.
 
 | Zone | Goal |
 |---|---|
 | 🏙️ Downtown | 3 clean deliveries (no crash) |
+| 🐴 Country Village | 3 deliveries without bumping an animal |
 | 🌃 Night District | 3 close calls with cars |
 | 🏜️ Desert Dunes | 2 deliveries without touching sand |
 | ⛈️ Neon Storm | 2 FAST deliveries |
@@ -69,6 +71,7 @@ The last delivery of every zone is a **💀 BOSS order**. Deliver it while the z
 | Zone | Boss |
 |---|---|
 | 🏙️ Downtown | 🚚 Monster Truck: chases you along the shortest path |
+| 🐴 Country Village | 🐎 Stampede: a whole extra herd of faster horses |
 | 🌃 Night District | 🌑 Blackout: near-darkness, every driver is a road rager |
 | 🏜️ Desert Dunes | 🌪️ Mega Sandstorm: a sandstorm that never stops, strong wind |
 | ⛈️ Neon Storm | ⚡ Thunderstorm: lightning strikes the glowing circles |
@@ -77,7 +80,7 @@ The last delivery of every zone is a **💀 BOSS order**. Deliver it while the z
 | ❄️ Snow Peak | ☃️ Avalanche: giant snowballs drop where you're heading |
 | 🌙 Moon Base | ☄️ Meteor Storm: meteors three times as often |
 
-Achievements: 💀 Boss Slayer (first boss) and 👹 Boss Hunter (all 8, unlocks the BOSS HORNS hat).
+Achievements: 💀 Boss Slayer (first boss) and 👹 Boss Hunter (all 9, unlocks the BOSS HORNS hat).
 
 ### 🚧 Jump barriers
 Low striped barriers block some alleys (the traffic-free shortcuts). Walk into one and you crash; **DASH to jump it** (+50 points, +1 🪙). Every dash is now a little hop.

@@ -97,8 +97,11 @@ ZONES.splice(5,0,{id:7,name:'NIGHT MARKET',tag:'EXPERT',accent:'#ff5a5a',alley:.
   road:'#2a1d2a',mark:'#ffcf6b',walk:'#4a3040',ground:'#3a2632',blds:['#8a2a3a','#a8452a','#6a2a5a','#8a5a2a'],parkC:'#3a4a2a',win:'#ffcf6b',winA:.9,dark:.42,
   neon:['#ff5a5a','#ffcf6b','#ff8ad8'],style:'city',crowd:true,lanterns:true,icon:'🏮',tip:'🚶 Crowds everywhere — bumping into people knocks you back!'});
 ZONES[ZONES.length-1].tag='INSANE';ZONES[6].tag='EXPERT+';
+ZONES.splice(1,0,{id:8,name:'COUNTRY VILLAGE',tag:'EASY+',accent:'#9bd35a',alley:.2,park:.22,cars:3,scoot:.5,carSpd:[80,115],barriers:2,route:[10,20],
+  road:'#a07a52',mark:'#c9a473',walk:'#86b85a',ground:'#7fae5a',blds:['#c0503a','#e8d8b0','#d9a066','#b5835a','#f2e2c4'],parkC:'#5f9e46',win:'#fff3c8',winA:.5,dark:0,
+  style:'village',animals:true,clouds:true,tint:'rgba(255,220,120,.04)',icon:'🐴',tip:'🐴 Horses gallop down the roads, cows block the way. DASH to hop past!'});
 const zoneById=id=>ZONES.find(z=>z.id===id)||ZONES[0];
-const ZONE_AT=[0,5,9,13,18,23,29,36],LOOP_EVERY=8; // deliveries completed before entering each zone; last zone then loops harder
+const ZONE_AT=[0,5,9,13,17,22,27,33,39],LOOP_EVERY=8; // deliveries completed before entering each zone; last zone then loops harder
 const ROMAN=['','II','III','IV','V','VI','VII','VIII','IX','X'];
 const ROAD_ROWS=[0,4,8,12],ROAD_COLS=[0,6,12,17,23];
 const BLOCK_C=[[1,5],[7,11],[13,16],[18,22]],BLOCK_R=[[1,3],[5,7],[9,11]];
@@ -194,7 +197,8 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.
 const best=Object.assign({score:0,combo:0,time:null,deliveries:0,runs:0,maxZone:0},store.get('diliDelivery.best',{}));
 {const legacy=Number(store.get('diliDeliveryBest',0))||0;if(legacy>best.score)best.score=legacy}
 // v2 inserted zones into the progression: maxZone used to be the old index (== zone id)
-if(!best.zv){best.maxZone=Math.max(0,ZONES.findIndex(z=>z.id===(best.maxZone||0)));best.zv=2;store.set('diliDelivery.best',best)}
+if(!best.zv){best.maxZone=Math.max(0,ZONES.findIndex(z=>z.id===(best.maxZone||0)));best.zv=3;store.set('diliDelivery.best',best)}
+else if(best.zv===2){if(best.maxZone>=1)best.maxZone++;best.zv=3;store.set('diliDelivery.best',best)} // v3: village inserted at index 1
 // daily challenge: same seeded city + orders for everyone on the same (local) day
 const DAY0=Date.UTC(2026,8,24); // Daily #1
 function today(){const d=new Date(),y=d.getFullYear(),m=d.getMonth(),dd=d.getDate();return{key:y*10000+(m+1)*100+dd,no:Math.round((Date.UTC(y,m,dd)-DAY0)/864e5)+1}}
@@ -233,8 +237,8 @@ const ACHS=[
  {id:'daily',icon:'📅',name:'Daily Grinder',desc:'Play a Daily Challenge',coins:30},
  {id:'challenge',icon:'⚔️',name:'Challenger',desc:"Beat a friend's challenge",coins:60,item:'t_rainbow'},
  {id:'boss1',icon:'💀',name:'Boss Slayer',desc:'Defeat your first zone boss',coins:60},
- {id:'goals',icon:'🎯',name:'Goal Getter',desc:'Complete the goal of all 8 zones',coins:150},
- {id:'bosses',icon:'👹',name:'Boss Hunter',desc:'Defeat all 8 zone bosses',coins:200,item:'h_horns'},
+ {id:'goals',icon:'🎯',name:'Goal Getter',desc:'Complete the goal of all 9 zones',coins:150},
+ {id:'bosses',icon:'👹',name:'Boss Hunter',desc:'Defeat all 9 zone bosses',coins:200,item:'h_horns'},
 ];
 const meta=Object.assign({coins:0,crashes:0,bosses:{},owned:['c_blue','h_none','t_ghost'],equip:{color:'c_blue',hat:'h_none',trail:'t_ghost'},ach:{}},store.get('diliDelivery.meta',{}));
 const saveMeta=()=>store.set('diliDelivery.meta',meta);
@@ -276,6 +280,7 @@ function missionTrack(metric,v=1){
 const missionsDone=()=>{const m=missionState();return m.ids.filter(id=>m.done[id]).length};
 // each zone has its own side objective, built around what makes that zone different
 const ZOBJ={0:{icon:'😇',text:'Make 3 clean deliveries (no crash)',n:3,m:'clean'},1:{icon:'😎',text:'Get 3 close calls with cars',n:3,m:'near'},
+ 8:{icon:'🐴',text:'Deliver 3 orders without bumping an animal',n:3,m:'nobump'},
  6:{icon:'🏜️',text:'Deliver 2 orders without touching sand',n:2,m:'nosand'},2:{icon:'⚡',text:'Make 2 FAST deliveries',n:2,m:'fast'},
  3:{icon:'🚀',text:'Grab 2 power-ups',n:2,m:'power'},7:{icon:'🙏',text:'Deliver 3 orders without bumping anyone',n:3,m:'nobump'},
  4:{icon:'🚧',text:'Jump 2 barriers with DASH',n:2,m:'jump'},5:{icon:'☄️',text:'Dodge 5 meteors up close',n:5,m:'meteor'}};
@@ -419,6 +424,9 @@ function noise(d,v=.2,freq=900,delay=0,type='lowpass',dest){
  s.connect(f).connect(g);if(dest)g.connect(dest);else sfxOut(g);s.start(t);s.stop(t+d+.02);
 }
 const SFX={
+ animal:k=>{if(k==='horse'){tone(620,.32,'sawtooth',.05,.55);tone(880,.18,'square',.02,.7,.04);noise(.12,.08,500,.2)}
+  else if(k==='cow'){tone(150,.6,'sawtooth',.07,.8);tone(300,.5,'sine',.02,.8)}
+  else{tone(1150,.07,'square',.035,1.4);tone(1450,.08,'square',.03,.85,.09)}},
  pickup(){tone(660,.08,'square',.08);tone(990,.12,'square',.08,1,.07);tone(1320,.18,'sine',.06,1,.12);tone(165,.12,'sine',.12,.7)},
  deliver(c){duck(.35,.45);const b=1+Math.min(c,15)*.035;[523,659,784,1047].forEach((f,i)=>tone(f*b,.13,'triangle',.14,1,i*.06));
   [1568,2093,2637].forEach((f,i)=>tone(f*b,.1,'sine',.05,1,.26+i*.05));tone(110,.25,'sine',.22,.5);noise(.35,.08,3500,.02,'bandpass')},
@@ -470,6 +478,7 @@ const TRACKS={
  4:{bpm:104,prog:[[41,45,48,53],[45,48,52,57],[46,50,53,58],[48,52,55,60]],drums:1,arp:'sine',bass:'sine',pad:true,oct:24},
  5:{bpm:124,prog:[[38,41,45,50],[34,38,41,46],[41,45,48,53],[36,40,43,48]],drums:2,arp:'square',bass:'sawtooth',pad:true},
  6:{bpm:110,prog:[[45,48,52,57],[43,46,50,55],[41,45,48,53],[40,44,47,52]],drums:1,arp:'triangle',bass:'triangle',pad:true},
+ 8:{bpm:112,prog:[[48,52,55,60],[53,57,60,65],[55,59,62,67],[48,52,55,60]],drums:1,arp:'triangle',bass:'triangle',pad:true},
  7:{bpm:128,prog:[[50,53,57,62],[46,50,53,58],[48,52,55,60],[45,49,52,57]],drums:2,arp:'square',bass:'sawtooth'},
 };
 function mNote(t,m,d,type,v){const o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.setValueAtTime(mtof(m),t);
@@ -511,13 +520,16 @@ function ambInit(){
 }
 // [lowType,lowFreq,lowGain, highType,highFreq,highGain, drone, details]
 // levels balanced with an analyser on the master bus: every bed sits around -40 dBFS under the music
-const AMB={0:['lowpass',300,.17,'bandpass',1800,.04,0,'birds'],1:['lowpass',220,.16,'highpass',5200,.022,0,'crickets'],6:['bandpass',520,.14,'highpass',3200,.028,0,'wind'],
+const AMB={8:['lowpass',320,.15,'bandpass',2200,.035,0,'farm'],0:['lowpass',300,.17,'bandpass',1800,.04,0,'birds'],1:['lowpass',220,.16,'highpass',5200,.022,0,'crickets'],6:['bandpass',520,.14,'highpass',3200,.028,0,'wind'],
  2:['lowpass',200,.08,'highpass',1800,.045,0,'rain'],3:['lowpass',480,.17,'bandpass',1200,.028,0,'harbor'],7:['bandpass',700,.15,'bandpass',2400,.035,0,'market'],
  4:['highpass',900,.07,'lowpass',160,.07,0,'chimes'],5:['lowpass',120,.09,'bandpass',3000,.012,.03,'space']};
 const PENTA=[0,2,4,7,9];
 function ambDetail(kind,t){
  const r=Math.random,T=(f,d,ty,v,sl=1,dl=0)=>tone(f,d,ty,v,sl,dl);
  if(kind==='birds'){const f=2400+r()*900;T(f,.07,'sine',.02,1.25);T(f*1.1,.06,'sine',.016,1.2,.1);return 3+r()*5}
+ if(kind==='farm'){const x=r();if(x<.18){T(150,.7,'sawtooth',.03,.78);return 6+r()*6} // distant moo
+  if(x<.3){T(700,.12,'square',.012,1.3);T(900,.35,'square',.012,.7,.14);return 6+r()*6} // rooster far away
+  const f=2600+r()*800;T(f,.06,'sine',.02,1.3);T(f*1.12,.05,'sine',.015,1.2,.09);return 2.5+r()*4}
  if(kind==='crickets'){const f=4200+r()*500;for(let i=0;i<4;i++)T(f,.03,'sine',.01,1,i*.06);return 1.2+r()*2}
  if(kind==='harbor'){if(r()<.15){T(110,1.3,'sawtooth',.03);T(82,1.3,'sine',.04);return 8+r()*8}T(1900,.25,'sine',.022,.7);T(1700,.2,'sine',.018,.75,.28);return 4+r()*6}
  if(kind==='market'){const n=784*Math.pow(2,PENTA[Math.floor(r()*5)]/12);T(n,.4,'triangle',.02);T(n*2,.3,'sine',.01,1,.02);return 2.5+r()*4}
@@ -757,6 +769,8 @@ function renderMap(){
  if(zone.lanterns)for(const r of ROAD_ROWS)for(const c of ROAD_COLS){if(!isRoad(c,r))continue;const x=c*T,y=r*T; // strings of lanterns over each crossing
   g.strokeStyle='rgba(255,207,107,.5)';g.lineWidth=1;g.beginPath();g.moveTo(x-2,y+4);g.quadraticCurveTo(x+T/2,y+14,x+T+2,y+4);g.stroke();
   for(let i=0;i<3;i++){const lx=x+10+i*14,ly=y+8+Math.sin(i/2*Math.PI)*3;g.fillStyle=['#ff5a5a','#ffcf6b','#ff8ad8'][i];g.beginPath();g.ellipse(lx,ly,3.5,4.5,0,0,7);g.fill()}}
+ if(zone.style==='village')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.strokeStyle='rgba(40,90,30,.35)';g.lineWidth=1.5;
+  for(let i=0;i<4;i++){const x=c*T+rand(6,42),y=r*T+rand(8,44);g.beginPath();g.moveTo(x-3,y);g.lineTo(x-1,y-5);g.moveTo(x,y);g.lineTo(x,y-6);g.moveTo(x+3,y);g.lineTo(x+1,y-5);g.stroke()}}
  if(zone.style==='moon')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.fillStyle='rgba(255,255,255,.07)';for(let i=0;i<3;i++){g.beginPath();g.arc(c*T+rand(4,44),r*T+rand(4,44),rand(1,2.5),0,7);g.fill()}}
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=deco[r][c];if(!d)continue;const x=c*T,y=r*T;
   if(d.kind==='park'&&zone.style==='moon'){
@@ -767,6 +781,12 @@ function renderMap(){
    for(const t of d.trees){const cx=x+t.x,cy=y+t.y,h=t.r*1.6;g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(cx+2,cy+h*.55,5,2.5,0,0,7);g.fill();
     g.fillStyle='#4f9a5a';rr(g,cx-3,cy-h*.6,6,h*1.1,3);g.fill();rr(g,cx-8,cy-h*.25,4,h*.45,2);g.fill();rr(g,cx+4,cy-h*.45,4,h*.4,2);g.fill();
     g.fillStyle='#6fbf78';g.fillRect(cx-1,cy-h*.5,1.5,h*.8)}
+  }else if(d.kind==='park'&&zone.style==='village'){ // rice paddy with a haystack
+   g.fillStyle=zone.parkC;rr(g,x+4,y+4,T-8,T-8,6);g.fill();g.strokeStyle='rgba(200,240,140,.45)';g.lineWidth=1.5;
+   for(let i=0;i<5;i++){g.beginPath();g.moveTo(x+8,y+9+i*7);g.lineTo(x+T-8,y+9+i*7);g.stroke()}
+   g.strokeStyle='#8a6a45';g.lineWidth=2;rr(g,x+4,y+4,T-8,T-8,6);g.stroke();
+   if(d.trees.length>1){const t=d.trees[0],hx=x+clamp(t.x,14,34),hy=y+clamp(t.y,14,34);g.fillStyle='rgba(0,0,0,.2)';g.beginPath();g.ellipse(hx+2,hy+6,10,4,0,0,7);g.fill();
+    g.fillStyle='#e0b84f';g.beginPath();g.arc(hx,hy,9,Math.PI,0);g.lineTo(hx+9,hy+4);g.lineTo(hx-9,hy+4);g.fill();g.strokeStyle='#b88a2e';g.lineWidth=1;g.beginPath();g.moveTo(hx-6,hy-2);g.lineTo(hx+6,hy-2);g.stroke()}
   }else if(d.kind==='park'){
    g.fillStyle=zone.parkC;rr(g,x+4,y+4,T-8,T-8,9);g.fill();
    for(const t of d.trees){g.fillStyle='rgba(0,0,0,.2)';g.beginPath();g.arc(x+t.x+2,y+t.y+3,t.r,0,7);g.fill();
@@ -793,6 +813,8 @@ function renderMap(){
    g.fillStyle=d.color;rr(g,bx,top,bw,rh,5);g.fill();
    g.fillStyle=zone.style==='snow'?'#ffffff':shade(d.color,.12);rr(g,bx+5,top+4,bw-10,rh-9,3);g.fill();
    if(zone.style==='snow'){g.fillStyle='#fff';rr(g,bx-1,top-1,bw+2,7,4);g.fill()}
+   if(zone.style==='village'){g.strokeStyle=shade(d.color,-.3);g.lineWidth=2;g.beginPath();g.moveTo(bx+3,top+rh/2);g.lineTo(bx+bw-3,top+rh/2);g.stroke();
+    g.strokeStyle=shade(d.color,-.12);g.lineWidth=1;for(let i=1;i<5;i++){g.beginPath();g.moveTo(bx+i*bw/5,top+3);g.lineTo(bx+i*bw/5,top+rh-3);g.stroke()}}
    g.fillStyle=zone.win;g.globalAlpha=zone.winA;
    for(let i=0;i<2;i++)for(let j=0;j<2;j++)if(d.win>>(i*2+j)&1)g.fillRect(bx+9+i*12,top+7+j*9,6,5);
    g.globalAlpha=1;
@@ -843,21 +865,43 @@ function updateCars(dt){
 
 // ---------- night market crowd: people wander tile to tile along the streets ----------
 const PED_SHIRTS=['#ff5a5a','#ffcf6b','#8fe3ff','#c9a7ff','#45e6a5','#ff8ad8','#ffffff'];
+const ANIMALS={
+ horse:{e:'🐎',s:34,spd:[80,105],r:11,push:380,say:['NEIGH!','WHOA!'],cost:2},
+ cow:{e:'🐄',s:32,spd:[12,20],r:12,push:250,say:['MOO!'],cost:0},
+ chicken:{e:'🐔',s:20,spd:[38,58],r:6,push:0,say:['BAWK!','CLUCK!'],cost:0}};
+const ANIMAL_MIX=['horse','chicken','cow','horse','chicken','chicken','cow','horse'];
+function makeAnimal(kind,t){const p=center(t.c,t.r),A=ANIMALS[kind];return{x:p.x,y:p.y,tc:t.c,tr:t.r,pc:-1,pr:-1,spd:rand(A.spd[0],A.spd[1]),animal:kind,ph:rand(0,7),oof:0,face:RNG()<.5?1:-1,wait:0}}
 function spawnPeds(){
- peds=[];if(!zone.crowd)return;const pt=player?tileOf(player):{c:12,r:6},road=[];
+ peds=[];if(zone.animals){const pt=player?tileOf(player):{c:12,r:6},road=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=4)road.push({c,r});
+  for(let i=0;i<9+loop*2&&road.length;i++)peds.push(makeAnimal(ANIMAL_MIX[i%ANIMAL_MIX.length],road.splice(Math.floor(RNG()*road.length),1)[0]));return}
+ if(!zone.crowd)return;const pt=player?tileOf(player):{c:12,r:6},road=[];
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=4)road.push({c,r});
  for(let i=0;i<12+loop*3&&road.length;i++){const t=road.splice(Math.floor(RNG()*road.length),1)[0],p=center(t.c,t.r);
   peds.push({x:p.x,y:p.y,tc:t.c,tr:t.r,pc:-1,pr:-1,spd:rand(32,52),shirt:pick(PED_SHIRTS),lantern:RNG()<.35,ph:rand(0,7),oof:0})}
 }
 function updatePeds(dt){
- for(const p of peds){p.ph+=dt*9;p.oof=Math.max(0,p.oof-dt);
-  const g=center(p.tc,p.tr),dx=g.x-p.x,dy=g.y-p.y,d=Math.hypot(dx,dy),s=p.spd*dt;
+ for(const p of peds){p.ph+=dt*(p.animal==='horse'?14:9);p.oof=Math.max(0,p.oof-dt);if(p.wait>0){p.wait-=dt;continue}
+  const g=center(p.tc,p.tr),dx=g.x-p.x,dy=g.y-p.y,d=Math.hypot(dx,dy),s=p.spd*dt*(p.oof&&p.animal==='chicken'?2.2:1);
+  if(Math.abs(dx)>1)p.face=dx>0?1:-1;
   if(d>s){p.x+=dx/d*s;p.y+=dy/d*s;continue}
   p.x=g.x;p.y=g.y;const opts=DIRS.map(([a,b])=>({c:p.tc+a,r:p.tr+b})).filter(n=>walkable(n.c,n.r)&&!(n.c===p.pc&&n.r===p.pr));
-  const n=opts.length?opts[Math.floor(Math.random()*opts.length)]:{c:p.pc,r:p.pr};p.pc=p.tc;p.pr=p.tr;p.tc=n.c;p.tr=n.r;
+  // horses gallop in long straight runs; cows stop to graze; chickens peck around
+  const st=opts.find(n=>n.c-p.tc===p.tc-p.pc&&n.r-p.tr===p.tr-p.pr);
+  const n=p.animal==='horse'&&st&&Math.random()<.8?st:opts.length?opts[Math.floor(Math.random()*opts.length)]:{c:p.pc,r:p.pr};p.pc=p.tc;p.pr=p.tr;p.tc=n.c;p.tr=n.r;
+  if(p.animal==='cow'&&Math.random()<.5)p.wait=rand(1,3);else if(p.animal==='chicken'&&Math.random()<.4)p.wait=rand(.2,.8);
  }
 }
+function drawAnimal(p){
+ const A=ANIMALS[p.animal],k=SPR(),moving=p.wait<=0,b=moving?Math.abs(Math.sin(p.ph))*(p.animal==='horse'?3:1.5):0,
+  spr=sprite('ani'+p.animal+k,Math.ceil(A.s*1.3*k),Math.ceil(A.s*1.3*k),(g,w,h)=>{g.font=`${Math.round(A.s*k)}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(A.e,w/2,h/2)});
+ ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(p.x,p.y+A.s*.3,A.s*.42,A.s*.13,0,0,7);ctx.fill();
+ const sz=A.s*1.3;ctx.save();ctx.translate(p.x,p.y-b-A.s*.12);if(p.face>0)ctx.scale(-1,1); // emoji animals face left
+ if(p.oof&&p.animal==='horse')ctx.rotate(Math.sin(p.oof*30)*.15);ctx.drawImage(spr,-sz/2,-sz/2,sz,sz);ctx.restore();
+ if(p.oof)text(p.animal==='chicken'?'🪶':'💢',p.x,p.y-A.s*.75,12,'#fff','center');
+}
 function drawPed(p){
+ if(p.animal){drawAnimal(p);return}
  const b=Math.abs(Math.sin(p.ph))*2;
  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(p.x,p.y+8,7,3,0,0,7);ctx.fill();
  ctx.fillStyle=p.shirt;rr(ctx,p.x-6,p.y-6-b,12,12,5);ctx.fill();
@@ -905,6 +949,7 @@ function newOrder(force,from){
 const BOSSES={
  0:{name:'MONSTER TRUCK',icon:'🚚',tip:'A monster truck is hunting you!',kind:'truck'},
  1:{name:'BLACKOUT',icon:'🌑',tip:'Lights out, and every driver is angry!',kind:'blackout'},
+ 8:{name:'STAMPEDE',icon:'🐎',tip:'The whole herd broke loose!',kind:'stampede'},
  6:{name:'MEGA SANDSTORM',icon:'🌪️',tip:'Endless sandstorm. Fight the wind!',kind:'storm'},
  2:{name:'THUNDERSTORM',icon:'⚡',tip:'Lightning strikes the glowing circles!',kind:'bolt'},
  3:{name:'TRAIN RUSH',icon:'🚆',tip:'Non-stop trains. Time your crossings!',kind:'trains'},
@@ -930,6 +975,8 @@ function startBoss(){
   const t=far.length?seeded(hashSeed(runSeed+deliveries*17),()=>pick(far)):nearestRoad({c:0,r:0}),q=center(t.c,t.r);bossEnt={x:q.x,y:q.y,tc:t.c,tr:t.r,ang:0,smoke:0}}
  if(b.kind==='blackout')for(const k of cars){k.wasRage=k.rage;if(!k.sc)k.rage=true}
  if(b.kind==='storm'){stormOn=999;windDir=Math.random()<.5?1:-1}
+ if(b.kind==='stampede'){const pt=tileOf(player),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=5)road.push({c,r});
+  seeded(hashSeed(runSeed+deliveries*31),()=>{for(let i=0;i<8+loop*2&&road.length;i++){const a=makeAnimal('horse',road.splice(Math.floor(RNG()*road.length),1)[0]);a.extra=true;a.spd*=1.15;peds.push(a)}})}
  if(b.kind==='crowd'){const keep=zone.crowd,before=peds;zone.crowd=true; // triple the crowd for the festival
   seeded(hashSeed(runSeed+deliveries*29),()=>{loop+=2;spawnPeds();loop-=2});zone.crowd=keep;for(const p of peds)p.extra=true;peds=before.concat(peds)}
 }
@@ -937,7 +984,7 @@ function endBoss(){
  if(!boss)return;const b=boss;boss=null;bossEnt=null;
  if(b.kind==='blackout')for(const k of cars)if('wasRage' in k){k.rage=k.wasRage;delete k.wasRage}
  if(b.kind==='storm'){stormOn=0;stormT=rand(8,12)}
- if(b.kind==='crowd')peds=peds.filter(p=>!p.extra);
+ if(b.kind==='crowd'||b.kind==='stampede')peds=peds.filter(p=>!p.extra);
 }
 function bossDefeated(){
  const b=boss;if(!b)return;endBoss();
@@ -1427,7 +1474,12 @@ function update(dt){
  updateCars(dt);updatePeds(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
- if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);if(d<P.r+8){
+ if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);
+  if(p.animal){const A=ANIMALS[p.animal];if(d>=P.r*.8+A.r)continue;bumpCd=.7;p.oof=.8;if(order)order.bumped=true;buzz(p.animal==='horse'?[30,20,40]:15);sfxAt(p,()=>SFX.animal(p.animal));
+   if(A.push){P.vx=dx/(d||1)*A.push;P.vy=dy/(d||1)*A.push}else{P.vx*=.4;P.vy*=.4;burst(p.x,p.y,8,['#ffffff','#f3efe6'])}
+   if(A.cost&&P.inv<=0){shiftTime=Math.max(0,shiftTime-A.cost);shake=Math.max(shake,.15);floats.push({x:P.x,y:P.y-52,text:`-${A.cost}s`,color:'#ff5a6e',t:1,max:1,size:18})}
+   floats.push({x:P.x,y:P.y-30,text:pick(A.say),color:'#ffcf6b',t:.8,max:.8,size:15});break}
+  if(d<P.r+8){
   P.vx=dx/(d||1)*260;P.vy=dy/(d||1)*260;bumpCd=.7;if(order)order.bumped=true;p.oof=.8;SFX.bump();buzz(15);floats.push({x:P.x,y:P.y-30,text:pick(['OOF!','SORRY!','EXCUSE ME!']),color:'#ffcf6b',t:.8,max:.8,size:15});break}}
  if(P.inv<=0){
   for(const k of cars){const R=carRect(k);if(circleHitsRect(P,{x:R.x+3,y:R.y+3,w:R.w-6,h:R.h-6})){crash(R.x+R.w/2,R.y+R.h/2,k.angry?'rage':'car');break}}
@@ -2120,7 +2172,7 @@ function drawMenu(){
   if(i<ZONES.length-1){ctx.fillStyle='rgba(255,255,255,.15)';ctx.fillRect(x+21,y-1,8,2)}});
  if(mouse.y>505&&mouse.y<550){const i=Math.round((mouse.x-cx)/ZS+Z0);if(i>=0&&i<ZONES.length)text(i<=(best.maxZone||0)?ZONES[i].name+' · '+ZONES[i].tag:'Locked — reach it in a run',cx,558,11,'#bcd0ff','center',800)}
  text('📦 Pick up  →  follow the dots  →  🏠 Drop off   ·   Fast x2 · No crash x3',cx,580,13,'#dfe5f0','center',700);
- text('8 zones · sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
+ text('9 zones · horses, sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
  text(touchUI?(ctrlMode==='dpad'?'D-pad (bottom-left) moves · DASH (bottom-right) · switch to joystick bottom-left':'Joystick (bottom-left) moves · DASH (bottom-right) · switch to D-pad bottom-left'):'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
  text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap START DELIVERY to play':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
 }
