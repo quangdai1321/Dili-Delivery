@@ -432,9 +432,13 @@ const SFX={
   [1568,2093,2637].forEach((f,i)=>tone(f*b,.1,'sine',.05,1,.26+i*.05));tone(110,.25,'sine',.22,.5);noise(.35,.08,3500,.02,'bandpass')},
  stars(n){for(let i=0;i<n;i++)tone(880+i*140,.07,'square',.05,1,.32+i*.09)},
  coin(i){tone(1760+i*70,.09,'sine',.05);tone(2637+i*70,.06,'sine',.025,1,.02)},
- step(k,alt=0){const v=alt?.85:1;if(k==='sand'){noise(.08,.08*v,1100,0,'bandpass');noise(.05,.03*v,3000,.02,'highpass')}else if(k==='snow')noise(.09,.08*v,3800,0,'highpass');
-  else if(k==='dirt'){noise(.07,.075*v,alt?850:1000,0,'bandpass');noise(.04,.025*v,2600,.015,'highpass');tone(alt?88:98,.05,'sine',.04,.7)}
-  else if(k==='moon')noise(.06,.04,500,0,'lowpass');else{noise(.035,.06*v,alt?1500:1750,0,'bandpass');tone(alt?92:104,.05,'sine',.05,.7)}},
+ // footsteps: the audible part is a mid-range tap/crunch (phone speakers drop everything under ~250Hz); the low thud is only a bonus on headphones
+ step(k,alt=0){const p=alt?.9:1;
+  if(k==='sand'){noise(.09,.2,1500*p,0,'bandpass');noise(.06,.06,3500,.02,'highpass');tone(240*p,.05,'triangle',.04,.6)}
+  else if(k==='snow'){noise(.1,.07,3200*p,0,'highpass');noise(.07,.06,1800*p,.01,'bandpass')}
+  else if(k==='dirt'){noise(.07,.2,1300*p,0,'bandpass');noise(.04,.07,3600,.01,'highpass');tone(300*p,.05,'triangle',.06,.6);tone(110,.06,'sine',.05,.7)}
+  else if(k==='moon'){tone(280*p,.09,'sine',.08,.75);noise(.08,.12,900*p,0,'bandpass')}
+  else{tone(430*p,.05,'triangle',.09,.6);noise(.045,.16,2200*p,0,'bandpass');tone(110,.06,'sine',.06,.7)}},
  crash(){duck(.5,.6);noise(.35,.35,700);tone(170,.35,'sawtooth',.1,.35);tone(62,.4,'sine',.3,.6);noise(.25,.12,6000,.03,'highpass')},
  bump(){tone(140,.07,'square',.05,.7)},
  dash(){tone(240,.16,'triangle',.09,3);noise(.18,.08,2500,0,'highpass')},
