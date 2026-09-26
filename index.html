@@ -126,7 +126,16 @@ function shade(hex,amt){const n=parseInt(hex.slice(1),16),f=v=>clamp(Math.round(
 function rr(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
 const font=(s,w=800)=>`${w} ${s}px Nunito,Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif`;
 function text(s,x,y,size,color,align='left',weight=800){ctx.font=font(size,weight);ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillStyle=color;ctx.fillText(s,x,y)}
-function outlined(s,x,y,size,color,align='center'){ctx.font=font(size,900);ctx.textAlign=align;ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=5;ctx.strokeStyle='rgba(5,8,20,.85)';ctx.strokeText(s,x,y);ctx.fillStyle=color;ctx.fillText(s,x,y)}
+const txtCache=new Map(),txtG=document.createElement('canvas').getContext('2d');
+function outlined(s,x,y,size,color,align='center'){
+ const m=ctx.getTransform(),k=Math.hypot(m.a,m.b);if(Math.abs(k-RSU)>.01&&k>.05){
+  const q=Math.max(.5,Math.pow(1.25,Math.ceil(Math.log(k)/Math.log(1.25)))),key=s+'|'+size+'|'+color+'|'+q.toFixed(3);let e=txtCache.get(key);
+  if(e){txtCache.delete(key);txtCache.set(key,e)}else{txtG.font=font(size,900);const w=Math.ceil(txtG.measureText(s).width)+10,h=Math.ceil(size*1.5)+6,cv=document.createElement('canvas');
+   cv.width=Math.max(1,Math.ceil(w*q));cv.height=Math.max(1,Math.ceil(h*q));const g=cv.getContext('2d');g.scale(q,q);g.font=font(size,900);g.textAlign='left';g.textBaseline='middle';
+   g.lineJoin='round';g.lineWidth=5;g.strokeStyle='rgba(5,8,20,.85)';g.strokeText(s,5,h/2);g.fillStyle=color;g.fillText(s,5,h/2);
+   e={cv,w,h};txtCache.set(key,e);if(txtCache.size>90)txtCache.delete(txtCache.keys().next().value)}
+  ctx.drawImage(e.cv,align==='center'?x-e.w/2:align==='right'?x-e.w+5:x-5,y-e.h/2,e.w,e.h);return}
+ ctx.font=font(size,900);ctx.textAlign=align;ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=5;ctx.strokeStyle='rgba(5,8,20,.85)';ctx.strokeText(s,x,y);ctx.fillStyle=color;ctx.fillText(s,x,y)}
 const center=(c,r)=>({x:c*T+T/2,y:HUD+r*T+T/2});
 const tileOf=p=>({c:clamp(Math.floor(p.x/T),0,COLS-1),r:clamp(Math.floor((p.y-HUD)/T),0,ROWS-1)});
 const fmt=n=>Math.round(n).toLocaleString('en-US');
@@ -590,12 +599,15 @@ function resize(){
  if(aspect>=minA){SW=Math.round(H*Math.min(aspect,maxA));ch=r.height;cw=ch*SW/H}else{SW=W;cw=r.width;ch=cw*H/W}
  UX=(SW-W)/2;canvas.style.width=cw+'px';canvas.style.height=ch+'px';
  // UI stays ~2x sharper than the world layer but never above what is needed (fill-rate on phones)
- const dev=window.devicePixelRatio||1,uw=Math.round(cw*Math.min(UI_MAX,dev,uiLow?1:Math.max(1.25,resCap*2))),uh=Math.round(H*uw/SW); // UI: device sharpness (capped)
+ const dev=window.devicePixelRatio||1,uw=Math.round(cw*Math.min(UI_MAX,dev,uiLow?1:resCap>=.9?UI_MAX:1.5)),uh=Math.round(H*uw/SW); // UI: device sharpness (capped)
  if(uw!==canvas.width||uh!==canvas.height){canvas.width=uw;canvas.height=uh;RSU=uw/SW}
  const dpr=Math.min(resCap,dev),w=Math.min(uw,Math.max(Math.round(SW*.35),Math.round(cw*dpr))),h=Math.round(H*w/SW); // world: adaptive, never above the UI
  if(w===wcv.width&&h===wcv.height)return;RS=w/SW;wcv.width=w;wcv.height=h;if(w>=uw)RS=RSU; // same size: world is drawn directly on the screen
  // the pre-rendered map only needs as many pixels as the zoomed-in camera can show
- const mr=clamp(Math.ceil(RS*1.6*2)/2,1,2);if(mr!==MR){MR=mr;mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;if(grid.length)renderMap()}}
+ wantMR=clamp(Math.ceil(RS*1.6*2)/2,1,2);if(wantMR!==MR&&!midRun())applyMR()}
+let wantMR=2;
+const midRun=()=>grid.length&&(mode==='play'||mode==='paused'||mode==='upgrade'||mode==='settings'&&settingsFrom!=='menu');
+function applyMR(){if(wantMR===MR)return;MR=wantMR;mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;if(grid.length)renderMap()}
 addEventListener('resize',resize);
 if(window.ResizeObserver)new ResizeObserver(()=>resize()).observe(document.getElementById('app'));
 const fsOK=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
@@ -721,6 +733,7 @@ function nearestRoad(t){
  return bestT;
 }
 function renderMap(){
+ if(wantMR!==MR){MR=wantMR;mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR}
  const g=mapCanvas.getContext('2d');g.setTransform(MR,0,0,MR,0,0);g.clearRect(0,0,W,ROWS*T);g.fillStyle=zone.ground;g.fillRect(0,0,W,ROWS*T);
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const x=c*T,y=r*T;
   g.fillStyle=grid[r][c]===2?shade(zone.road,.03):grid[r][c]?zone.road:zone.walk;g.fillRect(x,y,T,T);
@@ -1009,7 +1022,7 @@ function doDeliver(di=0){
  rings.push({x:dx,y:dy,t:.6,max:.6,r0:12,r1:120,color:'#45e6a5'},{x:dx,y:dy,t:.45,max:.45,r0:6,r1:70,color:'#fff'});
  {const q=toScreen({x:dx,y:dy});for(let i=0;i<9;i++)coins.push({sx:q.x,sy:q.y,cx:q.x+rand(-120,120),cy:q.y-rand(80,200),t:-i*.045,dur:.65,i})}
  burst(dx,dy,48,CONFETTI,true);player.pop=.45;shake=Math.max(shake,.12);hitStop=.05;camPunch=Math.max(camPunch,.06);
- for(let i=0;i<10;i++){const a=i/10*Math.PI*2,sp=rand(140,260);particles.push({x:dx,y:dy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:.7,max:.7,size:rand(6,10),color:pick(['#ffd34d','#ffffff','#fff3b0']),g:0,rot:rand(0,6),star:true})}
+ for(let i=0;i<10&&particles.length<PART_MAX+10;i++){const a=i/10*Math.PI*2,sp=rand(140,260);particles.push({x:dx,y:dy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:.7,max:.7,size:rand(6,10),color:pick(['#ffd34d','#ffffff','#fff3b0']),g:0,rot:rand(0,6),star:true})}
  rings.push({x:dx,y:dy,t:.25,max:.25,r0:4,r1:46,color:'#ffffff'});
  SFX.deliver(combo);SFX.stars(stars);
  if(COMBO_HYPE.includes(combo)||(combo>30&&combo%10===0)){
@@ -1333,8 +1346,9 @@ canvas.addEventListener('pointerup',endJoy);canvas.addEventListener('pointercanc
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
 // ---------- particles ----------
+const PART_MAX=160; // big bursts stacking up (combo + delivery + boss) were the worst frames
 function burst(x,y,n,colors,confetti){
- if(LOWFX())n=Math.ceil(n*.4);
+ if(LOWFX())n=Math.ceil(n*.4);n=Math.min(n,PART_MAX-particles.length);
  for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),s=rand(80,confetti?330:240);
   particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(confetti?120:0),t:rand(.45,.9),max:.9,size:rand(3,6),color:pick(colors),g:confetti?420:0,rot:rand(0,6)})}
 }
@@ -1954,18 +1968,31 @@ function drawAchPop(){
 function drawResultCard(){
  const rc=resultCard;if(!rc)return;const w=270,h=168,x=W/2-w/2,y=HUD+14,age=rc.max-rc.t;
  let a=Math.min(1,age/.18,rc.t/.35);if(player){const sp=toScreen(player);if(sp.x>x-20&&sp.x<x+w+20&&sp.y<y+h+20)a*=.3}
+ // the card is painted into a cached bitmap (only when its content changes) and that bitmap is scaled in,
+ // instead of re-rasterising all its text at a new scale every frame
+ const bonus=fmt(rc.bonus*Math.min(1,age/.6)),sq=Math.round(Math.min(1,Math.max(0,age-.32)/.56)*12),
+  cv=bakePanel('rc',[rc.no,rc.stars,rc.combo,bonus,sq,zone.accent].join('|'),x-2,y-2,w+4,h+4,()=>paintResultCard(rc,x,y,w,h,age,bonus));
  ctx.save();ctx.globalAlpha=a;const s=.85+.15*easeOutBack(Math.min(1,age/.25));ctx.translate(W/2,y+h/2);ctx.scale(s,s);ctx.translate(-W/2,-(y+h/2));
+ ctx.drawImage(cv,x-2,y-2,w+4,h+4);ctx.restore();
+}
+const bakeCache={};
+function bakePanel(slot,key,x,y,w,h,paint){
+ const m=ctx.getTransform(),q=Math.max(.5,Math.hypot(m.a,m.b));let e=bakeCache[slot];if(!e)e=bakeCache[slot]={cv:document.createElement('canvas'),key:null};
+ key+='|'+q.toFixed(3);if(e.key!==key){const cw=Math.ceil(w*q),ch=Math.ceil(h*q);if(e.cv.width!==cw||e.cv.height!==ch){e.cv.width=cw;e.cv.height=ch}
+  const g=e.cv.getContext('2d'),main=ctx;g.setTransform(q,0,0,q,-x*q,-y*q);g.clearRect(x,y,w,h);ctx=g;try{paint()}finally{ctx=main}e.key=key}
+ return e.cv;
+}
+function paintResultCard(rc,x,y,w,h,age,bonus){
  ctx.fillStyle='rgba(8,14,36,.93)';rr(ctx,x,y,w,h,16);ctx.fill();ctx.strokeStyle=zone.accent;ctx.lineWidth=2;ctx.stroke();
  text('DELIVERY #'+String(rc.no).padStart(2,'0'),x+18,y+20,12,'#aab8d5','left',800);
  for(let i=0;i<5;i++){const on=i<rc.stars,ap=Math.max(0,Math.min(1,(age-.32-i*.09)/.2)),sc=on?easeOutBack(ap):1;
   ctx.save();ctx.translate(x+w-94+i*18,y+20);ctx.scale(sc||.001,sc||.001);drawStar(0,0,7.5,on?'#ffd34d':'#2c3656');ctx.restore()}
  text('COMBO x'+rc.combo,x+18,y+48,22,zone.accent,'left',900);
- const rows=[['Time',rc.time.toFixed(2)+'s'],['Distance',rc.dist+'m'],['Bonus','+'+fmt(rc.bonus*Math.min(1,age/.6))]];
+ const rows=[['Time',rc.time.toFixed(2)+'s'],['Distance',rc.dist+'m'],['Bonus','+'+bonus]];
  rows.forEach((r,i)=>{text(r[0],x+18,y+78+i*20,13,'#8f9cbc','left',700);text(r[1],x+w-18,y+78+i*20,13,'#fff','right',800)});
  let tx=x+18;for(const[on,label]of[[rc.fast,'FAST x2'],[rc.clean,'CLEAN x3']]){if(!on)continue;ctx.font=font(10,900);const tw=ctx.measureText(label).width+12;
   ctx.fillStyle='rgba(69,230,165,.18)';rr(ctx,tx,y+140,tw,17,8);ctx.fill();text(label,tx+tw/2,y+148.5,10,'#45e6a5','center',900);tx+=tw+6}
  text('DELIVERED!',x+w-18,y+149,15,'#45e6a5','right',900);
- ctx.restore();
 }
 function drawBanner(){
  if(!banner)return;const age=banner.max-banner.t,a=Math.min(1,age/.2,banner.t/.4);
@@ -2445,18 +2472,18 @@ addEventListener('appinstalled',()=>{installEvt=null;installed=true;achPops.push
 function installApp(){const e=installEvt;if(!e)return;installEvt=null;e.prompt();e.userChoice.then(c=>{if(c.outcome!=='accepted')installEvt=e}).catch(()=>{})}
 // ---------- boot ----------
 resize();genMap({c:12,r:6});spawnCars();
-let last=performance.now(),perfAcc=0,perfN=0,goodT=0,fpsVal=60;
+let last=performance.now(),perfAcc=0,perfN=0,goodT=0,badN=0,lastScale=0,fpsVal=60;
 function frame(now){
  const dt=Math.min(.1,(now-last)/1000);last=now;
  // adaptive resolution: every 1.5s look at the average frame time; below ~50fps render fewer pixels,
  // after 6s of solid 60fps try a little more. Phones heat up and slow down over a session, so this keeps adjusting.
  fpsVal+=(1/Math.max(dt,1e-3)-fpsVal)*.05;
  if(!document.hidden&&settings.gfx!=='high'){perfAcc+=dt;perfN++;
-  if(perfAcc>=1.5){const avg=perfAcc/perfN;perfAcc=0;perfN=0;
-   if(avg>1/50&&resCap>.6){resCap=Math.max(.6,resCap*.8);goodT=0;resize()}
-   else if(avg>1/50&&!uiLow){uiLow=true;goodT=0;resize()}
-   else if(avg<1/57&&uiLow){if((goodT+=1.5)>=6){uiLow=false;goodT=0;resize()}}
-   else if(avg<1/57){if((goodT+=1.5)>=6&&resCap<gfxMax()){resCap=Math.min(gfxMax(),resCap*1.15);goodT=0;resize()}}else goodT=0}}
+  if(perfAcc>=2){const avg=perfAcc/perfN,calm=now-lastScale>4000;perfAcc=0;perfN=0;
+   if(avg>1/50){goodT=0;if(++badN>=2&&calm){badN=0;
+    if(resCap>.6){resCap=Math.max(.6,resCap*.8);lastScale=now;resize()}else if(!uiLow){uiLow=true;lastScale=now;resize()}}}
+   else{badN=0;if(avg<1/57)goodT+=2;else goodT=0;
+    if(goodT>=8&&calm&&!uiLow&&resCap<gfxMax()&&!midRun()){resCap=Math.min(gfxMax(),resCap*1.15);goodT=0;lastScale=now;resize()}}}}
  // sub-step long frames so game speed stays real-time on slow devices
  if(mode==='play'&&!document.hidden){frameHist[Math.min(100,Math.round(dt*1000))]++;frameN++;frameSum+=dt}
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
