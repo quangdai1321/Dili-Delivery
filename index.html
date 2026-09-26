@@ -300,7 +300,7 @@ function unlockAch(id){
 const equipped=()=>({color:skinItem(meta.equip.color)||SKINS.color[0],hat:meta.equip.hat,trail:meta.equip.trail});
 // mobile niceties (all best-effort)
 // ---------- player settings ----------
-const settings=Object.assign({gfx:'auto',motion:'full',music:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
+const settings=Object.assign({gfx:'auto',motion:'full',music:true,chill:false,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
 const saveSettings=()=>store.set('diliDelivery.settings',settings);
 const LOWFX=()=>settings.gfx==='saver';     // battery saver: fewer particles / ambient effects
 const CALM=()=>settings.motion==='reduced'; // reduced motion: no shake, zoom kicks, big flashes or speed lines
@@ -432,8 +432,9 @@ const SFX={
   [1568,2093,2637].forEach((f,i)=>tone(f*b,.1,'sine',.05,1,.26+i*.05));tone(110,.25,'sine',.22,.5);noise(.35,.08,3500,.02,'bandpass')},
  stars(n){for(let i=0;i<n;i++)tone(880+i*140,.07,'square',.05,1,.32+i*.09)},
  coin(i){tone(1760+i*70,.09,'sine',.05);tone(2637+i*70,.06,'sine',.025,1,.02)},
- step(k){if(k==='sand'){noise(.07,.05,1100,0,'bandpass');noise(.05,.02,3000,.02,'highpass')}else if(k==='snow')noise(.08,.05,3800,0,'highpass');
-  else if(k==='moon')noise(.05,.025,500,0,'lowpass');else{noise(.03,.035,1700,0,'bandpass');tone(95,.04,'sine',.03,.7)}},
+ step(k,alt=0){const v=alt?.85:1;if(k==='sand'){noise(.08,.08*v,1100,0,'bandpass');noise(.05,.03*v,3000,.02,'highpass')}else if(k==='snow')noise(.09,.08*v,3800,0,'highpass');
+  else if(k==='dirt'){noise(.07,.075*v,alt?850:1000,0,'bandpass');noise(.04,.025*v,2600,.015,'highpass');tone(alt?88:98,.05,'sine',.04,.7)}
+  else if(k==='moon')noise(.06,.04,500,0,'lowpass');else{noise(.035,.06*v,alt?1500:1750,0,'bandpass');tone(alt?92:104,.05,'sine',.05,.7)}},
  crash(){duck(.5,.6);noise(.35,.35,700);tone(170,.35,'sawtooth',.1,.35);tone(62,.4,'sine',.3,.6);noise(.25,.12,6000,.03,'highpass')},
  bump(){tone(140,.07,'square',.05,.7)},
  dash(){tone(240,.16,'triangle',.09,3);noise(.18,.08,2500,0,'highpass')},
@@ -487,7 +488,17 @@ function mKick(t){const o=actx.createOscillator(),g=actx.createGain();o.frequenc
  g.gain.setValueAtTime(.55,t);g.gain.exponentialRampToValueAtTime(.0001,t+.16);o.connect(g).connect(music.gain);o.start(t);o.stop(t+.18)}
 function mNoise(t,d,v,freq,type){const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();s.buffer=getNoise();f.type=type;f.frequency.value=freq;
  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(f).connect(g).connect(music.gain);s.start(t,Math.random()*.3);s.stop(t+d+.02)}
+// CHILL: same chords, no drums, soft pads, a lazy sine arpeggio that skips notes, brushed hats
+function playChill(tr,step,t,spb){
+ const s=step%16,ch=tr.prog[Math.floor(step/16)%tr.prog.length],root=ch[0];
+ if(s===0){ch.forEach(m=>mNote(t,m+12,spb*16,'sine',.03));mNote(t,root-12,spb*7,'sine',.11)}
+ if(s===8)mNote(t,ch[2]-12,spb*6,'sine',.08);
+ if(s%2===0&&Math.random()>.28){const i=[0,2,1,3,2,1,3,0][s/2];mNote(t+(s%4===2?spb*.12:0),ch[i]+24,spb*3,'sine',.032)}
+ if(s%4===2)mNoise(t,.05,.022,7500,'highpass');
+ if(s===4||s===12)mNoise(t,.07,.035,2400,'bandpass');
+}
 function playStep(tr,step,t,spb){
+ if(settings.chill){playChill(tr,step,t,spb);return}
  const s=step%16,ch=tr.prog[Math.floor(step/16)%tr.prog.length],root=ch[0];
  const inten=mode==='play'?(boss||combo>=8?2:combo>=3?1:0):0;
  if(tr.pad&&s===0)ch.forEach(m=>mNote(t,m+12,spb*15,'sine',.028));
@@ -569,14 +580,14 @@ function musicTick(){
  const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||(mode==='settings'&&settingsFrom==='menu')?'menu':String(zone.id);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
-  const tr=TRACKS[music.track],spb=60/(tr.bpm*(mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
+  const tr=TRACKS[music.track],spb=60/(tr.bpm*(settings.chill?.72:mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
   if(!muted&&settings.music)playStep(tr,music.step,music.next,spb);
   music.next+=spb;music.step++;
  }
  const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?.3:mode==='over'?.12:.14;
  if(vol!==music.vol){music.vol=vol;music.gain.gain.setTargetAtTime(vol,now,.2)}
  // the mix "opens up" as the combo grows, goes muffled (underwater) when paused
- const cut=mode==='paused'||mode==='upgrade'||(mode==='settings'&&settingsFrom==='paused')?650:mode==='over'?1100:mode==='play'?(boss?16000:2600+Math.min(combo,10)*1100):16000;
+ const cut=mode==='paused'||mode==='upgrade'||(mode==='settings'&&settingsFrom==='paused')?650:mode==='over'?1100:mode==='play'?(settings.chill?2400:boss?16000:2600+Math.min(combo,10)*1100):settings.chill?5000:16000;
  if(cut!==music.cut){music.cut=cut;music.filt.frequency.setTargetAtTime(cut,now,.25)}
  ambTick(now);
 }
@@ -1463,7 +1474,7 @@ function update(dt){
  const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>40*dt;
  if(Math.abs(P.vx)>20)P.face=Math.sign(P.vx);
  P.faceS+=(P.face-P.faceS)*Math.min(1,dt*14);{const s0=Math.floor(P.step/Math.PI);P.step+=moved*.11;
-  if(P.moving&&P.dash<=0&&!zone.ice&&Math.floor(P.step/Math.PI)!==s0)SFX.step(onSand?'sand':zone.snow?'snow':zone.lowgrav?'moon':'road')}
+  if(P.moving&&P.dash<=0&&!zone.ice&&Math.floor(P.step/Math.PI)!==s0)SFX.step(onSand?'sand':zone.snow?'snow':zone.lowgrav?'moon':zone.style==='village'?'dirt':'road',Math.floor(P.step/Math.PI)%2)}
  if(P.wasMoving&&!P.moving&&!inp.x&&!inp.y)P.land=.14;P.wasMoving=P.moving;P.land=Math.max(0,P.land-dt);
  P.lean+=(clamp(P.vx/spd,-1,1)*.13-P.lean)*Math.min(1,dt*10);
  if(P.moving&&(P.dustT-=dt)<=0){P.dustT=onSand?.03:.07;dust(P.x,P.y+14)}
@@ -2245,7 +2256,8 @@ function drawSettings(){
  const rows=[
   ['🖼️','Graphics',{auto:'AUTO',high:'HIGH',saver:'BATTERY SAVER'}[settings.gfx],cyc('gfx',['auto','high','saver']),{auto:'Adjusts resolution to keep it smooth',high:'Always sharp (needs a strong device)',saver:'Lower resolution, fewer effects'}[settings.gfx]],
   ['🌀','Screen effects',settings.motion==='full'?'FULL':'REDUCED',cyc('motion',['full','reduced']),settings.motion==='full'?'Shake, zoom kicks and flashes':'No shake, zoom kicks or big flashes'],
-  ['🎵','Music',settings.music?'ON':'OFF',tog('music')],
+  ['🎵','Music',!settings.music?'OFF':settings.chill?'CHILL 🌿':'ARCADE',()=>{if(!settings.music){settings.music=true;settings.chill=false}else if(!settings.chill)settings.chill=true;else settings.music=false;
+   saveSettings();ensureAudio();music.step=0;SFX.pickup()},!settings.music?'No music':settings.chill?'Slow lo-fi beats to relax':'Upbeat, speeds up with your combo'],
   ['🔊','Sound effects',settings.sfx?'ON':'OFF',tog('sfx')],
   touchUI&&['🎮','Controls',ctrlMode==='dpad'?'D-PAD':'JOYSTICK',()=>{toggleCtrl();store.set('diliDelivery.ctrlChosen',true)}],
   touchUI&&['📳','Vibration',settings.vibe?'ON':'OFF',tog('vibe')],
