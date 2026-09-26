@@ -49,6 +49,20 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 | 8 | 🌙 Moon Base | 36 | **Meteors** land on red target circles. Low gravity, floaty movement |
 | ∞ | 🌙 Moon Base II, III… | every 8 more | +15% traffic, train and meteor speed per loop |
 
+### 🎯 Zone goals
+Every zone has its own side objective, shown at the top of the screen and on the zone card. Completing it pays +300 per zone (times the loop), +15 🪙 and +5s. The zone card shows whether you made it. Complete all 8 for the 🎯 Goal Getter achievement.
+
+| Zone | Goal |
+|---|---|
+| 🏙️ Downtown | 3 clean deliveries (no crash) |
+| 🌃 Night District | 3 close calls with cars |
+| 🏜️ Desert Dunes | 2 deliveries without touching sand |
+| ⛈️ Neon Storm | 2 FAST deliveries |
+| ⚓ Sunset Harbor | Grab 2 power-ups |
+| 🏮 Night Market | 3 deliveries without bumping anyone |
+| ❄️ Snow Peak | Jump 2 barriers with DASH |
+| 🌙 Moon Base | Dodge 5 meteors up close |
+
 ### Zone bosses
 The last delivery of every zone is a **💀 BOSS order**. Deliver it while the zone's boss hazard is active to defeat it (+500 per loop, +25 🪙, +6s):
 
@@ -80,7 +94,7 @@ From the 2nd delivery a power-up appears on the road every ~12s (max 2, gone aft
 | 📦 2 Drops | One pickup, two doors, any order | Each door counts as a delivery |
 
 ### Random events (every ~25–35s)
-🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe)
+🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌫️ **Thick fog** (visibility shrinks around Dili; not in the already-dark zones) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe)
 
 ### Dili Style (wardrobe) and achievements
 Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend them in **🎨 Skins** on the menu (or press **K**):
