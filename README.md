@@ -131,11 +131,17 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - 3/4 perspective: buildings show their front walls and cast shadows, and cars have depth.
 - Adaptive resolution: every 1.5s the game checks its frame time. Under ~50fps it renders fewer pixels (down to 0.6x); after 6s of smooth 60fps it steps back up. Phones start at 1.5x. Long frames are sub-stepped so game speed stays real-time.
 - Two layers: the world is drawn at the adaptive resolution while the HUD, text and pop-ups are drawn on a sharper layer, so text stays crisp even when a phone drops the world to 0.6x. Font: Nunito.
+- The HUD is cached and only redrawn when a shown value changes. Roadworks and hurdles are baked into the map texture (only their blinking lights are drawn live), and each car type is a pre-rendered sprite.
+- The world layer is only split off when the adaptive scaler lowers it; otherwise it draws straight to the screen. On very slow devices the UI layer drops to 1x as a last resort.
 - Glows, darkness, sandstorm and warning vignettes are pre-rendered sprites, not per-frame gradients, and the map texture matches the real render scale.
 
 ## Audio & effects
 - Everything is synthesized live with WebAudio: a master compressor and a generated reverb give the music and effects depth, with no audio files.
-- Background music: a procedural loop for the menu and for each zone, with a cymbal at every phrase and a snare fill before the next. It speeds up and adds layers as your combo grows, goes to full intensity during a boss, and gets quieter while paused.
+- Background music: a procedural loop for the menu and for each zone, with a cymbal at every phrase and a snare fill before the next. It speeds up and adds layers as your combo grows, goes to full intensity during a boss, and gets quieter while paused.- **Ambience per zone**, from looping filtered-noise beds, a drone and small one-shot details: city air and birds (Downtown), crickets (Night District), gusting wind that roars during sandstorms (Desert), rain (Neon Storm), waves and gulls with the odd ship horn (Harbor), crowd murmur and vendor chimes (Night Market), wind and wind chimes (Snow Peak), and a hum with station beeps (Moon Base).
+- **Positional sound**: honks, trains, meteors, lightning and the police siren are panned left/right by where they are on screen and get quieter with distance. The nearest car has an engine hum that rises as it approaches, with a Doppler shift.
+- **Footsteps** that match the surface: road, sand crunch, snow, soft moon steps.
+- **Living mix**: the music "opens up" (low-pass filter) as the combo grows, is fully open during bosses, sounds muffled while paused, and ducks under crashes, deliveries, thunder and boss stingers.
+
 - Effects: an iris opening at the start of a run, camera zoom kicks on deliveries, combos and boss wins, star sparkles on delivery, speed lines while dashing, a red pulse on crashes, a glowing screen edge on combo milestones, coins flying to the score, hit-stop, dizzy stars and zone weather.
 
 ## Online leaderboard (Supabase)
