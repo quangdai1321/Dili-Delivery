@@ -42,21 +42,25 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 | 1 | 🏙️ Downtown | start | Light traffic |
 | 2 | 🐴 Country Village | 5 deliveries | **Animals** on dirt roads: 🐎 horses gallop in long straight runs (a kick knocks you back and costs 2s), 🐄 cows stop to graze in the way, 🐔 chickens slow you down. DASH hops past them |
 | 3 | 🌃 Night District | 9 | Dark, alleys, 💢 road-rager cars |
-| 4 | 🏜️ Desert Dunes | 13 | **Sand** slows Dili down; **sandstorms** blind you and push you sideways |
-| 5 | ⛈️ Neon Storm | 17 | Rain, low visibility, lightning |
-| 6 | ⚓ Sunset Harbor | 22 | **Trains**: signals flash red and a bell rings, then a train sweeps the track |
-| 7 | 🏮 Night Market | 27 | **Crowds** wander the streets: bumping into people knocks you back, and cars stop for them |
-| 8 | ❄️ Snow Peak | 33 | **Ice**: Dili slides. Snowfall, snowman roadblocks |
-| 9 | 🌙 Moon Base | 39 | **Meteors** land on red target circles. Low gravity, floaty movement |
+| 4 | 🏖️ Sunny Beach | 13 | Boardwalk, palms and gulls. 🦀 **Crabs** scuttle around: a pinch knocks you back and costs 1s |
+| 5 | 🏜️ Desert Dunes | 17 | **Sand** slows Dili down; **sandstorms** blind you and push you sideways |
+| 6 | 🐒 Jungle Trail | 21 | 🐒 **Monkeys steal your package!** The thief runs away from you (the path and arrow follow it). Catch it within 9s to get the package back (+3 🪙) or the order fails. DASH past monkeys to stay safe |
+| 7 | ⛈️ Neon Storm | 25 | Rain, low visibility, lightning |
+| 8 | ⚓ Sunset Harbor | 29 | **Trains**: signals flash red and a bell rings, then a train sweeps the track |
+| 9 | 🏮 Night Market | 34 | **Crowds** wander the streets: bumping into people knocks you back, and cars stop for them |
+| 10 | ❄️ Snow Peak | 39 | **Ice**: Dili slides. Snowfall, snowman roadblocks |
+| 11 | 🌙 Moon Base | 45 | **Meteors** land on red target circles. Low gravity, floaty movement |
 | ∞ | 🌙 Moon Base II, III… | every 8 more | +15% traffic, train and meteor speed per loop |
 
 ### 🎯 Zone goals
-Every zone has its own side objective, shown at the top of the screen and on the zone card. Completing it pays +300 per zone (times the loop), +15 🪙 and +5s. The zone card shows whether you made it. Complete all 9 for the 🎯 Goal Getter achievement.
+Every zone has its own side objective, shown at the top of the screen and on the zone card. Completing it pays +300 per zone (times the loop), +15 🪙 and +5s. The zone card shows whether you made it. Complete all 11 for the 🎯 Goal Getter achievement.
 
 | Zone | Goal |
 |---|---|
 | 🏙️ Downtown | 3 clean deliveries (no crash) |
 | 🐴 Country Village | 3 deliveries without bumping an animal |
+| 🏖️ Sunny Beach | 3 deliveries without getting pinched |
+| 🐒 Jungle Trail | Win back 2 stolen packages |
 | 🌃 Night District | 3 close calls with cars |
 | 🏜️ Desert Dunes | 2 deliveries without touching sand |
 | ⛈️ Neon Storm | 2 FAST deliveries |
@@ -72,6 +76,8 @@ The last delivery of every zone is a **💀 BOSS order**. Deliver it while the z
 |---|---|
 | 🏙️ Downtown | 🚚 Monster Truck: chases you along the shortest path |
 | 🐴 Country Village | 🐎 Stampede: a whole extra herd of faster horses |
+| 🏖️ Sunny Beach | 🦀 Crab Invasion: crabs everywhere |
+| 🐒 Jungle Trail | 🐒 Monkey Gang: twice the thieves |
 | 🌃 Night District | 🌑 Blackout: near-darkness, every driver is a road rager |
 | 🏜️ Desert Dunes | 🌪️ Mega Sandstorm: a sandstorm that never stops, strong wind |
 | ⛈️ Neon Storm | ⚡ Thunderstorm: lightning strikes the glowing circles |
@@ -80,7 +86,7 @@ The last delivery of every zone is a **💀 BOSS order**. Deliver it while the z
 | ❄️ Snow Peak | ☃️ Avalanche: giant snowballs drop where you're heading |
 | 🌙 Moon Base | ☄️ Meteor Storm: meteors three times as often |
 
-Achievements: 💀 Boss Slayer (first boss) and 👹 Boss Hunter (all 9, unlocks the BOSS HORNS hat).
+Achievements: 💀 Boss Slayer (first boss) and 👹 Boss Hunter (all 11, unlocks the BOSS HORNS hat).
 
 ### 🚧 Jump barriers
 Low striped barriers block some alleys (the traffic-free shortcuts). Walk into one and you crash; **DASH to jump it** (+50 points, +1 🪙). Every dash is now a little hop.
@@ -157,7 +163,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Everything is synthesized live with WebAudio: a master compressor and a generated reverb give the music and effects depth, with no audio files.
 - Background music: a procedural loop for the menu and for each zone, with a cymbal at every phrase and a snare fill before the next. It speeds up and adds layers as your combo grows, goes to full intensity during a boss, and gets quieter while paused.- **Ambience per zone**, from looping filtered-noise beds, a drone and small one-shot details: city air and birds (Downtown), crickets (Night District), gusting wind that roars during sandstorms (Desert), rain (Neon Storm), waves and gulls with the odd ship horn (Harbor), crowd murmur and vendor chimes (Night Market), wind and wind chimes (Snow Peak), and a hum with station beeps (Moon Base).
 - **Positional sound**: honks, trains, meteors, lightning and the police siren are panned left/right by where they are on screen and get quieter with distance. The nearest car has an engine hum that rises as it approaches, with a Doppler shift.
-- **Footsteps** that match the surface: road, village dirt, sand crunch, snow, soft moon steps. Left and right steps sound slightly different.
+- **Footsteps** that match the surface: road, village dirt, sand crunch, snow, soft moon steps. The audible part is a mid-range tap, so they come through on phone speakers too. Left and right steps sound slightly different. They can be turned off separately in Settings → Footsteps.
 - **Music style** (Settings → Music): ARCADE (upbeat, speeds up with your combo) · CHILL 🌿 (slow lo-fi take on each zone's chords: soft pads, lazy arpeggio, brushed hats, no heavy drums) · OFF.
 - **Living mix**: the music "opens up" (low-pass filter) as the combo grows, is fully open during bosses, sounds muffled while paused, and ducks under crashes, deliveries, thunder and boss stingers.
 

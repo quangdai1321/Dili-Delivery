@@ -100,8 +100,14 @@ ZONES[ZONES.length-1].tag='INSANE';ZONES[6].tag='EXPERT+';
 ZONES.splice(1,0,{id:8,name:'COUNTRY VILLAGE',tag:'EASY+',accent:'#9bd35a',alley:.2,park:.22,cars:3,scoot:.5,carSpd:[80,115],barriers:2,route:[10,20],
   road:'#a07a52',mark:'#c9a473',walk:'#86b85a',ground:'#7fae5a',blds:['#c0503a','#e8d8b0','#d9a066','#b5835a','#f2e2c4'],parkC:'#5f9e46',win:'#fff3c8',winA:.5,dark:0,
   style:'village',animals:true,clouds:true,tint:'rgba(255,220,120,.04)',icon:'🐴',tip:'🐴 Horses gallop down the roads, cows block the way. DASH to hop past!'});
+ZONES.splice(3,0,{id:9,name:'SUNNY BEACH',tag:'MEDIUM',accent:'#35d6e8',alley:.2,park:.2,cars:5,scoot:.6,carSpd:[95,135],barriers:3,route:[12,22],
+  road:'#b88a5a',mark:'#8e6a42',walk:'#e9cf98',ground:'#f3dfae',blds:['#7fd1e0','#ffb3ba','#fff1a8','#b8f2c9','#ffffff'],parkC:'#f3dfae',win:'#ffffff',winA:.5,dark:0,
+  style:'beach',gulls:true,animals:true,mix:['crab'],herdN:10,tint:'rgba(80,220,255,.05)',icon:'🏖️',tip:'🦀 Crabs scuttle across the boardwalk. A pinch costs 1s!'});
+ZONES.splice(5,0,{id:10,name:'JUNGLE TRAIL',tag:'MEDIUM+',accent:'#5fe07a',alley:.35,park:.38,cars:4,scoot:.7,carSpd:[90,130],barriers:3,route:[12,24],
+  road:'#7a5c3a',mark:'#9a7a52',walk:'#3f6e3a',ground:'#2f5a30',blds:['#8a5a32','#6d4a2b','#a0703d','#7b6a3a'],parkC:'#2a6a34',win:'#ffd98a',winA:.6,dark:.12,
+  style:'jungle',fireflies:true,animals:true,mix:['monkey'],herdN:5,icon:'🐒',tip:'🐒 Monkeys steal your package! Chase them down to get it back.'});
 const zoneById=id=>ZONES.find(z=>z.id===id)||ZONES[0];
-const ZONE_AT=[0,5,9,13,17,22,27,33,39],LOOP_EVERY=8; // deliveries completed before entering each zone; last zone then loops harder
+const ZONE_AT=[0,5,9,13,17,21,25,29,34,39,45],LOOP_EVERY=8; // deliveries completed before entering each zone; last zone then loops harder
 const ROMAN=['','II','III','IV','V','VI','VII','VIII','IX','X'];
 const ROAD_ROWS=[0,4,8,12],ROAD_COLS=[0,6,12,17,23];
 const BLOCK_C=[[1,5],[7,11],[13,16],[18,22]],BLOCK_R=[[1,3],[5,7],[9,11]];
@@ -197,8 +203,9 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.
 const best=Object.assign({score:0,combo:0,time:null,deliveries:0,runs:0,maxZone:0},store.get('diliDelivery.best',{}));
 {const legacy=Number(store.get('diliDeliveryBest',0))||0;if(legacy>best.score)best.score=legacy}
 // v2 inserted zones into the progression: maxZone used to be the old index (== zone id)
-if(!best.zv){best.maxZone=Math.max(0,ZONES.findIndex(z=>z.id===(best.maxZone||0)));best.zv=3;store.set('diliDelivery.best',best)}
-else if(best.zv===2){if(best.maxZone>=1)best.maxZone++;best.zv=3;store.set('diliDelivery.best',best)} // v3: village inserted at index 1
+if(!best.zv){best.maxZone=Math.max(0,ZONES.findIndex(z=>z.id===(best.maxZone||0)));best.zv=4;store.set('diliDelivery.best',best)}
+if(best.zv===2){if(best.maxZone>=1)best.maxZone++;best.zv=3} // v3: village inserted at index 1
+if(best.zv===3){const m=best.maxZone||0;best.maxZone=m>=4?m+2:m===3?4:m;best.zv=4;store.set('diliDelivery.best',best)} // v4: beach at 3, jungle at 5
 // daily challenge: same seeded city + orders for everyone on the same (local) day
 const DAY0=Date.UTC(2026,8,24); // Daily #1
 function today(){const d=new Date(),y=d.getFullYear(),m=d.getMonth(),dd=d.getDate();return{key:y*10000+(m+1)*100+dd,no:Math.round((Date.UTC(y,m,dd)-DAY0)/864e5)+1}}
@@ -237,8 +244,8 @@ const ACHS=[
  {id:'daily',icon:'📅',name:'Daily Grinder',desc:'Play a Daily Challenge',coins:30},
  {id:'challenge',icon:'⚔️',name:'Challenger',desc:"Beat a friend's challenge",coins:60,item:'t_rainbow'},
  {id:'boss1',icon:'💀',name:'Boss Slayer',desc:'Defeat your first zone boss',coins:60},
- {id:'goals',icon:'🎯',name:'Goal Getter',desc:'Complete the goal of all 9 zones',coins:150},
- {id:'bosses',icon:'👹',name:'Boss Hunter',desc:'Defeat all 9 zone bosses',coins:200,item:'h_horns'},
+ {id:'goals',icon:'🎯',name:'Goal Getter',desc:'Complete the goal of all 11 zones',coins:150},
+ {id:'bosses',icon:'👹',name:'Boss Hunter',desc:'Defeat all 11 zone bosses',coins:200,item:'h_horns'},
 ];
 const meta=Object.assign({coins:0,crashes:0,bosses:{},owned:['c_blue','h_none','t_ghost'],equip:{color:'c_blue',hat:'h_none',trail:'t_ghost'},ach:{}},store.get('diliDelivery.meta',{}));
 const saveMeta=()=>store.set('diliDelivery.meta',meta);
@@ -281,6 +288,7 @@ const missionsDone=()=>{const m=missionState();return m.ids.filter(id=>m.done[id
 // each zone has its own side objective, built around what makes that zone different
 const ZOBJ={0:{icon:'😇',text:'Make 3 clean deliveries (no crash)',n:3,m:'clean'},1:{icon:'😎',text:'Get 3 close calls with cars',n:3,m:'near'},
  8:{icon:'🐴',text:'Deliver 3 orders without bumping an animal',n:3,m:'nobump'},
+ 9:{icon:'🦀',text:'Deliver 3 orders without getting pinched',n:3,m:'nobump'},10:{icon:'🐒',text:'Win back 2 stolen packages',n:2,m:'reclaim'},
  6:{icon:'🏜️',text:'Deliver 2 orders without touching sand',n:2,m:'nosand'},2:{icon:'⚡',text:'Make 2 FAST deliveries',n:2,m:'fast'},
  3:{icon:'🚀',text:'Grab 2 power-ups',n:2,m:'power'},7:{icon:'🙏',text:'Deliver 3 orders without bumping anyone',n:3,m:'nobump'},
  4:{icon:'🚧',text:'Jump 2 barriers with DASH',n:2,m:'jump'},5:{icon:'☄️',text:'Dodge 5 meteors up close',n:5,m:'meteor'}};
@@ -300,7 +308,7 @@ function unlockAch(id){
 const equipped=()=>({color:skinItem(meta.equip.color)||SKINS.color[0],hat:meta.equip.hat,trail:meta.equip.trail});
 // mobile niceties (all best-effort)
 // ---------- player settings ----------
-const settings=Object.assign({gfx:'auto',motion:'full',music:true,chill:false,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
+const settings=Object.assign({gfx:'auto',motion:'full',music:true,chill:false,steps:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
 const saveSettings=()=>store.set('diliDelivery.settings',settings);
 const LOWFX=()=>settings.gfx==='saver';     // battery saver: fewer particles / ambient effects
 const CALM=()=>settings.motion==='reduced'; // reduced motion: no shake, zoom kicks, big flashes or speed lines
@@ -424,7 +432,9 @@ function noise(d,v=.2,freq=900,delay=0,type='lowpass',dest){
  s.connect(f).connect(g);if(dest)g.connect(dest);else sfxOut(g);s.start(t);s.stop(t+d+.02);
 }
 const SFX={
- animal:k=>{if(k==='horse'){tone(620,.32,'sawtooth',.05,.55);tone(880,.18,'square',.02,.7,.04);noise(.12,.08,500,.2)}
+ animal:k=>{if(k==='crab'){tone(2100,.035,'square',.03,.6);tone(1700,.035,'square',.03,.6,.07);return}
+  if(k==='monkey'){for(let i=0;i<3;i++)tone(600+i*160,.09,'square',.035,1.6,i*.09);return}
+  if(k==='horse'){tone(620,.32,'sawtooth',.05,.55);tone(880,.18,'square',.02,.7,.04);noise(.12,.08,500,.2)}
   else if(k==='cow'){tone(150,.6,'sawtooth',.07,.8);tone(300,.5,'sine',.02,.8)}
   else{tone(1150,.07,'square',.035,1.4);tone(1450,.08,'square',.03,.85,.09)}},
  pickup(){tone(660,.08,'square',.08);tone(990,.12,'square',.08,1,.07);tone(1320,.18,'sine',.06,1,.12);tone(165,.12,'sine',.12,.7)},
@@ -433,7 +443,7 @@ const SFX={
  stars(n){for(let i=0;i<n;i++)tone(880+i*140,.07,'square',.05,1,.32+i*.09)},
  coin(i){tone(1760+i*70,.09,'sine',.05);tone(2637+i*70,.06,'sine',.025,1,.02)},
  // footsteps: the audible part is a mid-range tap/crunch (phone speakers drop everything under ~250Hz); the low thud is only a bonus on headphones
- step(k,alt=0){const p=alt?.9:1;
+ step(k,alt=0){if(!settings.steps)return;const p=alt?.9:1;
   if(k==='sand'){noise(.09,.2,1500*p,0,'bandpass');noise(.06,.06,3500,.02,'highpass');tone(240*p,.05,'triangle',.04,.6)}
   else if(k==='snow'){noise(.1,.07,3200*p,0,'highpass');noise(.07,.06,1800*p,.01,'bandpass')}
   else if(k==='dirt'){noise(.07,.2,1300*p,0,'bandpass');noise(.04,.07,3600,.01,'highpass');tone(300*p,.05,'triangle',.06,.6);tone(110,.06,'sine',.05,.7)}
@@ -483,6 +493,8 @@ const TRACKS={
  4:{bpm:104,prog:[[41,45,48,53],[45,48,52,57],[46,50,53,58],[48,52,55,60]],drums:1,arp:'sine',bass:'sine',pad:true,oct:24},
  5:{bpm:124,prog:[[38,41,45,50],[34,38,41,46],[41,45,48,53],[36,40,43,48]],drums:2,arp:'square',bass:'sawtooth',pad:true},
  6:{bpm:110,prog:[[45,48,52,57],[43,46,50,55],[41,45,48,53],[40,44,47,52]],drums:1,arp:'triangle',bass:'triangle',pad:true},
+ 9:{bpm:104,prog:[[48,52,55,60],[45,48,52,57],[50,53,57,62],[43,47,50,55]],drums:1,arp:'triangle',bass:'sine',pad:true},
+ 10:{bpm:120,prog:[[45,48,52,57],[43,47,50,55],[41,45,48,53],[40,43,47,52]],drums:2,arp:'square',bass:'triangle'},
  8:{bpm:112,prog:[[48,52,55,60],[53,57,60,65],[55,59,62,67],[48,52,55,60]],drums:1,arp:'triangle',bass:'triangle',pad:true},
  7:{bpm:128,prog:[[50,53,57,62],[46,50,53,58],[48,52,55,60],[45,49,52,57]],drums:2,arp:'square',bass:'sawtooth'},
 };
@@ -535,13 +547,16 @@ function ambInit(){
 }
 // [lowType,lowFreq,lowGain, highType,highFreq,highGain, drone, details]
 // levels balanced with an analyser on the master bus: every bed sits around -40 dBFS under the music
-const AMB={8:['lowpass',320,.15,'bandpass',2200,.035,0,'farm'],0:['lowpass',300,.17,'bandpass',1800,.04,0,'birds'],1:['lowpass',220,.16,'highpass',5200,.022,0,'crickets'],6:['bandpass',520,.14,'highpass',3200,.028,0,'wind'],
+const AMB={9:['lowpass',480,.19,'bandpass',1400,.03,0,'beach'],10:['lowpass',260,.12,'highpass',4200,.03,0,'jungle'],8:['lowpass',320,.15,'bandpass',2200,.035,0,'farm'],0:['lowpass',300,.17,'bandpass',1800,.04,0,'birds'],1:['lowpass',220,.16,'highpass',5200,.022,0,'crickets'],6:['bandpass',520,.14,'highpass',3200,.028,0,'wind'],
  2:['lowpass',200,.08,'highpass',1800,.045,0,'rain'],3:['lowpass',480,.17,'bandpass',1200,.028,0,'harbor'],7:['bandpass',700,.15,'bandpass',2400,.035,0,'market'],
  4:['highpass',900,.07,'lowpass',160,.07,0,'chimes'],5:['lowpass',120,.09,'bandpass',3000,.012,.03,'space']};
 const PENTA=[0,2,4,7,9];
 function ambDetail(kind,t){
  const r=Math.random,T=(f,d,ty,v,sl=1,dl=0)=>tone(f,d,ty,v,sl,dl);
  if(kind==='birds'){const f=2400+r()*900;T(f,.07,'sine',.02,1.25);T(f*1.1,.06,'sine',.016,1.2,.1);return 3+r()*5}
+ if(kind==='beach'){const f=1800+r()*300;T(f,.25,'sine',.02,.7);T(f*.9,.2,'sine',.016,.75,.28);return 4+r()*5}
+ if(kind==='jungle'){if(r()<.4){for(let i=0;i<3;i++)T(650+i*110,.11,'square',.01,1.5,i*.17);return 4+r()*5} // far-off monkey hoots
+  T(1800,.14,'sine',.02,1.6);T(2400,.1,'sine',.015,.7,.18);return 2+r()*4}
  if(kind==='farm'){const x=r();if(x<.18){T(150,.7,'sawtooth',.03,.78);return 6+r()*6} // distant moo
   if(x<.3){T(700,.12,'square',.012,1.3);T(900,.35,'square',.012,.7,.14);return 6+r()*6} // rooster far away
   const f=2600+r()*800;T(f,.06,'sine',.02,1.3);T(f*1.12,.05,'sine',.015,1.2,.09);return 2.5+r()*4}
@@ -562,7 +577,7 @@ function ambTick(now){
  const P=AMB[zone.id]||AMB[0],[lt,lf,lg,ht,hf,hg,dg,det]=P,t=runT;
  let lowG=lg,highG=hg,lowF=lf,highF=hf;
  if(det==='wind'||zone.sandstorm){const gust=.6+.4*Math.sin(t*.7)*Math.sin(t*.23+1);lowG*=gust*(1+stormA*2.5);lowF=lf+300*gust+500*stormA;highG*=1+stormA*3}
- if(det==='harbor')lowG*=.5+.5*(.5+.5*Math.sin(t*.8)); // waves swell
+ if(det==='harbor'||det==='beach')lowG*=.5+.5*(.5+.5*Math.sin(t*.8)); // waves swell
  if(det==='market')lowG*=.75+.25*Math.sin(t*3.1)*Math.sin(t*1.7);
  if(det==='chimes')lowG*=.6+.4*Math.sin(t*.5);
  if(evOn('rain')&&det!=='rain'){highG+=.05;}
@@ -610,7 +625,7 @@ let pathCache=[],pathTimer=0,upgradeChoices=[],joy=null,touchUI=false,mouse={x:-
 let daily=false,dailyNo=0,dailySeed=null,dailyTries=0,crashes=0,crashLost=0,orderCrashes=0,lastCrashBy=null,nearMisses=0,nearCd=0,slowmo=0;
 let runClock=0,paceLog=[],paceRef=null,rage=null,shareFile=null,toast=null;
 // v2: seeded runs (challenge links), zone hazards, random events, order types
-let runKind='normal',runSeed=0,chRun=null,sandTiles=new Set(),stormT=10,stormOn=0,stormA=0,windDir=1,peds=[],bumpCd=0;
+let runKind='normal',runSeed=0,chRun=null,sandTiles=new Set(),stormT=10,stormOn=0,stormA=0,windDir=1,peds=[],bumpCd=0,stealCd=0;
 let event=null,evT=25,evCount=0,cop=null,pickups=[],cleanStreak=0,failedOrders=0,chaseCaught=false;
 let MR=2;const mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
@@ -767,6 +782,7 @@ function renderMap(){
  }
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(!grid[r][c])continue;const x=c*T,y=r*T;
   const Lr=isRoad(c-1,r),Rr=isRoad(c+1,r),U=isRoad(c,r-1),D=isRoad(c,r+1);
+  if(zone.style==='beach'){g.fillStyle='rgba(90,60,30,.22)';const hz=(Lr||Rr)&&!U&&!D;for(let i=6;i<T;i+=8)if(hz)g.fillRect(x+i,y+2,1.5,T-4);else g.fillRect(x+2,y+i,T-4,1.5)} // boardwalk planks
   g.fillStyle=zone.mark;g.globalAlpha=grid[r][c]===2?.35:.75;
   if((Lr||Rr)&&!U&&!D){g.fillRect(x+8,y+T/2-1.5,12,3);g.fillRect(x+28,y+T/2-1.5,12,3)}
   else if((U||D)&&!Lr&&!Rr){g.fillRect(x+T/2-1.5,y+8,3,12);g.fillRect(x+T/2-1.5,y+28,3,12)}
@@ -784,7 +800,9 @@ function renderMap(){
  if(zone.lanterns)for(const r of ROAD_ROWS)for(const c of ROAD_COLS){if(!isRoad(c,r))continue;const x=c*T,y=r*T; // strings of lanterns over each crossing
   g.strokeStyle='rgba(255,207,107,.5)';g.lineWidth=1;g.beginPath();g.moveTo(x-2,y+4);g.quadraticCurveTo(x+T/2,y+14,x+T+2,y+4);g.stroke();
   for(let i=0;i<3;i++){const lx=x+10+i*14,ly=y+8+Math.sin(i/2*Math.PI)*3;g.fillStyle=['#ff5a5a','#ffcf6b','#ff8ad8'][i];g.beginPath();g.ellipse(lx,ly,3.5,4.5,0,0,7);g.fill()}}
- if(zone.style==='village')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.strokeStyle='rgba(40,90,30,.35)';g.lineWidth=1.5;
+ if(zone.style==='beach')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue; // shells and pebbles in the sand
+  for(let i=0;i<3;i++){g.fillStyle=pick(['rgba(255,255,255,.7)','rgba(255,170,180,.6)','rgba(160,120,80,.35)']);g.beginPath();g.arc(c*T+rand(5,43),r*T+rand(5,43),rand(1,2.2),0,7);g.fill()}}
+ if(zone.style==='village'||zone.style==='jungle')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.strokeStyle=zone.style==='jungle'?'rgba(10,40,12,.45)':'rgba(40,90,30,.35)';g.lineWidth=1.5;
   for(let i=0;i<4;i++){const x=c*T+rand(6,42),y=r*T+rand(8,44);g.beginPath();g.moveTo(x-3,y);g.lineTo(x-1,y-5);g.moveTo(x,y);g.lineTo(x,y-6);g.moveTo(x+3,y);g.lineTo(x+1,y-5);g.stroke()}}
  if(zone.style==='moon')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.fillStyle='rgba(255,255,255,.07)';for(let i=0;i<3;i++){g.beginPath();g.arc(c*T+rand(4,44),r*T+rand(4,44),rand(1,2.5),0,7);g.fill()}}
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=deco[r][c];if(!d)continue;const x=c*T,y=r*T;
@@ -796,6 +814,12 @@ function renderMap(){
    for(const t of d.trees){const cx=x+t.x,cy=y+t.y,h=t.r*1.6;g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(cx+2,cy+h*.55,5,2.5,0,0,7);g.fill();
     g.fillStyle='#4f9a5a';rr(g,cx-3,cy-h*.6,6,h*1.1,3);g.fill();rr(g,cx-8,cy-h*.25,4,h*.45,2);g.fill();rr(g,cx+4,cy-h*.45,4,h*.4,2);g.fill();
     g.fillStyle='#6fbf78';g.fillRect(cx-1,cy-h*.5,1.5,h*.8)}
+  }else if(d.kind==='park'&&zone.style==='beach'){ // palm tree and a beach umbrella
+   g.fillStyle=shade(zone.walk,.06);rr(g,x+4,y+4,T-8,T-8,9);g.fill();
+   const t=d.trees[0],px=x+clamp(t.x,14,34),py=y+clamp(t.y,16,34);g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(px+3,py+9,11,4,0,0,7);g.fill();
+   g.strokeStyle='#9a6a3a';g.lineWidth=3;g.beginPath();g.moveTo(px,py+8);g.quadraticCurveTo(px+5,py,px+2,py-8);g.stroke();
+   g.fillStyle='#3fa34d';for(let i=0;i<5;i++){const a=i/5*Math.PI*2;g.beginPath();g.ellipse(px+2+Math.cos(a)*6,py-8+Math.sin(a)*4,7,2.6,a,0,7);g.fill()}
+   if(d.trees.length>1){const u=d.trees[1],ux=x+clamp(u.x,12,36),uy=y+clamp(u.y,12,36);for(let i=0;i<6;i++){g.fillStyle=i%2?'#ffffff':'#ff5a6e';g.beginPath();g.moveTo(ux,uy);g.arc(ux,uy,8,i/6*Math.PI*2,(i+1)/6*Math.PI*2);g.fill()}}
   }else if(d.kind==='park'&&zone.style==='village'){ // rice paddy with a haystack
    g.fillStyle=zone.parkC;rr(g,x+4,y+4,T-8,T-8,6);g.fill();g.strokeStyle='rgba(200,240,140,.45)';g.lineWidth=1.5;
    for(let i=0;i<5;i++){g.beginPath();g.moveTo(x+8,y+9+i*7);g.lineTo(x+T-8,y+9+i*7);g.stroke()}
@@ -828,7 +852,7 @@ function renderMap(){
    g.fillStyle=d.color;rr(g,bx,top,bw,rh,5);g.fill();
    g.fillStyle=zone.style==='snow'?'#ffffff':shade(d.color,.12);rr(g,bx+5,top+4,bw-10,rh-9,3);g.fill();
    if(zone.style==='snow'){g.fillStyle='#fff';rr(g,bx-1,top-1,bw+2,7,4);g.fill()}
-   if(zone.style==='village'){g.strokeStyle=shade(d.color,-.3);g.lineWidth=2;g.beginPath();g.moveTo(bx+3,top+rh/2);g.lineTo(bx+bw-3,top+rh/2);g.stroke();
+   if(zone.style==='village'||zone.style==='jungle'){g.strokeStyle=shade(d.color,-.3);g.lineWidth=2;g.beginPath();g.moveTo(bx+3,top+rh/2);g.lineTo(bx+bw-3,top+rh/2);g.stroke();
     g.strokeStyle=shade(d.color,-.12);g.lineWidth=1;for(let i=1;i<5;i++){g.beginPath();g.moveTo(bx+i*bw/5,top+3);g.lineTo(bx+i*bw/5,top+rh-3);g.stroke()}}
    g.fillStyle=zone.win;g.globalAlpha=zone.winA;
    for(let i=0;i<2;i++)for(let j=0;j<2;j++)if(d.win>>(i*2+j)&1)g.fillRect(bx+9+i*12,top+7+j*9,6,5);
@@ -883,28 +907,34 @@ const PED_SHIRTS=['#ff5a5a','#ffcf6b','#8fe3ff','#c9a7ff','#45e6a5','#ff8ad8','#
 const ANIMALS={
  horse:{e:'🐎',s:34,spd:[80,105],r:11,push:380,say:['NEIGH!','WHOA!'],cost:2},
  cow:{e:'🐄',s:32,spd:[12,20],r:12,push:250,say:['MOO!'],cost:0},
- chicken:{e:'🐔',s:20,spd:[38,58],r:6,push:0,say:['BAWK!','CLUCK!'],cost:0}};
+ chicken:{e:'🐔',s:20,spd:[38,58],r:6,push:0,say:['BAWK!','CLUCK!'],cost:0},
+ crab:{e:'🦀',s:22,spd:[45,70],r:8,push:170,say:['PINCH!','SNIP!'],cost:1},
+ monkey:{e:'🐒',s:28,spd:[55,80],r:9,push:0,say:['OOK OOK!'],cost:0,thief:true}};
 const ANIMAL_MIX=['horse','chicken','cow','horse','chicken','chicken','cow','horse'];
 function makeAnimal(kind,t){const p=center(t.c,t.r),A=ANIMALS[kind];return{x:p.x,y:p.y,tc:t.c,tr:t.r,pc:-1,pr:-1,spd:rand(A.spd[0],A.spd[1]),animal:kind,ph:rand(0,7),oof:0,face:RNG()<.5?1:-1,wait:0}}
 function spawnPeds(){
  peds=[];if(zone.animals){const pt=player?tileOf(player):{c:12,r:6},road=[];
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=4)road.push({c,r});
-  for(let i=0;i<9+loop*2&&road.length;i++)peds.push(makeAnimal(ANIMAL_MIX[i%ANIMAL_MIX.length],road.splice(Math.floor(RNG()*road.length),1)[0]));return}
+  const mix=zone.mix||ANIMAL_MIX;for(let i=0;i<(zone.herdN||9)+loop*2&&road.length;i++)peds.push(makeAnimal(mix[i%mix.length],road.splice(Math.floor(RNG()*road.length),1)[0]));return}
  if(!zone.crowd)return;const pt=player?tileOf(player):{c:12,r:6},road=[];
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=4)road.push({c,r});
  for(let i=0;i<12+loop*3&&road.length;i++){const t=road.splice(Math.floor(RNG()*road.length),1)[0],p=center(t.c,t.r);
   peds.push({x:p.x,y:p.y,tc:t.c,tr:t.r,pc:-1,pr:-1,spd:rand(32,52),shirt:pick(PED_SHIRTS),lantern:RNG()<.35,ph:rand(0,7),oof:0})}
 }
 function updatePeds(dt){
- for(const p of peds){p.ph+=dt*(p.animal==='horse'?14:9);p.oof=Math.max(0,p.oof-dt);if(p.wait>0){p.wait-=dt;continue}
+ for(const p of peds){if(p.thief&&(!order||order.stolen!==p)){p.thief=false;p.spd=p.spd0||p.spd}
+  p.ph+=dt*(p.animal==='horse'||p.thief?14:9);p.oof=Math.max(0,p.oof-dt);if(p.wait>0&&!p.thief){p.wait-=dt;continue}
   const g=center(p.tc,p.tr),dx=g.x-p.x,dy=g.y-p.y,d=Math.hypot(dx,dy),s=p.spd*dt*(p.oof&&p.animal==='chicken'?2.2:1);
   if(Math.abs(dx)>1)p.face=dx>0?1:-1;
   if(d>s){p.x+=dx/d*s;p.y+=dy/d*s;continue}
   p.x=g.x;p.y=g.y;const opts=DIRS.map(([a,b])=>({c:p.tc+a,r:p.tr+b})).filter(n=>walkable(n.c,n.r)&&!(n.c===p.pc&&n.r===p.pr));
   // horses gallop in long straight runs; cows stop to graze; chickens peck around
   const st=opts.find(n=>n.c-p.tc===p.tc-p.pc&&n.r-p.tr===p.tr-p.pr);
-  const n=p.animal==='horse'&&st&&Math.random()<.8?st:opts.length?opts[Math.floor(Math.random()*opts.length)]:{c:p.pc,r:p.pr};p.pc=p.tc;p.pr=p.tr;p.tc=n.c;p.tr=n.r;
-  if(p.animal==='cow'&&Math.random()<.5)p.wait=rand(1,3);else if(p.animal==='chicken'&&Math.random()<.4)p.wait=rand(.2,.8);
+  // a monkey with your package runs away from you (a little randomness so it can be cornered)
+  const away=p.thief&&player&&opts.length?opts.map(o=>{const q=center(o.c,o.r);return{o,d:Math.hypot(q.x-player.x,q.y-player.y)+Math.random()*30}}).sort((a,b)=>b.d-a.d)[0].o:null;
+  const n=away||(p.animal==='horse'&&st&&Math.random()<.8?st:opts.length?opts[Math.floor(Math.random()*opts.length)]:{c:p.pc,r:p.pr});p.pc=p.tc;p.pr=p.tr;p.tc=n.c;p.tr=n.r;
+  if(p.thief){}else if(p.animal==='cow'&&Math.random()<.5)p.wait=rand(1,3);else if(p.animal==='chicken'&&Math.random()<.4)p.wait=rand(.2,.8);
+  else if(p.animal==='crab'&&Math.random()<.5)p.wait=rand(.3,1.2);else if(p.animal==='monkey'&&Math.random()<.3)p.wait=rand(.5,1.5);
  }
 }
 function drawAnimal(p){
@@ -914,6 +944,9 @@ function drawAnimal(p){
  const sz=A.s*1.3;ctx.save();ctx.translate(p.x,p.y-b-A.s*.12);if(p.face>0)ctx.scale(-1,1); // emoji animals face left
  if(p.oof&&p.animal==='horse')ctx.rotate(Math.sin(p.oof*30)*.15);ctx.drawImage(spr,-sz/2,-sz/2,sz,sz);ctx.restore();
  if(p.oof)text(p.animal==='chicken'?'🪶':'💢',p.x,p.y-A.s*.75,12,'#fff','center');
+ if(p.thief&&order&&order.stolen===p){const a=.5+.5*Math.sin(runT*12);ctx.strokeStyle=`rgba(255,70,90,${.5+a*.5})`;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x,p.y,A.s*.7+a*4,0,7);ctx.stroke();
+  ctx.drawImage(sprite('thiefBox'+SPR(),Math.ceil(24*SPR()),Math.ceil(24*SPR()),(g,w)=>{g.font=`${Math.round(18*SPR())}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText('📦',w/2,w/2)}),p.x-8,p.y-A.s-10,16,16);
+  outlined(Math.ceil(order.stealT)+'s',p.x,p.y+A.s*.75,12,'#ff8a95')}
 }
 function drawPed(p){
  if(p.animal){drawAnimal(p);return}
@@ -964,7 +997,9 @@ function newOrder(force,from){
 const BOSSES={
  0:{name:'MONSTER TRUCK',icon:'🚚',tip:'A monster truck is hunting you!',kind:'truck'},
  1:{name:'BLACKOUT',icon:'🌑',tip:'Lights out, and every driver is angry!',kind:'blackout'},
- 8:{name:'STAMPEDE',icon:'🐎',tip:'The whole herd broke loose!',kind:'stampede'},
+ 8:{name:'STAMPEDE',icon:'🐎',tip:'The whole herd broke loose!',kind:'herd',animal:'horse',n:8},
+ 9:{name:'CRAB INVASION',icon:'🦀',tip:'Crabs everywhere. Watch your step!',kind:'herd',animal:'crab',n:14},
+ 10:{name:'MONKEY GANG',icon:'🐒',tip:'The whole gang wants your package!',kind:'herd',animal:'monkey',n:6},
  6:{name:'MEGA SANDSTORM',icon:'🌪️',tip:'Endless sandstorm. Fight the wind!',kind:'storm'},
  2:{name:'THUNDERSTORM',icon:'⚡',tip:'Lightning strikes the glowing circles!',kind:'bolt'},
  3:{name:'TRAIN RUSH',icon:'🚆',tip:'Non-stop trains. Time your crossings!',kind:'trains'},
@@ -990,8 +1025,8 @@ function startBoss(){
   const t=far.length?seeded(hashSeed(runSeed+deliveries*17),()=>pick(far)):nearestRoad({c:0,r:0}),q=center(t.c,t.r);bossEnt={x:q.x,y:q.y,tc:t.c,tr:t.r,ang:0,smoke:0}}
  if(b.kind==='blackout')for(const k of cars){k.wasRage=k.rage;if(!k.sc)k.rage=true}
  if(b.kind==='storm'){stormOn=999;windDir=Math.random()<.5?1:-1}
- if(b.kind==='stampede'){const pt=tileOf(player),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=5)road.push({c,r});
-  seeded(hashSeed(runSeed+deliveries*31),()=>{for(let i=0;i<8+loop*2&&road.length;i++){const a=makeAnimal('horse',road.splice(Math.floor(RNG()*road.length),1)[0]);a.extra=true;a.spd*=1.15;peds.push(a)}})}
+ if(b.kind==='herd'){const pt=tileOf(player),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=5)road.push({c,r});
+  seeded(hashSeed(runSeed+deliveries*31),()=>{for(let i=0;i<(b.n||8)+loop*2&&road.length;i++){const a=makeAnimal(b.animal,road.splice(Math.floor(RNG()*road.length),1)[0]);a.extra=true;a.spd*=1.15;peds.push(a)}})}
  if(b.kind==='crowd'){const keep=zone.crowd,before=peds;zone.crowd=true; // triple the crowd for the festival
   seeded(hashSeed(runSeed+deliveries*29),()=>{loop+=2;spawnPeds();loop-=2});zone.crowd=keep;for(const p of peds)p.extra=true;peds=before.concat(peds)}
 }
@@ -999,7 +1034,7 @@ function endBoss(){
  if(!boss)return;const b=boss;boss=null;bossEnt=null;
  if(b.kind==='blackout')for(const k of cars)if('wasRage' in k){k.rage=k.wasRage;delete k.wasRage}
  if(b.kind==='storm'){stormOn=0;stormT=rand(8,12)}
- if(b.kind==='crowd'||b.kind==='stampede')peds=peds.filter(p=>!p.extra);
+ if(b.kind==='crowd'||b.kind==='herd')peds=peds.filter(p=>!p.extra||(order&&order.stolen===p));
 }
 function bossDefeated(){
  const b=boss;if(!b)return;endBoss();
@@ -1113,7 +1148,7 @@ function startStage(i,lp){
 function enterZone(i,first,lp=0){
  zoneIdx=i;zone=ZONES[i];loop=lp;zoneDeliveries=0;
  const sp=seeded(hashSeed(runSeed^(zone.id*104729+lp*7)),()=>{const s=genMap(first?{c:12,r:6}:lastDrop||tileOf(player)),q=center(s.c,s.r);player.x=q.x;player.y=q.y;spawnCars();spawnPeds();return s}),c=center(sp.c,sp.r);
- stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;powerups=[];zgoal=ZOBJ[zone.id]?Object.assign({prog:0,done:false,pulse:0},ZOBJ[zone.id]):null;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
+ stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;stealCd=0;powerups=[];zgoal=ZOBJ[zone.id]?Object.assign({prog:0,done:false,pulse:0},ZOBJ[zone.id]):null;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
  player.x=c.x;player.y=c.y;player.vx=player.vy=0;player.inv=Math.max(player.inv,1.2);player.trail=[];updateCam(0,true);
  rain=[];
  if(zone.rain)for(let n=0;n<140;n++)rain.push({x:rand(0,W),y:rand(HUD,H),l:rand(10,22),s:rand(520,760)});
@@ -1490,12 +1525,22 @@ function update(dt){
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
  if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);
-  if(p.animal){const A=ANIMALS[p.animal];if(d>=P.r*.8+A.r)continue;bumpCd=.7;p.oof=.8;if(order)order.bumped=true;buzz(p.animal==='horse'?[30,20,40]:15);sfxAt(p,()=>SFX.animal(p.animal));
+  if(p.animal){const A=ANIMALS[p.animal];if(d>=P.r*.8+A.r)continue;
+   if(A.thief){if(!order||!order.carrying||order.stolen||stealCd>0||P.inv>0)continue;
+    order.stolen=p;order.stealT=9;p.thief=true;p.spd0=p.spd;p.spd=playerSpeed()*.85;p.wait=0;bumpCd=.7;stealCd=1;pathTimer=0;P.vx=dx/(d||1)*220;P.vy=dy/(d||1)*220;
+    hype={text:'🐒 MONKEY THIEF!',sub:'Catch it to get your package back!',t:1.6,max:1.6};sfxAt(p,()=>SFX.animal('monkey'));buzz([20,20,40]);
+    floats.push({x:P.x,y:P.y-30,text:'HEY! 📦',color:'#ff8a95',t:.9,max:.9,size:16});break}
+   bumpCd=.7;p.oof=.8;if(order)order.bumped=true;buzz(p.animal==='horse'?[30,20,40]:15);sfxAt(p,()=>SFX.animal(p.animal));
    if(A.push){P.vx=dx/(d||1)*A.push;P.vy=dy/(d||1)*A.push}else{P.vx*=.4;P.vy*=.4;burst(p.x,p.y,8,['#ffffff','#f3efe6'])}
    if(A.cost&&P.inv<=0){shiftTime=Math.max(0,shiftTime-A.cost);shake=Math.max(shake,.15);floats.push({x:P.x,y:P.y-52,text:`-${A.cost}s`,color:'#ff5a6e',t:1,max:1,size:18})}
    floats.push({x:P.x,y:P.y-30,text:pick(A.say),color:'#ffcf6b',t:.8,max:.8,size:15});break}
   if(d<P.r+8){
   P.vx=dx/(d||1)*260;P.vy=dy/(d||1)*260;bumpCd=.7;if(order)order.bumped=true;p.oof=.8;SFX.bump();buzz(15);floats.push({x:P.x,y:P.y-30,text:pick(['OOF!','SORRY!','EXCUSE ME!']),color:'#ffcf6b',t:.8,max:.8,size:15});break}}
+ stealCd=Math.max(0,stealCd-dt);
+ if(order.stolen){const m=order.stolen;order.stealT-=dt; // chase the monkey: touch it (dashing works too) before time runs out
+  if(order.stealT<8.5&&Math.hypot(P.x-m.x,P.y-m.y)<P.r+ANIMALS.monkey.r+8){order.stolen=null;m.thief=false;m.spd=m.spd0;m.oof=.8;stealCd=8;pathTimer=0;goalTrack('reclaim');addCoins(3);SFX.pickup();buzz(20);
+   floats.push({x:P.x,y:P.y-34,text:'GOT IT BACK! +3 🪙',color:'#45e6a5',t:1.1,max:1.1,size:18});rings.push({x:m.x,y:m.y,t:.4,max:.4,r0:10,r1:60,color:'#45e6a5'})}
+  else if(order.stealT<=0){m.thief=false;m.spd=m.spd0;stealCd=8;order.stolen=null;failOrder('🐒 THE MONKEY GOT AWAY!')}}
  if(P.inv<=0){
   for(const k of cars){const R=carRect(k);if(circleHitsRect(P,{x:R.x+3,y:R.y+3,w:R.w-6,h:R.h-6})){crash(R.x+R.w/2,R.y+R.h/2,k.angry?'rage':'car');break}}
  }
@@ -1539,7 +1584,8 @@ function update(dt){
   else if(hit&&!P.hTouch&&P.inv<=0){P.hTouch=true;crash(hit.c.x,hit.c.y,'hurdle')}
   else if(!hit){P.hTouch=false;if(P.dash<=0)P.jumped=null}}
 
- if(order.carrying){ // any remaining door counts; the path follows the nearest one
+ if(order.stolen){} // no delivering (or picking up) while a monkey has the package
+ else if(order.carrying){ // any remaining door counts; the path follows the nearest one
   let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
   if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
   if(bd<pickRadius())doDeliver(bi);
@@ -1568,8 +1614,9 @@ function steer(P,inp){
  if(ax==='x'&&openX&&Math.abs(c.y-P.y)>10)return alongY(Math.sign(c.y-P.y));
  return ax==='x'?alongX(sx||1):alongY(sy||1);
 }
+const curTarget=()=>order.stolen?Object.assign({x:order.stolen.x,y:order.stolen.y},tileOf(order.stolen)):order.carrying?order.drop:order.pickup;
 function computePath(){
- const s=tileOf(player),tg=order.carrying?order.drop:order.pickup,{dist,prev}=bfs(s.c,s.r);
+ const s=tileOf(player),tg=curTarget(),{dist,prev}=bfs(s.c,s.r);
  pathCache=[];let i=tg.r*COLS+tg.c;if(dist[i]<0)return;
  while(i>=0){pathCache.push({c:i%COLS,r:(i/COLS)|0});i=prev[i]}
  pathCache.reverse();
@@ -1895,7 +1942,7 @@ function drawCoins(){
 }
 function drawPointer(){
  if(!order||!player||mode==='stage')return;
- const tg=order.carrying?order.drop:order.pickup,s=toScreen(tg),m=34;
+ const tg=curTarget(),s=toScreen(tg),m=34;
  if(s.x>-UX+m&&s.x<W+UX-m&&s.y>HUD+m&&s.y<H-m)return;
  const c={x:W/2,y:HUD+ROWS*T/2},ang=Math.atan2(s.y-c.y,s.x-c.x),hw=SW/2-m,hh=ROWS*T/2-m;
  const d=Math.min(hw/Math.max(1e-6,Math.abs(Math.cos(ang))),hh/Math.max(1e-6,Math.abs(Math.sin(ang))));
@@ -1912,7 +1959,7 @@ function drawMinimap(){
  const mw=132,k=mw/W,mh=ROWS*T*k,mx=W+UX-mw-10,my=HUD+10,Q=p=>({x:mx+p.x*k,y:my+(p.y-HUD)*k});
  // fade out whenever it would hide Dili or the current target
  const under=p=>{if(!p)return false;const s=toScreen(p);return s.x>mx-40&&s.x<mx+mw+40&&s.y>my-40&&s.y<my+mh+40};
- const tg=order&&(order.carrying?order.drop:order.pickup);
+ const tg=order&&curTarget();
  ctx.save();ctx.globalAlpha=clamp((cam.z-1.08)/.3,0,1)*(under(player)||under(tg)?.2:.9);
  ctx.fillStyle='rgba(8,12,28,.75)';rr(ctx,mx-4,my-4,mw+8,mh+8,8);ctx.fill();
  ctx.drawImage(mapCanvas,mx,my,mw,mh);
@@ -2187,7 +2234,7 @@ function drawMenu(){
   if(i<ZONES.length-1){ctx.fillStyle='rgba(255,255,255,.15)';ctx.fillRect(x+21,y-1,8,2)}});
  if(mouse.y>505&&mouse.y<550){const i=Math.round((mouse.x-cx)/ZS+Z0);if(i>=0&&i<ZONES.length)text(i<=(best.maxZone||0)?ZONES[i].name+' · '+ZONES[i].tag:'Locked — reach it in a run',cx,558,11,'#bcd0ff','center',800)}
  text('📦 Pick up  →  follow the dots  →  🏠 Drop off   ·   Fast x2 · No crash x3',cx,580,13,'#dfe5f0','center',700);
- text('9 zones · horses, sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
+ text('11 zones · animals, sandstorms, crowds, trains & meteors · random events',cx,602,13,'#dfe5f0','center',700);
  text(touchUI?(ctrlMode==='dpad'?'D-pad (bottom-left) moves · DASH (bottom-right) · switch to joystick bottom-left':'Joystick (bottom-left) moves · DASH (bottom-right) · switch to D-pad bottom-left'):'WASD / Arrows move · Space dash · P pause · M sound · C camera',cx,626,12,'#7d8bab','center',700);
  text((actx?'':'🔊 Sound starts on first key/tap  ·  ')+(touchUI?'Tap START DELIVERY to play':'ENTER to start  ·  D for Daily Challenge'),cx,H-22,11,'#6b7aa0','center',800);
 }
@@ -2263,6 +2310,7 @@ function drawSettings(){
   ['🎵','Music',!settings.music?'OFF':settings.chill?'CHILL 🌿':'ARCADE',()=>{if(!settings.music){settings.music=true;settings.chill=false}else if(!settings.chill)settings.chill=true;else settings.music=false;
    saveSettings();ensureAudio();music.step=0;SFX.pickup()},!settings.music?'No music':settings.chill?'Slow lo-fi beats to relax':'Upbeat, speeds up with your combo'],
   ['🔊','Sound effects',settings.sfx?'ON':'OFF',tog('sfx')],
+  ['👣','Footsteps',settings.steps?'ON':'OFF',tog('steps')],
   touchUI&&['🎮','Controls',ctrlMode==='dpad'?'D-PAD':'JOYSTICK',()=>{toggleCtrl();store.set('diliDelivery.ctrlChosen',true)}],
   touchUI&&['📳','Vibration',settings.vibe?'ON':'OFF',tog('vibe')],
   ['🗺️','Minimap',showMini?'ON':'OFF',()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)}],
@@ -2270,7 +2318,7 @@ function drawSettings(){
   ['📈','Show FPS',settings.fps?'ON':'OFF',tog('fps')],
   LB_ON&&['📊','Share anonymous stats',settings.stats?'ON':'OFF',tog('stats'),'FPS, zone reached, what hit you. No name, no personal data'],
  ].filter(Boolean);
- const rh=touchUI?50:52,y0=88,w=640,x=W/2-w/2;
+ const rh=Math.min(touchUI?50:52,Math.floor((H-88-66)/rows.length)),y0=88,w=640,x=W/2-w/2;
  rows.forEach(([ic,label,val,act,sub],i)=>{const y=y0+i*rh;
   ctx.fillStyle=i%2?'rgba(255,255,255,.04)':'rgba(255,255,255,.08)';rr(ctx,x,y,w,rh-6,14);ctx.fill();
   text(ic,x+30,y+(rh-6)/2,20,'#fff','center');text(label,x+58,y+(sub?(rh-6)/2-8:(rh-6)/2),16,'#fff','left',900);
