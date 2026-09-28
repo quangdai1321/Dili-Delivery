@@ -103,7 +103,13 @@ From the 2nd delivery a power-up appears on the road every ~12s (max 2, gone aft
 | 📦 2 Drops | One pickup, two doors, any order | Each door counts as a delivery |
 
 ### Random events (every ~25–35s)
-🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌫️ **Thick fog** (visibility shrinks around Dili; not in the already-dark zones) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe)
+🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌫️ **Thick fog** (visibility shrinks around Dili; not in the already-dark zones) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe) · 🪂 **Airdrop** (9 crates float down on parachutes: a shadow and ring show where each one lands. Catch them for +3 🪙, or +12 🪙 for a rare golden 🎁. They blink and vanish after 5s)
+
+### 💬 Chatter
+- **Customers answer** when their package arrives: *"gm! ☀️"*, *"WAGMI 🚀"*, *"faster than my wallet tx 😂"*… Slow deliveries get grumpier replies, and VIPs have their own lines.
+- **🔒 Encrypted messages** (1 in 5): the bubble scrambles, then decrypts only if the delivery was FAST (+2 🪙). A slow one shows *"decrypt failed 😵"*.
+- **Dili talks** in a speech bubble that follows Dili: *"gm frens"* at the start, *"ngmi 😱"* on a close call, *"LFG!! 🚀"* on combos, *"rekt 😵"* on a crash, *"that's a rug pull 😤"* when a monkey steals the package, plus lines for low time, new zones, bosses and airdrops. At most one line every 5s, so the chatter never spams.
+- Bubbles are drawn once into a small bitmap and reused, and they stay on screen near the edges. The lines use their own randomness, so seeded runs, ghosts and challenges are unaffected.
 
 ### Dili Style (wardrobe) and achievements
 Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend them in **🎨 Skins** on the menu (or press **K**):
@@ -153,6 +159,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Close camera zooms in and smoothly follows Dili, looking ahead in the direction of travel. A minimap and an edge arrow show where the target is.
 - 3/4 perspective: buildings show their front walls and cast shadows, and cars have depth.
 - Adaptive resolution: every 2s the game checks its frame time. After two slow checks in a row (under ~50fps) it renders fewer pixels (down to 0.6x), at most one step every 4s. It only steps back up between rounds (zone card, menus), never mid-play, so there is no back-and-forth stutter. Phones start at 1.5x. Long frames are sub-stepped so game speed stays real-time.
+- Lighter frames: numbers are formatted with one shared `Intl.NumberFormat` (`toLocaleString` built a new formatter on every call). Jungle Trail's shade is baked into the map instead of a full-screen darkness pass every frame (Jungle JS per frame: p95 11.3ms → 5.5ms).
 - Stutter-free effects: the UI layer uses 3 fixed sharpness tiers, and the map is never re-rendered mid-zone. Pop-up text (score pops, COMBO, banners) is rasterised once per size and reused while it animates. The delivery card is baked into a bitmap. Particles are capped at 160.
 - Two layers: the world is drawn at the adaptive resolution while the HUD, text and pop-ups are drawn on a sharper layer, so text stays crisp even when a phone drops the world to 0.6x. Font: Nunito.
 - The HUD is cached and only redrawn when a shown value changes. Roadworks and hurdles are baked into the map texture (only their blinking lights are drawn live), and each car type is a pre-rendered sprite.
