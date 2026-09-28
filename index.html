@@ -32,7 +32,6 @@ canvas{display:block;flex:none;border-radius:0;background:#0a1330;box-shadow:0 2
 .hint{display:none} /* controls are listed on the menu; the canvas gets the whole screen */
 .rotate{display:none;position:fixed;inset:0;z-index:5;background:rgba(5,10,24,.94);flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font-weight:800;font-size:19px;padding:24px}
 .rotate .big{font-size:64px}.rotate .sub{font-size:13px;color:#8fa8d8;font-weight:700}
-@media (orientation:portrait) and (pointer:coarse){.rotate{display:flex}}
 .rotate.hide{display:none!important}
 .modal{display:none;position:fixed;inset:0;z-index:10;background:rgba(5,10,24,.78);align-items:center;justify-content:center;padding:16px;touch-action:auto}
 .modal.show{display:flex}
@@ -54,7 +53,7 @@ canvas{display:block;flex:none;border-radius:0;background:#0a1330;box-shadow:0 2
 <div id="app">
 <canvas id="game" width="1152" height="672"></canvas>
 <div class="hint">WASD / Arrows move · Space dash · P pause · M sound · C camera · F fullscreen · R restart — Mobile: drag left side to move, tap right side to dash</div>
-<div class="rotate" id="rotate"><div class="big">📱↻</div><div>Rotate your phone to landscape</div><div class="sub">for the full-screen experience · tap to play anyway</div></div>
+
 <div class="modal" id="nameModal"><form id="nameForm" autocomplete="off">
  <div class="mt">🏆 Your name on the leaderboard</div>
  <input id="nameInput" maxlength="16" placeholder="e.g. DiliFan" enterkeyhint="done">
@@ -630,17 +629,21 @@ let runKind='normal',runSeed=0,chRun=null,sandTiles=new Set(),stormT=10,stormOn=
 let event=null,evT=25,evCount=0,cop=null,pickups=[],crates=[],cleanStreak=0,failedOrders=0,chaseCaught=false;
 let MR=2;const mapCanvas=document.createElement('canvas');mapCanvas.width=W*MR;mapCanvas.height=ROWS*T*MR;
 // render at device resolution so the canvas stays crisp on retina / large screens
-let uiLow=false; // last resort on very slow devices: UI layer at 1x too
+let uiLow=false,rotated=false,cssW=W,cssH=H,CS=1;const COARSE=matchMedia('(pointer:coarse)').matches; // last resort on very slow devices: UI layer at 1x too
 let SW=W,UX=0,RSU=1; // RSU: UI scale (always sharp); RS: world-layer scale (adaptive)
 const wcv=document.createElement('canvas'),wctx=wcv.getContext('2d'); // world layer, blitted under the UI each frame
 const UI_MAX=matchMedia('(pointer:coarse)').matches?2:2.5; // screen width in logical px (>= W) and the offset of the centered 1152-wide UI box
 const RES_MAX=matchMedia('(pointer:coarse)').matches?1.5:2.5; // phones start lighter; adaptive scaling moves between .6 and this
 let RS=1,resCap=RES_MAX,slowT=0,dispShift=60,camClose=store.get('diliDelivery.cam',true);
 function resize(){
- const app=document.getElementById('app'),r=app.getBoundingClientRect();if(!r.width||!r.height)return;
+ const app=document.getElementById('app'),r0=app.getBoundingClientRect();if(!r0.width||!r0.height)return;
+ rotated=COARSE&&r0.height>r0.width*1.05;const r=rotated?{width:r0.height,height:r0.width}:r0; // portrait phone: lay the game out sideways
  const aspect=r.width/r.height,minA=W/H,maxA=2.4;let cw,ch;
  if(aspect>=minA){SW=Math.round(H*Math.min(aspect,maxA));ch=r.height;cw=ch*SW/H}else{SW=W;cw=r.width;ch=cw*H/W}
- UX=(SW-W)/2;canvas.style.width=cw+'px';canvas.style.height=ch+'px';
+ UX=(SW-W)/2;canvas.style.width=cw+'px';canvas.style.height=ch+'px';cssW=cw;cssH=ch;
+ const st=canvas.style;if(rotated){st.position='absolute';st.left='50%';st.top='50%';st.transform='translate(-50%,-50%) rotate(90deg)'}else{st.position='';st.left='';st.top='';st.transform=''}
+ // touch controls keep a usable physical size when the game is shown small (short or letterboxed screens)
+ CS=clamp(58/(94*ch/H),1,1.7);DPAD.r=94*CS;DPAD.b=34*CS;JOY_R=55*CS;
  // UI stays ~2x sharper than the world layer but never above what is needed (fill-rate on phones)
  const dev=window.devicePixelRatio||1,uw=Math.round(cw*Math.min(UI_MAX,dev,uiLow?1:resCap>=.9?UI_MAX:1.5)),uh=Math.round(H*uw/SW); // UI: device sharpness (capped)
  if(uw!==canvas.width||uh!==canvas.height){canvas.width=uw;canvas.height=uh;RSU=uw/SW}
@@ -663,7 +666,7 @@ function goFullscreen(){
 }
 function toggleFullscreen(){if(isFS()){autoFS=false;(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{autoFS=true;goFullscreen()}}
 for(const ev of['fullscreenchange','webkitfullscreenchange'])document.addEventListener(ev,()=>setTimeout(resize,60));
-document.getElementById('rotate').addEventListener('click',e=>e.currentTarget.classList.add('hide'));
+
 // follow camera: zooms in on Dili, looks ahead in the movement direction, never shows outside the map
 const cam={x:W/2,y:HUD+ROWS*T/2,z:1},CAM_Z=1.45;
 function updateCam(dt,snap){
@@ -1485,7 +1488,9 @@ addEventListener('blur',()=>{keys.clear();joy=null;if(mode==='play')mode='paused
 addEventListener('pagehide',()=>{if(mode==='play'||mode==='paused'||mode==='upgrade'||mode==='stage')sendRunStats('abandon')});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')mode='paused';
  if(!document.hidden&&['play','paused','upgrade','stage'].includes(mode))keepAwake(true)}); // the OS drops the wake lock when hidden
-function toCanvas(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*SW/r.width-UX,y:(e.clientY-r.top)*H/r.height}}
+function toCanvas(e){const r=canvas.getBoundingClientRect();
+ if(rotated){const u=cssW/2+(e.clientY-(r.top+r.height/2)),v=cssH/2-(e.clientX-(r.left+r.width/2));return{x:u*SW/cssW-UX,y:v*H/cssH}} // undo the 90deg turn
+ return{x:(e.clientX-r.left)*SW/r.width-UX,y:(e.clientY-r.top)*H/r.height}}
 const hit=(p,b)=>p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
 canvas.addEventListener('pointerdown',e=>{
  e.preventDefault();ensureAudio();const p=toCanvas(e);if(e.pointerType==='touch')touchUI=true;
@@ -1509,7 +1514,7 @@ canvas.addEventListener('pointerdown',e=>{
   joy=fixed?{id:e.pointerId,ox:c.x,oy:c.y,x:p.x,y:p.y,fixed:true}:{id:e.pointerId,ox:p.x,oy:p.y,x:p.x,y:p.y};if(fixed)buzz(6)}
  try{canvas.setPointerCapture(e.pointerId)}catch(err){}
 });
-const JOY_R=55;
+let JOY_R=55;
 const DPAD={r:94,b:34},dpadC=()=>({x:-UX+DPAD.r+18,y:H-DPAD.r-14});
 function dpadDir(p){const c=dpadC(),dx=p.x-c.x,dy=p.y-c.y,l=Math.hypot(dx,dy);if(l<14)return null;
  const ax=Math.abs(dx)/l,ay=Math.abs(dy)/l;return{x:ax>.38?Math.sign(dx):0,y:ay>.38?Math.sign(dy):0}}
@@ -2240,21 +2245,21 @@ function drawTouch(){
   for(const[dx,dy,a]of[[0,-1,-Math.PI/2],[0,1,Math.PI/2],[-1,0,Math.PI],[1,0,0]]){const on=d&&((dx&&d.x===dx)||(dy&&d.y===dy)),bx=c.x+dx*R*.62,by=c.y+dy*R*.62;
    ctx.fillStyle=on?'rgba(111,211,255,.55)':'rgba(8,12,28,.28)';ctx.beginPath();ctx.arc(bx,by,DPAD.b,0,7);ctx.fill();
    ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=2.5;ctx.stroke();
-   ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,-10);ctx.lineTo(-6,10);ctx.closePath();ctx.fill();ctx.restore()}
+   ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.scale(CS,CS);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,-10);ctx.lineTo(-6,10);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();
  }
  if(ctrlMode==='stick'&&(!joy||joy.fixed)){const c=dpadC(),BR=DPAD.r*.8,on=!!joy; // visible thumbstick
   ctx.save();ctx.globalAlpha=on?1:.55;if(on){ctx.fillStyle='rgba(8,12,28,.3)';ctx.beginPath();ctx.arc(c.x,c.y,BR+10,0,7);ctx.fill()}
   ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(c.x,c.y,BR,0,7);ctx.stroke();
   let kx=c.x,ky=c.y;if(joy){const dx=joy.x-c.x,dy=joy.y-c.y,l=Math.hypot(dx,dy),m=Math.min(l,BR*.72)/(l||1);kx=c.x+dx*m;ky=c.y+dy*m}
-  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(kx,ky,30,0,7);ctx.fill();
+  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(kx,ky,30*CS,0,7);ctx.fill();
   ctx.strokeStyle='rgba(10,14,30,.5)';ctx.lineWidth=2;ctx.stroke();ctx.restore()}
  else if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
   const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,JOY_R)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
- const R=66,cx=W+UX-R-26,cy=H-R-26,cd=player.dashCd/dashCooldown(),ready=cd<=0;
+ const R=66*CS,cx=W+UX-R-26,cy=H-R-26,cd=player.dashCd/dashCooldown(),ready=cd<=0;
  ctx.fillStyle=ready?'rgba(111,211,255,.22)':'rgba(255,255,255,.1)';ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();
  ctx.strokeStyle=ready?'#6fd3ff':'rgba(255,255,255,.25)';ctx.lineWidth=6;ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-cd));ctx.stroke();
- text('⚡',cx,cy-8,34,'#fff','center');text('DASH',cx,cy+26,15,'#fff','center',900);
+ text('⚡',cx,cy-8*CS,34*CS,'#fff','center');text('DASH',cx,cy+26*CS,15*CS,'#fff','center',900);
 }
 function button(label,x,y,w,h,act,primary=true,up=false){
  const hov=hit(mouse,{x,y,w,h}),s=1+(primary?Math.sin(runT*4)*.02:0)+(hov?.03:0);

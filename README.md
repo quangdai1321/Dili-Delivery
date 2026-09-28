@@ -38,6 +38,10 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 - The game over screen tells you how close you came: "The package was 13m from the door", "Only 120 points short of your best", "1 delivery away from ❄️ SNOW PEAK", or how many seconds crashes cost you. It adds a short taunt based on what hit you.
 - **Share** creates a score card image. On phones it opens the share sheet with the image attached. On desktop it opens a prefilled post on X and downloads the image for you to attach.
 
+### 📱 Phones
+- **Portrait screens** (including in-app browsers such as X's that never rotate): the landscape game is turned 90° to fill the whole screen, so you just turn the phone sideways. Touches are rotated back to game coordinates. When the browser itself rotates to landscape, the game switches back to the normal layout.
+- **Small or short screens**: the D-pad, joystick and DASH button grow (up to 1.7x) so they stay a usable physical size.
+
 ### Zones
 | # | Zone | Reached after | Hazard |
 |---|---|---|---|
