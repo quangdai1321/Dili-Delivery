@@ -24,6 +24,8 @@ Each shift starts with 60 seconds.
 | Close call (a car passes within a hair) | +25 points (+5 per combo level), brief slow-motion |
 | Every delivery | +4s shift time (+3s from delivery 12, +2s from delivery 24) |
 | Every 3 deliveries | Pick an upgrade: Speed, Dash, Shield, Magnet, +10s |
+
+Dili runs at 185 px/s (Speed upgrade: +12% per level, max 5). DASH recharges in 2.0s (−15% per Dash level).
 | Clearing a zone | +8s shift time |
 
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
@@ -70,7 +72,7 @@ Every zone has its own side objective, shown at the top of the screen and on the
 | 🌙 Moon Base | Dodge 5 meteors up close |
 
 ### Zone bosses
-The last delivery of every zone is a **💀 BOSS order**. Deliver it while the zone's boss hazard is active to defeat it (+500 per loop, +25 🪙, +6s):
+The last delivery of every zone is a **💀 BOSS fight**. The boss has an **HP bar: 3 hits** (4 from loop II). Every boss order you deliver is one hit (+300 × hit × loop, +3 🪙, +4s) and a new boss order appears. Hits don't count as deliveries, so the next zone isn't cut short. After each hit the boss gets **angrier**: the monster truck drives faster, strikes and meteors come more often, trains return sooner, the wind pushes harder, and herds and crowds grow. The HP bar shakes on a hit and glows on the **LAST HIT**. The final hit defeats it (+800 per loop, +30 🪙, +6s):
 
 | Zone | Boss |
 |---|---|

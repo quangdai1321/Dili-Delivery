@@ -116,7 +116,7 @@ const CONFETTI=['#ffd34d','#45e6a5','#ff6b8b','#6fa3ff','#ffffff'];
 const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
 const COMBO_HYPE=[3,5,10,15,20,30];
 const UPGRADES=[
- {id:'speed',icon:'👟',name:'SPEED',desc:'+10% run speed',max:5},
+ {id:'speed',icon:'👟',name:'SPEED',desc:'+12% run speed',max:5},
  {id:'dash',icon:'⚡',name:'DASH',desc:'-15% dash cooldown',max:5},
  {id:'shield',icon:'🛡️',name:'SHIELD',desc:'Absorbs one crash',max:3},
  {id:'magnet',icon:'🧲',name:'MAGNET',desc:'Bigger pickup range',max:3},
@@ -475,6 +475,7 @@ const SFX={
  siren(hi){tone(hi?960:720,.4,'sawtooth',.025)},
  buy(){[523,784,1047,1568].forEach((f,i)=>tone(f,.12,'triangle',.1,1,i*.05))},
  nope(){tone(200,.12,'square',.06,.8);tone(160,.16,'square',.06,.8,.1)},
+ bossHit(){duck(.4,.5);tone(180,.3,'sawtooth',.13,.45);tone(90,.35,'sine',.25,.6);noise(.3,.22,600);tone(660,.12,'square',.05,1.3,.05)},
  boss(){duck(.6,1.2);tone(98,.9,'sawtooth',.12,.7);tone(147,.9,'sawtooth',.08,.7,.05);noise(1,.22,260);[392,370,349,330].forEach((f,i)=>tone(f,.18,'square',.05,1,.5+i*.14))},
  victory(){duck(.5,1.2);[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.2,'triangle',.12,1,i*.07));tone(2093,.5,'sine',.07,1,.42);noise(.6,.1,5000,.1,'highpass')},
 };
@@ -678,9 +679,9 @@ const toScreen=p=>({x:(p.x-cam.x)*cam.z+W/2,y:(p.y-cam.y)*cam.z+HUD+ROWS*T/2});
 
 const isRoad=(c,r)=>inb(c,r)&&grid[r][c]>0;
 const walkable=(c,r)=>isRoad(c,r)&&!barriers.has(key(c,r));
-const playerSpeed=()=>170*(1+.1*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1);
+const playerSpeed=()=>185*(1+.12*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1);
 const diff=()=>1+.15*loop+.035*Math.min(zoneDeliveries,10);
-const dashCooldown=()=>2.2*Math.pow(.85,upg.dash);
+const dashCooldown=()=>2*Math.pow(.85,upg.dash);
 const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1);
 
 // ---------- map generation ----------
@@ -977,7 +978,7 @@ const ORDER_TYPES={
  fragile:{icon:'🥚',label:'FRAGILE',color:'#8fe3ff',mult:2,tip:'One crash and it breaks!'},
  vip:{icon:'👑',label:'VIP',color:'#ffd34d',mult:3,tip:'Long trip, huge tip'},
  double:{icon:'📦',label:'2 DROPS',color:'#c9a7ff',mult:1,tip:'Two doors, any order'},
- boss:{icon:'💀',label:'BOSS',color:'#ff4d5e',mult:3,tip:'Deliver it to defeat the boss!'},
+ boss:{icon:'💀',label:'BOSS',color:'#ff4d5e',mult:3,tip:'Deliver it to hit the boss!'},
 };
 function newOrder(force,from){
  // same seed => same chain of orders for everyone (daily, challenge links, ghost races), whatever route the player took
@@ -1019,8 +1020,8 @@ let lastDrop=null,ghostLog=[],ghostRef=null,lastGhost=null; // ghost: [x,y,zoneC
 let boss=null,bossEnt=null,strikeT=1,camPunch=0,irisT=0,crashFx=0,comboGlow=0,glowColor='#fff';
 const nextZoneAt=()=>{const L=ZONES.length-1;return zoneIdx<L?ZONE_AT[zoneIdx+1]:ZONE_AT[L]+(loop+1)*LOOP_EVERY};
 function startBoss(){
- const b=BOSSES[zone.id];if(!b)return;endEvent(true);diliCd=0;setTimeout(()=>diliSay('boss'),1400);boss=Object.assign({},b,{t:0});strikeT=1.2;
- hype={text:`💀 BOSS: ${b.icon} ${b.name}`,sub:b.tip+'  Deliver to win!',t:3,max:3};flash=.5;flashColor='#ff3048';shake=Math.max(shake,.35);SFX.boss();buzz([60,40,120]);
+ const b=BOSSES[zone.id];if(!b)return;endEvent(true);diliCd=0;setTimeout(()=>diliSay('boss'),1400);const hp=3+(loop?1:0);boss=Object.assign({},b,{t:0,hp,max:hp,phase:1,hitT:0});strikeT=1.2;
+ hype={text:`💀 BOSS: ${b.icon} ${b.name}`,sub:b.tip+`  Hit it ${hp} times!`,t:3,max:3};flash=.5;flashColor='#ff3048';shake=Math.max(shake,.35);SFX.boss();buzz([60,40,120]);
  if(b.kind==='truck'){const pt=tileOf(player),far=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=10)far.push({c,r});
   const t=far.length?seeded(hashSeed(runSeed+deliveries*17),()=>pick(far)):nearestRoad({c:0,r:0}),q=center(t.c,t.r);bossEnt={x:q.x,y:q.y,tc:t.c,tr:t.r,ang:0,smoke:0}}
  if(b.kind==='blackout')for(const k of cars){k.wasRage=k.rage;if(!k.sc)k.rage=true}
@@ -1030,30 +1031,49 @@ function startBoss(){
  if(b.kind==='crowd'){const keep=zone.crowd,before=peds;zone.crowd=true; // triple the crowd for the festival
   seeded(hashSeed(runSeed+deliveries*29),()=>{loop+=2;spawnPeds();loop-=2});zone.crowd=keep;for(const p of peds)p.extra=true;peds=before.concat(peds)}
 }
+// every boss delivery is one hit; the boss gets angrier after each one (faster truck, more strikes, bigger herds...)
+const bossRage=()=>boss?1+.3*((boss.phase||1)-1):1;
+function bossHit(di){
+ const b=boss,drop=order.drops[di];lastDrop=order.chain||{c:drop.c,r:drop.r};b.hp--;b.phase++;b.hitT=.6;
+ const pts=Math.round(300*(1+loop)*(b.phase-1)*(evOn('happy')?2:1));score+=pts;addCoins(3);combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;shiftTime=Math.min(99,shiftTime+4);
+ hype={text:`💥 BOSS HIT! ${b.max-b.hp}/${b.max}`,sub:b.hp===1?`LAST HIT! ${b.icon} ${b.name} is ENRAGED 😡`:`${b.icon} ${b.name} is getting angrier…`,t:1.8,max:1.8};
+ floats.push({x:drop.x,y:drop.y-30,text:`+${fmt(pts)}  +3 🪙  +4s`,color:'#ff8a95',t:1.2,max:1.2,size:20});
+ flash=.35;flashColor='#ff3048';shake=Math.max(shake,.32);camPunch=Math.max(camPunch,.14);hitStop=.08;
+ burst(drop.x,drop.y,30,['#ff3048','#ffd34d','#ffffff'],true);rings.push({x:drop.x,y:drop.y,t:.5,max:.5,r0:14,r1:120,color:'#ff3048'});
+ SFX.bossHit();buzz([40,30,80]);diliSay('bosshit',true);
+ // enrage: more of whatever this boss throws at you
+ if(b.kind==='blackout'&&lines.length)for(let i=0;i<2;i++){const k=makeCar();k.rage=true;k.bossExtra=true;cars.push(k)}
+ if(b.kind==='herd'||b.kind==='crowd'){const pt=tileOf(player),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=5)road.push({c,r});
+  seeded(hashSeed(runSeed+deliveries*37+b.phase),()=>{for(let i=0;i<4&&road.length;i++){const t=road.splice(Math.floor(RNG()*road.length),1)[0];
+   const a=b.kind==='herd'?makeAnimal(b.animal,t):Object.assign(center(t.c,t.r),{tc:t.c,tr:t.r,pc:-1,pr:-1,spd:rand(40,60),shirt:pick(PED_SHIRTS),lantern:RNG()<.35,ph:rand(0,7),oof:0});
+   a.extra=true;a.spd*=1+.15*b.phase;peds.push(a)}})}
+ newOrder('boss',lastDrop);pathTimer=0;
+}
 function endBoss(){
  if(!boss)return;const b=boss;boss=null;bossEnt=null;
- if(b.kind==='blackout')for(const k of cars)if('wasRage' in k){k.rage=k.wasRage;delete k.wasRage}
+ if(b.kind==='blackout'){cars=cars.filter(k=>!k.bossExtra);for(const k of cars)if('wasRage' in k){k.rage=k.wasRage;delete k.wasRage}}
  if(b.kind==='storm'){stormOn=0;stormT=rand(8,12)}
  if(b.kind==='crowd'||b.kind==='herd')peds=peds.filter(p=>!p.extra||(order&&order.stolen===p));
 }
 function bossDefeated(){
  const b=boss;if(!b)return;endBoss();
- const bonus=500*(1+loop);score+=bonus;shiftTime=Math.min(99,shiftTime+6);addCoins(25);
+ const bonus=800*(1+loop);score+=bonus;shiftTime=Math.min(99,shiftTime+6);addCoins(30);
  meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();missionTrack('boss');unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
- queueMoment(5,`💀 Defeated ${b.icon} ${b.name}`,.5);hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +25 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
+ queueMoment(5,`💀 Defeated ${b.icon} ${b.name}`,.5);hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +30 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
  flash=.4;flashColor='#ffd34d';shake=Math.max(shake,.3);camPunch=.18;for(let i=0;i<4;i++)burst(player.x+rand(-60,60),player.y+rand(-50,30),40,CONFETTI,true);
 }
 function updateBoss(dt,P){
  if(!boss)return;boss.t+=dt;const k=boss.kind;
- if(k==='truck'&&bossEnt){const e=bossEnt,g=center(e.tc,e.tr),dx=g.x-e.x,dy=g.y-e.y,d=Math.hypot(dx,dy),sp=playerSpeed()*.74*(1+.06*loop)*dt;
+ if(k==='truck'&&bossEnt){const e=bossEnt,g=center(e.tc,e.tr),dx=g.x-e.x,dy=g.y-e.y,d=Math.hypot(dx,dy),sp=playerSpeed()*(.74+.08*((boss.phase||1)-1))*(1+.06*loop)*dt;
   if(d>sp){e.x+=dx/d*sp;e.y+=dy/d*sp;e.ang=Math.atan2(dy,dx)}
   else{e.x=g.x;e.y=g.y;const pt=tileOf(P),{dist}=bfs(pt.c,pt.r);let bn=null,bd=1e9;
    for(const[a,b2]of DIRS){const nc=e.tc+a,nr=e.tr+b2;if(!walkable(nc,nr))continue;const v=dist[nr*COLS+nc];if(v>=0&&v<bd){bd=v;bn={c:nc,r:nr}}}if(bn){e.tc=bn.c;e.tr=bn.r}}
   if((e.smoke-=dt)<=0){e.smoke=.08;particles.push({x:e.x-Math.cos(e.ang)*30,y:e.y-Math.sin(e.ang)*30-6,vx:rand(-10,10),vy:rand(-40,-20),t:.6,max:.6,size:rand(5,8),color:'rgba(60,60,70,.5)',g:0,dust:true})}
   if(P.inv<=0&&Math.hypot(P.x-e.x,P.y-e.y)<P.r+22)crash(e.x,e.y,'boss')}
- if(k==='storm'){stormOn=Math.max(stormOn,2);P.x+=windDir*30*dt}
+ if(boss.hitT>0)boss.hitT-=dt;
+ if(k==='storm'){stormOn=Math.max(stormOn,2);P.x+=windDir*30*bossRage()*dt}
  if(k==='bolt'||k==='snow'||k==='meteor'){ // strikes aimed at where Dili is heading
-  if((strikeT-=dt)<=0){strikeT=(k==='meteor'?.55:.8)/diff();let x,y;
+  if((strikeT-=dt)<=0){strikeT=(k==='meteor'?.55:.8)/diff()/bossRage();let x,y;
    if(Math.random()<.6){x=P.x+P.vx*.8;y=P.y+P.vy*.8}else{const tt=tileOf(P),cc=center(clamp(tt.c+ri(-5,5),0,COLS-1),clamp(tt.r+ri(-3,3),0,ROWS-1));x=cc.x;y=cc.y}
    meteors.push({x:clamp(x,20,W-20),y:clamp(y,HUD+20,H-20),t:0,max:k==='bolt'?1.05:1.25,r:k==='snow'?40:34,kind:k==='meteor'?'rock':k});sfxAt({x,y},SFX.whoosh)}}
 }
@@ -1098,6 +1118,7 @@ function doPickup(){
  burst(order.pickup.x,order.pickup.y,22,CONFETTI);player.pop=.35;SFX.pickup();pathTimer=0;
 }
 function doDeliver(di=0){
+ if(order.type==='boss'&&boss&&boss.hp>1){bossHit(di);return} // not the last hit: it does not count as a delivery
  const drop=order.drops[di];lastDrop=order.chain||{c:drop.c,r:drop.r};const t=order.clock,fast=t<=order.par,clean=order.clean,dx=drop.x,dy=drop.y,ot=order.type,om=ORDER_TYPES[ot];
  order.drops.splice(di,1);const final=!order.drops.length;if(!final)order.drop=order.drops[0];
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
@@ -1277,7 +1298,7 @@ const MSG_OK=['gm! ☀️','WAGMI 🚀','LFG!! 🔥','thanks fren 💙','ser, yo
  DILI={start:['gm frens ☀️','lets gooo 🛵'],near:['ngmi 😱','whoa!! 😳','too close!'],combo:['LFG!! 🚀','im on fire 🔥','unstoppable 😎'],
   crash:['rekt 😵','ouch 🤕','my bad 😅'],steal:["that's a rug pull 😤",'HEY! my package!'],reclaim:['mine! 😤','nice try 🐒'],
   lowtime:['gotta go fast! ⏱️','clock is ticking 😰'],zone:['new zone, who dis 👀','wow look at this place 🤩'],boss:['uh oh… 😬','bring it on 💪'],
-  airdrop:['free stuff?! 🪂','airdrop szn 🪂']};
+  airdrop:['free stuff?! 🪂','airdrop szn 🪂'],bosshit:['take that! 💥','one more!! 😤','feel the delivery 💪']};
 function say(x,y,text,o={}){const b=Object.assign({x,y,text,t:2.2,max:2.2,dili:false,color:'#10182d'},o);if(b.dili)bubbles=bubbles.filter(q=>!q.dili);else bubbles=bubbles.filter(q=>q.dili||Math.hypot(q.x-x,q.y-y)>30);bubbles.push(b);return b}
 function diliSay(kind,force){if(!player||mode!=='play'||(!force&&diliCd>0))return;const l=DILI[kind];if(!l)return;diliCd=5;say(0,0,cpick(l),{dili:true,t:1.8,max:1.8})}
 // every bubble text is drawn once into a small bitmap (per UI resolution) and reused while it pops in / follows
@@ -1617,7 +1638,7 @@ function update(dt){
   else if(tr.state==='warn'){if((tr.ding-=dt)<=0){tr.ding=.35;sfxAt({x:P.x,y:ry},SFX.bell)}
    if(tr.t<=0){tr.state='pass';tr.len=ri(4,6)*58+70;tr.x=tr.dir>0?-10:W+10;sfxAt({x:tr.dir>0?P.x-300:P.x+300,y:ry},SFX.horn)}}
   else if(tr.state==='pass'){tr.x+=tr.dir*720*diff()*dt;
-   if(tr.dir>0?tr.x-tr.len>W+10:tr.x+tr.len<-10){tr.state='idle';tr.t=(boss&&boss.kind==='trains'?rand(.4,.9):rand(3,5.5))/diff()}
+   if(tr.dir>0?tr.x-tr.len>W+10:tr.x+tr.len<-10){tr.state='idle';tr.t=(boss&&boss.kind==='trains'?rand(.4,.9)/bossRage():rand(3,5.5))/diff()}
    const R=tr.dir>0?{x:tr.x-tr.len,y:ry-17,w:tr.len,h:34}:{x:tr.x,y:ry-17,w:tr.len,h:34};
    if(P.inv<=0&&circleHitsRect(P,R)){crash(P.x,ry+(P.y<ry?30:-30),'train');player.vy*=1.4}}
  }
@@ -2110,9 +2131,15 @@ function drawGoalPill(){
  text(label,x+14,y+13.5,13,'#fff','left',900);text(prog,x+w-14,y+13.5,13,'#45e6a5','right',900);ctx.restore();
 }
 function drawBossPill(){
- if(!boss||resultCard||mode==='over'||mode==='stage')return;const w=380,x=W/2-w/2,y=HUD+12,p=.6+.4*Math.sin(runT*6);
- ctx.fillStyle='rgba(40,6,14,.9)';rr(ctx,x,y,w,34,17);ctx.fill();ctx.strokeStyle=`rgba(255,48,72,${p})`;ctx.lineWidth=2.5;ctx.stroke();
- text(`💀 BOSS · ${boss.icon} ${boss.name}`,x+18,y+17.5,15,'#fff','left',900);text('DELIVER TO WIN',x+w-16,y+17.5,11,'#ff8a95','right',900);
+ if(!boss||resultCard||mode==='over'||mode==='stage')return;const w=400,h=48,x=W/2-w/2,y=HUD+10,p=.6+.4*Math.sin(runT*(4+2*(boss.phase||1))),hit=Math.max(0,boss.hitT||0)/.6;
+ ctx.save();if(hit){ctx.translate(Math.sin(runT*90)*6*hit,0)}
+ ctx.fillStyle='rgba(40,6,14,.92)';rr(ctx,x,y,w,h,18);ctx.fill();ctx.strokeStyle=`rgba(255,48,72,${p})`;ctx.lineWidth=2.5;ctx.stroke();
+ text(`💀 ${boss.icon} ${boss.name}`,x+18,y+15,15,'#fff','left',900);
+ text(boss.hp===1?'LAST HIT! 😡':`DELIVER TO HIT · ${boss.max-boss.hp}/${boss.max}`,x+w-16,y+15,11,boss.hp===1?'#ffd34d':'#ff8a95','right',900);
+ // HP bar: one segment per hit left, the lost one flashes white
+ const bx=x+18,bw=w-36,sg=bw/boss.max;
+ for(let i=0;i<boss.max;i++){const on=i<boss.hp;ctx.fillStyle=on?(boss.hp===1?`rgba(255,${120+80*p|0},60,1)`:'#ff3048'):hit&&i===boss.hp?`rgba(255,255,255,${hit})`:'rgba(255,255,255,.12)';rr(ctx,bx+i*sg+2,y+30,sg-4,9,4.5);ctx.fill()}
+ ctx.restore();
 }
 function drawScreenFx(){
  const x0=-UX,x1=W+UX,y0=HUD,y1=H,cx=W/2,cy=(y0+y1)/2;
