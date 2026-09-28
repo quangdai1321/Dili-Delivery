@@ -806,6 +806,8 @@ function renderMap(){
  if(zone.style==='village'||zone.style==='jungle')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.strokeStyle=zone.style==='jungle'?'rgba(10,40,12,.45)':'rgba(40,90,30,.35)';g.lineWidth=1.5;
   for(let i=0;i<4;i++){const x=c*T+rand(6,42),y=r*T+rand(8,44);g.beginPath();g.moveTo(x-3,y);g.lineTo(x-1,y-5);g.moveTo(x,y);g.lineTo(x,y-6);g.moveTo(x+3,y);g.lineTo(x+1,y-5);g.stroke()}}
  if(zone.style==='moon')for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c])continue;g.fillStyle='rgba(255,255,255,.07)';for(let i=0;i<3;i++){g.beginPath();g.arc(c*T+rand(4,44),r*T+rand(4,44),rand(1,2.5),0,7);g.fill()}}
+ {let n=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=deco[r][c];if(!d||d.kind==='park')continue;d.billboard=false;
+  if(n<4&&(c*31+r*17+zone.id*7)%13===0){d.billboard=true;n++}}} // a few buildings in every map carry a Dlicom billboard
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=deco[r][c];if(!d)continue;const x=c*T,y=r*T;
   if(d.kind==='park'&&zone.style==='moon'){
    g.fillStyle=shade(zone.walk,-.05);g.beginPath();g.arc(x+T/2,y+T/2,15,0,7);g.fill();g.strokeStyle=shade(zone.walk,.12);g.lineWidth=3;g.stroke();
@@ -859,6 +861,8 @@ function renderMap(){
    for(let i=0;i<2;i++)for(let j=0;j<2;j++)if(d.win>>(i*2+j)&1)g.fillRect(bx+9+i*12,top+7+j*9,6,5);
    g.globalAlpha=1;
    if(d.ac){g.fillStyle=shade(d.color,-.18);g.fillRect(bx+bw-11,top+3,6,5)}
+   if(d.billboard){const cx=bx+bw/2,cy=top+rh/2-1;g.fillStyle='rgba(0,0,0,.28)';rr(g,cx-14,cy-9,30,21,5);g.fill();
+    g.fillStyle='#ffffff';rr(g,cx-15,cy-11,30,21,5);g.fill();g.strokeStyle=BRAND.blue;g.lineWidth=1.5;rr(g,cx-15,cy-11,30,21,5);g.stroke();drawLogo(g,cx,cy-.5,15)}
    if(d.neon){g.strokeStyle=d.neon;g.lineWidth=1.5;g.globalAlpha=.8;rr(g,bx,top,bw,rh,5);g.stroke();g.globalAlpha=1}
   }
  }
@@ -1335,7 +1339,7 @@ const EVENTS=[
  {id:'happy',icon:'⭐',name:'HAPPY HOUR',sub:'Every point counts double!',dur:15,color:'#ffd34d'},
  {id:'rush',icon:'🚗',name:'RUSH HOUR',sub:'Traffic floods the streets!',dur:12,color:'#ff8a2a'},
  {id:'fog',icon:'🌫️',name:'THICK FOG',sub:'You can barely see. Follow the dots!',dur:12,color:'#cfd8ea'},
- {id:'airdrop',icon:'🪂',name:'AIRDROP',sub:'Crates are falling. Catch them!',dur:12,color:'#35d6e8'},
+ {id:'airdrop',icon:'🪂',name:'DLICOM AIRDROP',sub:'Dlicom crates are falling. Catch them!',dur:12,color:'#35d6e8'},
  {id:'coins',icon:'🪙',name:'COIN SHOWER',sub:'Grab as many coins as you can!',dur:12,color:'#ffd34d'},
 ];
 const evOn=id=>!!(event&&event.id===id);
@@ -1392,11 +1396,11 @@ function drawCrates(){
   if(!c.landed){ // shadow grows where it will land, the crate floats down under its parachute
    ctx.fillStyle=`rgba(0,0,0,${.12+.2*f})`;ctx.beginPath();ctx.ellipse(c.x,c.y+8,6+10*f,3+4*f,0,0,7);ctx.fill();
    ctx.strokeStyle=c.gold?'rgba(255,211,77,.8)':'rgba(143,227,255,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(c.x,c.y+6,22-10*f,0,7);ctx.stroke();
-   const y=c.y-(1-f)*230,sw=Math.sin(c.t*3)*6;ctx.drawImage(emojiSprite('🪂',k),c.x-16+sw,y-44,32,32);ctx.drawImage(emojiSprite(c.gold?'🎁':'📦',k),c.x-12,y-16,24,24);continue}
+   const y=c.y-(1-f)*230,sw=Math.sin(c.t*3)*6;ctx.drawImage(emojiSprite('🪂',k),c.x-16+sw,y-44,32,32);if(c.gold)ctx.drawImage(emojiSprite('🎁',k),c.x-12,y-16,24,24);else drawPackage(c.x,y-4,1.1);continue}
   if(c.life<1.5&&Math.sin(c.life*20)<0)continue; // blink before it disappears
   const b=Math.sin(c.t*4)*1.5;ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(c.x,c.y+9,11,4,0,0,7);ctx.fill();
   if(c.gold){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite('255,211,77',.55),c.x-26,c.y-30,52,52);ctx.restore()}
-  ctx.drawImage(emojiSprite(c.gold?'🎁':'📦',k),c.x-13,c.y-16+b,26,26)}
+  if(c.gold)ctx.drawImage(emojiSprite('🎁',k),c.x-13,c.y-16+b,26,26);else drawPackage(c.x,c.y-4+b,1.2)}
 }
 const emojiSprite=(e,k)=>sprite('emo'+e+k,Math.ceil(30*k),Math.ceil(30*k),(g,w)=>{g.font=`${Math.round(24*k)}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(e,w/2,w/2+1)});
 function drawCop(){
@@ -1708,10 +1712,11 @@ function computePath(){
 
 // ---------- draw: world ----------
 function drawStar(x,y,r,fill){ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rad=i%2?r*.45:r;ctx.lineTo(x+Math.cos(a)*rad,y+Math.sin(a)*rad)}ctx.closePath();ctx.fillStyle=fill;ctx.fill()}
+const logoSprite=()=>{const k=Math.max(1,SPR());return sprite('logoS'+k,Math.ceil(24*k),Math.ceil(24*k),(g,w)=>drawLogo(g,w/2,w/2,w*.94))};
 function drawPackage(x,y,s=1){
  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
  ctx.fillStyle='#c98a3f';rr(ctx,-11,-9,22,18,3);ctx.fill();ctx.fillStyle='#e0a656';rr(ctx,-11,-9,22,6,3);ctx.fill();
- ctx.fillStyle=BRAND.blue;ctx.fillRect(-2.5,-9,5,18);ctx.restore();
+ ctx.fillStyle=BRAND.blue;ctx.fillRect(-2.5,-9,5,18);ctx.drawImage(logoSprite(),-6,-5,12,12);ctx.restore();
 }
 function drawAwning(bld,road,colors){
  if(!bld)return;const x=bld.c*T,y=HUD+bld.r*T,dx=road.c-bld.c,dy=road.r-bld.r;

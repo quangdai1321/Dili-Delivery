@@ -105,7 +105,10 @@ From the 2nd delivery a power-up appears on the road every ~12s (max 2, gone aft
 | 📦 2 Drops | One pickup, two doors, any order | Each door counts as a delivery |
 
 ### Random events (every ~25–35s)
-🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌫️ **Thick fog** (visibility shrinks around Dili; not in the already-dark zones) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe) · 🪂 **Airdrop** (9 crates float down on parachutes: a shadow and ring show where each one lands. Catch them for +3 🪙, or +12 🪙 for a rare golden 🎁. They blink and vanish after 5s)
+🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌫️ **Thick fog** (visibility shrinks around Dili; not in the already-dark zones) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe) · 🪂 **Dlicom Airdrop** (9 Dlicom crates float down on parachutes: a shadow and ring show where each one lands. Catch them for +3 🪙, or +12 🪙 for a rare golden 🎁. They blink and vanish after 5s)
+
+### 🔵 Dlicom around the city
+Every map has 4 rooftop billboards with the Dlicom logo, baked into the map so they cost nothing per frame. Every package (the one to pick up, the one Dili carries, the airdrop crates) carries a Dlicom logo stamp, and the trains are Dlicom-blue with the logo on the engine.
 
 ### 💬 Chatter
 - **Customers answer** when their package arrives: *"gm! ☀️"*, *"WAGMI 🚀"*, *"faster than my wallet tx 😂"*… Slow deliveries get grumpier replies, and VIPs have their own lines.
