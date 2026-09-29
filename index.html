@@ -1203,7 +1203,7 @@ function startRun(kind=runKind){
  powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  hitStop=0;camPunch=0;crashFx=0;comboGlow=0;crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
- upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];tut=null;if(!store.get('diliDelivery.tutDone',false)&&(best.runs===0||/tutorial/.test(location.search)))startTutorial();diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
+ upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];tut=null;if(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
  enterZone(0,true);newOrder();mode='play';SFX.go();irisT=.75;
 }
@@ -2232,7 +2232,7 @@ const TUT_STEPS=[
  {id:'pickup',icon:'📦',title:'Pick up the package',sub:()=>'Follow the YELLOW dots to the 📦',color:'#ffd34d'},
  {id:'deliver',icon:'🏠',title:'Deliver it!',sub:()=>'Follow the GREEN dots to the 🏠 and dodge the cars 🚗',color:'#45e6a5'},
  {id:'dash',icon:'⚡',title:'DASH!',sub:()=>touchUI?'Tap the ⚡ DASH button (bottom right)':'Press  SPACE  to zoom forward and jump barriers',color:'#ff9f5a'}];
-let tut=null;
+let tut=null,forceTut=false,tutFromUrl=false; // ?tutorial shows it once per page load, even for players who already did it
 function startTutorial(){tut={step:0,t:0,check:0,moved:0,done:{},end:0}}
 function tutMark(id){ // remember what the player already did, so a step they did early ticks off at once
  if(!tut||tut.end)return;tut.done[id]=true}
@@ -2454,6 +2454,7 @@ function drawSettings(){
   touchUI&&['🎮','Controls',ctrlMode==='dpad'?'D-PAD':'JOYSTICK',()=>{toggleCtrl();store.set('diliDelivery.ctrlChosen',true)}],
   touchUI&&['📳','Vibration',settings.vibe?'ON':'OFF',tog('vibe')],
   ['🗺️','Minimap',showMini?'ON':'OFF',()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)}],
+  settingsFrom==='menu'&&['🎓','Tutorial','REPLAY',()=>{forceTut=true;SFX.pickup();mode='menu';startRun(false)},'Learn the controls again in 30 seconds'],
   ['🎥','Camera',camClose?'CLOSE':'FULL MAP',()=>{camClose=!camClose;store.set('diliDelivery.cam',camClose)}],
   ['📈','Show FPS',settings.fps?'ON':'OFF',tog('fps')],
   LB_ON&&['📊','Share anonymous stats',settings.stats?'ON':'OFF',tog('stats'),'FPS, zone reached, what hit you. No name, no personal data'],

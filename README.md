@@ -29,7 +29,7 @@ Each shift starts with 60 seconds.
 Dili runs at 185 px/s (Speed upgrade: +12% per level, max 5). DASH recharges in 2.0s (−15% per Dash level).
 
 ### 🎓 First-run tutorial
-A new player's first shift walks through 4 hands-on steps in a card at the bottom of the screen: **Move** (WASD/arrows, or the D-pad/joystick on phones) → **Pick up** the 📦 (yellow dots) → **Deliver** to the 🏠 (green dots, dodge cars) → **DASH** (SPACE, or the ⚡ button). Each step ticks ✓ the moment you do it, including a step you already did early. On phones a pulsing ring points at the D-pad and the DASH button. Finishing gives +10s and +20 🪙. The card turns see-through when Dili or the target is behind it. **SKIP ›** closes it for good. It only shows on the very first run. Add `?tutorial` to the URL to see it again.
+A new player's first shift walks through 4 hands-on steps in a card at the bottom of the screen: **Move** (WASD/arrows, or the D-pad/joystick on phones) → **Pick up** the 📦 (yellow dots) → **Deliver** to the 🏠 (green dots, dodge cars) → **DASH** (SPACE, or the ⚡ button). Each step ticks ✓ the moment you do it, including a step you already did early. On phones a pulsing ring points at the D-pad and the DASH button. Finishing gives +10s and +20 🪙. The card turns see-through when Dili or the target is behind it. **SKIP ›** closes it for good. It shows by itself only on the very first run. Replay it any time with **Settings → 🎓 Tutorial → REPLAY** (from the menu), or open the game with `?tutorial` at the end of the URL (it shows once per page load, even for veterans).
 
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
 
