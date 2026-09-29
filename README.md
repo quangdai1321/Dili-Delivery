@@ -33,6 +33,9 @@ A new player's first shift walks through 4 hands-on steps in a card at the botto
 
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
 
+### 💀 Boss Rush
+A **💀 BOSS RUSH** button on the menu (between Daily and Ranking). You go straight into the boss of every zone, one after another: Monster Truck → Stampede → Blackout → … → Meteor Storm. Each boss takes 3 hits. Hits give +4s, a defeat +6s and the zone card +8s. When time runs out, the result is how many of the 11 bosses you took down, and your time for a full clear. The HUD shows `💀 BOSS RUSH 3/11`. There are no random events and no zone goals. Boss Rush keeps its own record (`BOSS RUSH BEST 7/11 bosses · FULL CLEAR 212.4s`). It never touches the leaderboard, your normal personal best, ghosts or zone unlocks. Sharing posts "I took down 7/11 bosses" with the game link (no challenge link).
+
 ### Daily Challenge
 A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same city layouts, the same orders and the same upgrade offers that day. Your best score and number of attempts are saved per day.
 
@@ -190,7 +193,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Effects: an iris opening at the start of a run, camera zoom kicks on deliveries, combos and boss wins, star sparkles on delivery, speed lines while dashing, a red pulse on crashes, a glowing screen edge on combo milestones, coins flying to the score, hit-stop, dizzy stars and zone weather.
 
 ## Online leaderboard (Supabase)
-The menu has a 🏆 **Ranking** button (or press **L**) with two boards: **All-time** and **today's Daily**. Each player appears once, with their best score. At the end of a run the score is submitted automatically. The first time, the game asks for a name (2–16 characters). The game over screen then shows your rank, e.g. "Rank #4 of 57".
+The menu has a 🏆 **Ranking** button (or press **L**) with two boards: **All-time** and **today's Daily**. Each player appears once, with their best score. The same name played on two devices (phone + PC) is merged in the game, which fetches the top 30 and keeps each name's highest row. At the end of a run the score is submitted automatically. The first time, the game asks for a name (2–16 characters). The game over screen then shows your rank, e.g. "Rank #4 of 57".
 
 Three boards: **All-time**, **This week** (resets Monday 00:00 UTC) and **today's Daily**. The **top 3 of each week** receive the exclusive 🏆 **Champion Trophy** hat and 150 🪙 the next time they open the game.
 

@@ -369,10 +369,14 @@ function openBoard(tab,from){board={tab,from,rows:null,me:null,error:null};mode=
 async function loadBoard(){
  const b=board;if(!b||!LB_ON)return;b.rows=null;b.me=null;b.error=null;
  const day=b.tab==='daily'?today().key:null;
- try{const [rows,me]=await Promise.all([sb('rpc/get_leaderboard',{p_mode:b.tab,p_day:day,p_limit:10,p_device:deviceId}),sb('rpc/get_my_rank',{p_mode:b.tab,p_day:day,p_device:deviceId})]);
-  if(board===b){b.rows=rows||[];b.me=me&&me[0]||null}}
+ try{const [rows,me]=await Promise.all([sb('rpc/get_leaderboard',{p_mode:b.tab,p_day:day,p_limit:30,p_device:deviceId}),sb('rpc/get_my_rank',{p_mode:b.tab,p_day:day,p_device:deviceId})]);
+  if(board===b){b.rows=dedupeBoard(rows||[]).slice(0,10);b.me=me&&me[0]||null}}
  catch(e){if(board===b)b.error=e.message}
 }
+// the same player on two devices (phone + PC) has two best scores: show each name once, with its best score
+function dedupeBoard(rows){const seen=new Map(),out=[];
+ for(const r of rows){const k=String(r.name||'').trim().toLowerCase();const hit=seen.get(k);if(hit){if(r.is_me)hit.is_me=true;continue}const c=Object.assign({},r);seen.set(k,c);out.push(c)}
+ out.forEach((r,i)=>r.rank=i+1);return out}
 function boardTab(t){if(board&&board.tab!==t){board.tab=t;loadBoard()}}
 function boardBack(){const f=board?board.from:'menu';board=null;mode=f}
 // name entry: a real <input> so phone keyboards work
@@ -1161,6 +1165,7 @@ function doDeliver(di=0){
  }
  zoneDeliveries++;tutMark('deliver');
  if(!final){pathTimer=0;if(deliveries%3===0)openUpgrade();return} // one more door to go on a double order
+ if(rush){if(ot==='boss'){bossDefeated();rushNext()}else newOrder('boss',lastDrop);if(deliveries%3===0){if(mode==='stage')pendingUpgrade=true;else if(mode==='play')openUpgrade()}return}
  const last=ZONES.length-1,nz=ZONE_AT.filter(z=>deliveries>=z).length-1,nl=nz===last?Math.floor((deliveries-ZONE_AT[last])/LOOP_EVERY):0;
  if(ot==='boss')bossDefeated();
  if(nz!==zoneIdx||nl!==loop)startStage(nz,nl);
@@ -1171,6 +1176,7 @@ function doDeliver(di=0){
 function startStage(i,lp){
  stageInfo={cleared:zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:''),i,loop:lp,unlocked:i>(best.maxZone||0),goalDone:!!(zgoal&&zgoal.done),hadGoal:!!zgoal};
  queueMoment(stageInfo.unlocked?4:2.5,`🗺️ Reached ${ZONES[i].icon} ${ZONES[i].name}${lp?' '+ROMAN[Math.min(lp,9)]:''}`,1.3); // captured on the zone card
+ if(rush)stageInfo.unlocked=false;
  if(stageInfo.unlocked){best.maxZone=i;store.set('diliDelivery.best',best)}
  pendingZone={i,loop:lp};mode='stage';stageT=0;joy=null;shiftTime=Math.min(99,shiftTime+8);SFX.stage();
  addCoins(10);if(i===ZONES.length-1)unlockAch('moon');endEvent(true);
@@ -1180,7 +1186,7 @@ function startStage(i,lp){
 function enterZone(i,first,lp=0){
  zoneIdx=i;zone=ZONES[i];loop=lp;zoneDeliveries=0;
  const sp=seeded(hashSeed(runSeed^(zone.id*104729+lp*7)),()=>{const s=genMap(first?{c:12,r:6}:lastDrop||tileOf(player)),q=center(s.c,s.r);player.x=q.x;player.y=q.y;spawnCars();spawnPeds();return s}),c=center(sp.c,sp.r);
- stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;stealCd=0;powerups=[];bubbles=[];if(!first){diliCd=0;setTimeout(()=>diliSay('zone'),900)}zgoal=ZOBJ[zone.id]?Object.assign({prog:0,done:false,pulse:0},ZOBJ[zone.id]):null;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
+ stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;stealCd=0;powerups=[];bubbles=[];if(!first){diliCd=0;setTimeout(()=>diliSay('zone'),900)}zgoal=!rush&&ZOBJ[zone.id]?Object.assign({prog:0,done:false,pulse:0},ZOBJ[zone.id]):null;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
  player.x=c.x;player.y=c.y;player.vx=player.vy=0;player.inv=Math.max(player.inv,1.2);player.trail=[];updateCam(0,true);
  rain=[];
  if(zone.rain)for(let n=0;n<140;n++)rain.push({x:rand(0,W),y:rand(HUD,H),l:rand(10,22),s:rand(520,760)});
@@ -1190,11 +1196,16 @@ function enterZone(i,first,lp=0){
  else{flash=.4;flashColor=zone.accent}
 }
 // kind: 'normal' | 'daily' | 'challenge' (booleans kept for old call sites: true = daily)
+// BOSS RUSH: straight into the boss of every zone, one after another. Hits and clears give time as usual;
+// the result is how many of the 11 bosses you took down (and how fast, for a full clear). Kept apart from the normal
+// leaderboard, personal bests and zone unlocks.
+let rush=null;
+function rushNext(){rush.cleared++;if(zoneIdx<ZONES.length-1)startStage(zoneIdx+1,0);else{rush.won=true;rush.time=runClock;endRun()}}
 function startRun(kind=runKind){
  if(player&&(mode==='play'||mode==='paused'||mode==='settings'))sendRunStats('restart');
  ensureAudio();keepAwake(true);resetRunStats();
  if(kind===true)kind='daily';else if(kind===false)kind='normal';if(kind==='challenge'&&!CH)kind='normal';
- runKind=kind;daily=kind==='daily';chRun=kind==='challenge'?CH:null;
+ runKind=kind;daily=kind==='daily';chRun=kind==='challenge'?CH:null;rush=kind==='bossrush'?{cleared:0,won:false,time:0}:null;
  if(daily){const t=today(),rec=dailyRec();rec.tries++;store.set('diliDelivery.daily',rec);missionTrack('dailyplay');dailyNo=t.no;dailySeed=hashSeed(t.key);dailyTries=rec.tries;paceRef=rec.pace;runSeed=dailySeed;unlockAch('daily')}
  else if(chRun){dailySeed=null;runSeed=chRun.seed;paceRef=null}
  else if(kind==='retry'&&lastGhost){dailySeed=null;runSeed=lastGhost.seed;paceRef=lastGhost.pace} // race your own ghost on the same city
@@ -1203,17 +1214,21 @@ function startRun(kind=runKind){
  powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  hitStop=0;camPunch=0;crashFx=0;comboGlow=0;crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
- upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];tut=null;if(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
+ upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];tut=null;if(!rush&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
- enterZone(0,true);newOrder();mode='play';SFX.go();irisT=.75;
+ enterZone(0,true);if(rush){newOrder('boss');mode='play';startBoss()}else{newOrder();mode='play'}SFX.go();irisT=.75;
 }
 function endRun(){
  sendRunStats('time');
  mode='over';overDelay=.6;joy=null;resultCard=null;banner=null;hype=null;dispScore=score;keepAwake(false);
  paceLog.push(score);endEvent(true);
  if(score>=10000)unlockAch('score10k');
- const prevBest=daily?dailyRec().best:best.score;
+ const prevBest=daily?dailyRec().best:rush?Infinity:best.score;
  rage=rageReport(prevBest);
+ if(rush){const r=best.rush||{cleared:0,time:null},better=rush.cleared>r.cleared||(rush.won&&(r.time==null||rush.time<r.time));
+  rage.line=rush.won?`💀 ALL ${ZONES.length} BOSSES DOWN in ${rush.time.toFixed(1)}s! 🏆`:`💀 ${rush.cleared}/${ZONES.length} bosses defeated`;
+  rage.taunt=better&&(r.cleared||r.time)?'NEW BOSS RUSH RECORD! 🔥':rush.won?'Can you do it faster?':rush.cleared?`Next up was ${ZONES[Math.min(ZONES.length-1,rush.cleared)].icon} ${BOSSES[ZONES[Math.min(ZONES.length-1,rush.cleared)].id].name}…`:'The Monster Truck says hi 🚚';
+  if(better){best.rush={cleared:Math.max(r.cleared,rush.cleared),time:rush.won?(r.time==null?rush.time:Math.min(r.time,rush.time)):r.time}}}
  if(chRun){const d=Math.round(score-chRun.score);chRun.won=d>0;
   rage.line=d>0?`You beat ${chRun.name} by ${fmt(d)}! 😎`:`${chRun.name} wins by ${fmt(-d)} 😤`;if(d>0){if(chRun.score>=3000)unlockAch('challenge');rage.taunt='Send it back and watch them rage 😏'}}
  newBest=score>prevBest&&score>0;
@@ -1221,15 +1236,16 @@ function endRun(){
  if(runKind==='retry'&&lastGhost&&!chRun){const d=Math.round(score-lastGhost.score); // ghost race verdict
   rage.line=d>0?`👻 You beat your ghost by ${fmt(d)}!`:d<0?`👻 Your ghost wins by ${fmt(-d)} 😤`:'👻 Dead heat with your ghost!';rage.taunt=d>0?'New ghost saved. Can you beat THAT one?':'Same city, same orders. Only you changed.'}
  // keep the best ghost of this city for "race your ghost"
- if(!daily&&!chRun&&(runKind!=='retry'||!lastGhost||score>lastGhost.score))lastGhost={seed:runSeed,log:ghostLog,pace:paceLog,score};
+ if(!daily&&!chRun&&!rush&&(runKind!=='retry'||!lastGhost||score>lastGhost.score))lastGhost={seed:runSeed,log:ghostLog,pace:paceLog,score};
  if(newBest&&!daily&&!chRun)best.pace=paceLog;
- best.score=Math.max(best.score,score);best.combo=Math.max(best.combo,runBestCombo);
- best.deliveries=Math.max(best.deliveries,deliveries);if(fastest!=null)best.time=best.time==null?fastest:Math.min(best.time,fastest);
- best.maxZone=Math.max(best.maxZone||0,zoneIdx);best.runs++;store.set('diliDelivery.best',best);SFX.over();buzz([30,40,30]);
+ if(!rush){best.score=Math.max(best.score,score);best.combo=Math.max(best.combo,runBestCombo);
+  best.deliveries=Math.max(best.deliveries,deliveries);if(fastest!=null)best.time=best.time==null?fastest:Math.min(best.time,fastest);
+  best.maxZone=Math.max(best.maxZone||0,zoneIdx)}best.runs++;store.set('diliDelivery.best',best);SFX.over();buzz([30,40,30]);
  if(newBest)for(let i=0;i<5;i++)setTimeout(()=>burst(rand(W*.3,W*.7),rand(150,300),40,CONFETTI,true),i*220);
  makeShareCard();
  lastRun={mode:daily?'daily':'all',day:daily?today().key:null,score:Math.round(score),deliveries,combo:runBestCombo,zone:zone.id,loop,skin:meta.equip.color};lbSubmit=null;
- if(LB_ON&&deliveries>0&&score>0){if(playerName)submitScore();else lbSubmit={state:'needName'}}
+ if(rush)lastRun=null; // boss rush stays off the leaderboard
+ else if(LB_ON&&deliveries>0&&score>0){if(playerName)submitScore();else lbSubmit={state:'needName'}}
 }
 // ---------- rage: the game over screen tells you exactly how close you were ----------
 const TAUNTS={
@@ -1569,8 +1585,8 @@ function update(dt){
  if(mode==='menu'){updateCars(dt);return}
  if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
  if(mode==='stage'){stageT+=dt;
-  if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(null,tileOf(player))}
-  if(stageT>=3.2){mode=document.hidden?'paused':'play';if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
+  if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(rush?'boss':null,tileOf(player))}
+  if(stageT>=3.2){mode=document.hidden?'paused':'play';if(rush&&!boss)startBoss();if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
  if(mode!=='play')return;
  if(hitStop>0){hitStop-=dt;return}
  if(slowmo>0){slowmo-=dt;dt*=.45} // brief slow-motion on a close call
@@ -2088,7 +2104,7 @@ function drawHUDRaw(){
  const hg=ctx.createLinearGradient(0,0,W,0);hg.addColorStop(0,'#0c1a44');hg.addColorStop(1,'#0a1330');ctx.fillStyle=hg;ctx.fillRect(-UX,0,SW,HUD);
  ctx.fillStyle=zone.accent;ctx.fillRect(-UX,HUD-2,SW,2);
  if(!hudBake)drawLogoFancy(30,24,32,.6);
- text(daily?'📅 DAILY #'+dailyNo:runKind==='retry'?'👻 GHOST RACE':chRun?'⚔️ VS '+chRun.name.toUpperCase():'DILI DELIVERY',52,15,chRun?13:16,daily||chRun?'#ffd34d':'#fff','left',900);text(zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:'')+' · '+zone.tag,52,30,9,zone.accent,'left',800);
+ text(daily?'📅 DAILY #'+dailyNo:rush?`💀 BOSS RUSH ${rush.cleared}/${ZONES.length}`:runKind==='retry'?'👻 GHOST RACE':chRun?'⚔️ VS '+chRun.name.toUpperCase():'DILI DELIVERY',52,15,chRun||rush?13:16,daily||chRun?'#ffd34d':rush?'#ff8a95':'#fff','left',900);text(zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:'')+' · '+zone.tag,52,30,9,zone.accent,'left',800);
  {const L=ZONES.length-1,prv=zoneIdx<L?ZONE_AT[zoneIdx]:ZONE_AT[L]+loop*LOOP_EVERY,nxt=zoneIdx<L?ZONE_AT[zoneIdx+1]:prv+LOOP_EVERY,pr=clamp((deliveries-prv)/(nxt-prv),0,1);
   ctx.fillStyle='#1c2742';rr(ctx,52,38,130,4,2);ctx.fill();ctx.fillStyle=zone.accent;rr(ctx,52,38,Math.max(4,130*pr),4,2);ctx.fill()}
  text('DELIVERY',200,14,L,'#8f9cbc');text('#'+String(deliveries+1).padStart(2,'0'),200,33,V,'#fff','left',900);
@@ -2363,9 +2379,12 @@ function drawMenu(){
  checkPodium();
  button('START DELIVERY',cx-150,286,300,58,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false))ctrlPrompt=true;else startRun(false)});
  {const d=dailyRec(),t=today(),dw=LB_ON?146:300,lbl=`📅 DAILY #${t.no}`+(LB_ON?'':d.best?`  ·  BEST ${fmt(d.best)}`:d.tries?'':'  ·  NEW!');
-  button(lbl,cx-150,354,dw,40,()=>startRun(true),false);
-  if(!d.tries){const p=.6+.4*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,cx-150,354,dw,40,20);ctx.stroke()}
-  if(LB_ON)button('🏆 RANKING',cx+4,354,146,40,()=>openBoard('all','menu'),false)}
+  const bw=LB_ON?142:147,x0=LB_ON?cx-218:cx-150;
+  button(`📅 DAILY #${t.no}`,x0,354,bw,40,()=>startRun(true),false);
+  if(!d.tries){const p=.6+.4*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,x0,354,bw,40,20);ctx.stroke()}
+  button('💀 BOSS RUSH',x0+bw+7,354,bw,40,()=>startRun('bossrush'),false);
+  {const p=.5+.5*Math.sin(runT*3);ctx.strokeStyle=`rgba(255,48,72,${.35+.45*p})`;ctx.lineWidth=2;rr(ctx,x0+bw+7,354,bw,40,20);ctx.stroke()}
+  if(LB_ON)button('🏆 RANKING',x0+2*(bw+7),354,bw,40,()=>openBoard('all','menu'),false)}
  text('PERSONAL BEST',cx,414,11,'#8f9cbc','center',900);
  statBox('SCORE',fmt(best.score),cx-243,426,156,70,'#ffd34d');
  statBox('FASTEST',best.time==null?'—':best.time.toFixed(2)+'s',cx-78,426,156,70);
@@ -2398,7 +2417,7 @@ function drawOver(){
  statBox('CLOSE CALLS',String(nearMisses),x0+(w+gap)*2,y,w,76,'#8fe3ff');
  statBox('CRASHES',crashes?`${crashes}  (−${crashLost}s)`:'0 👌',x0+(w+gap)*3,y,w,76,crashes?'#ff6473':'#45e6a5');
  text(`Reached ${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}   ·   🪙 +${runCoins} coins (total ${fmt(meta.coins)})`,W/2,372,15,zone.accent,'center',900);
- {const pb=daily?`DAILY BEST  ${fmt(dailyRec().best)}   ·   ALL-TIME BEST  ${fmt(best.score)}`:`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`;
+ {const rb=best.rush||{cleared:0,time:null},pb=rush?`BOSS RUSH BEST  ${rb.cleared}/${ZONES.length} bosses${rb.time!=null?`   ·   FULL CLEAR ${rb.time.toFixed(1)}s`:''}`:daily?`DAILY BEST  ${fmt(dailyRec().best)}   ·   ALL-TIME BEST  ${fmt(best.score)}`:`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`;
   text(pb,W/2,396,12,'#aab8d5','center',800)}
  if(overDelay<=0){
   if(runKind==='normal'||runKind==='retry'){button('RUN AGAIN',W/2-212,416,204,58,()=>startRun('normal'));
@@ -2406,7 +2425,7 @@ function drawOver(){
    const p=.5+.5*Math.sin(runT*4);ctx.strokeStyle=`rgba(216,230,255,${.3+.5*p})`;ctx.lineWidth=2;rr(ctx,W/2+8,416,204,58,29);ctx.stroke()}
   else button('RUN AGAIN',W/2-130,416,260,58,()=>startRun());
   const bw=LB_ON?150:190,bx=LB_ON?W/2-235:W/2-165;
-  button(!shareFile?'…':daily?'📤  SHARE':'⚔️ CHALLENGE',bx,488,bw,42,shareRun,false,true);
+  button(!shareFile?'…':daily||rush?'📤  SHARE':'⚔️ CHALLENGE',bx,488,bw,42,shareRun,false,true);
   if(shareFile){ctx.strokeStyle='rgba(255,211,77,.7)';ctx.lineWidth=2;rr(ctx,bx,488,bw,42,21);ctx.stroke()}
   if(LB_ON)button('🏆 RANKING',W/2-75,488,150,42,()=>openBoard(lastRun?lastRun.mode:'all','over'),false);
   button('MENU',LB_ON?W/2+85:W/2+35,488,LB_ON?150:130,42,()=>{mode='menu'},false);
@@ -2592,10 +2611,10 @@ function drawBoard(){
 // ---------- share card: an image of the run + a post ready for X ----------
 function shareText(){
  const where=`${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}`;
- const head=daily?`📅 Dili Delivery Daily #${dailyNo} — ${fmt(score)} pts (attempt #${dailyTries})`:`📦 I scored ${fmt(score)} in Dili Delivery`;
+ const head=rush?(rush.won?`💀 I beat ALL ${ZONES.length} bosses of Dili Delivery in ${rush.time.toFixed(1)}s!`:`💀 I took down ${rush.cleared}/${ZONES.length} bosses in Dili Delivery BOSS RUSH`):daily?`📅 Dili Delivery Daily #${dailyNo} — ${fmt(score)} pts (attempt #${dailyTries})`:`📦 I scored ${fmt(score)} in Dili Delivery`;
  const pain=(moment?moment.label+'\n':'')+(newBest?'New personal best 😎':rage&&rage.line?rage.line:'');
  // non-daily runs share a challenge link: the friend gets this exact city, orders and events
- const link=daily?GAME_URL:shareLink(),ask=daily?'Can you beat me? 👇':'⚔️ Beat me on the SAME map 👇';
+ const link=daily||rush?GAME_URL:shareLink(),ask=rush?'How many can you beat? 👇':daily?'Can you beat me? 👇':'⚔️ Beat me on the SAME map 👇'; // boss rush has no challenge link
  return `${head}\n${deliveries} deliveries · combo x${runBestCombo} · reached ${where}\n${pain}\n${ask}\n${link}`.replace(/\n\n/g,'\n');
 }
 const shareLink=()=>challengeLink(runSeed,score,playerName||'A friend');
@@ -2639,7 +2658,7 @@ function shareRun(){
   navigator.share({files:[shareFile],text:txt}).then(()=>{toast={text:'Shared! Now go beat it 😤',t:3}}).catch(()=>{});return}
  // desktop: open a prefilled post on X and download the card to attach
  window.open('https://x.com/intent/post?text='+encodeURIComponent(txt),'_blank','noopener');
- if(!daily)try{navigator.clipboard.writeText(shareLink()).catch(()=>{})}catch(e){}
+ if(!daily&&!rush)try{navigator.clipboard.writeText(shareLink()).catch(()=>{})}catch(e){}
  try{const a=document.createElement('a'),u=URL.createObjectURL(shareFile);a.href=u;a.download=shareFile.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}catch(e){}
  toast={text:daily?'Score card downloaded — attach it to your post 📎':'Challenge link copied + score card downloaded 📎',t:4};
 }
