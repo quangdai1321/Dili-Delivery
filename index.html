@@ -1694,18 +1694,22 @@ function steer(P,inp){
  const c=center(t.c,t.r),sx=Math.sign(inp.x),sy=Math.sign(inp.y);
  const openX=Math.abs(inp.x)>.25&&walkable(t.c+sx,t.r),openY=Math.abs(inp.y)>.25&&walkable(t.c,t.r+sy);
  const alongX=s=>({x:s*m,y:clamp((c.y-P.y)*.08,-.6,.6)}),alongY=s=>({x:clamp((c.x-P.x)*.08,-.6,.6),y:s*m});
+ // decisions stick for as long as Dili stays on this tile with the same held direction: deciding from the current
+ // velocity every frame made a held diagonal flip between "turn" and "go straight" and Dili shook in place at corners
+ const mk=t.c+','+t.r+'|'+sx+','+sy;if(P.stKey!==mk){P.stKey=mk;P.stAxis=null;P.stSlide=0}
  let ax=Math.abs(inp.x)>=Math.abs(inp.y)?'x':'y';
- if(openX&&openY&&Math.abs(Math.abs(inp.x)-Math.abs(inp.y))<.35)ax=Math.abs(P.vx)>Math.abs(P.vy)?'y':'x'; // held diagonal = take the turn
+ if(openX&&openY&&Math.abs(Math.abs(inp.x)-Math.abs(inp.y))<.35){if(!P.stAxis)P.stAxis=Math.abs(P.vx)>Math.abs(P.vy)?'y':'x';ax=P.stAxis} // held diagonal = take the turn
  else if(ax==='x'&&!openX&&openY)ax='y';else if(ax==='y'&&!openY&&openX)ax='x';
  else if(!openX&&!openY){ // pressing into a wall: slide to the nearest opening in that direction (turn buffer)
   const want=Math.abs(inp.y)>=Math.abs(inp.x)?'y':'x';
-  if(want==='y'&&sy){const f=Math.sign(P.vx)||1;for(let d=1;d<=3;d++)for(const s of[f,-f]){let ok=true;for(let i=1;i<=d;i++)if(!walkable(t.c+s*i,t.r))ok=false;if(ok&&walkable(t.c+s*d,t.r+sy))return alongX(s)}}
-  if(want==='x'&&sx){const f=Math.sign(P.vy)||1;for(let d=1;d<=3;d++)for(const s of[f,-f]){let ok=true;for(let i=1;i<=d;i++)if(!walkable(t.c,t.r+s*i))ok=false;if(ok&&walkable(t.c+sx,t.r+s*d))return alongY(s)}}
+  if(want==='y'&&sy){const f=P.stSlide||Math.sign(P.vx)||1;for(let d=1;d<=3;d++)for(const s of[f,-f]){let ok=true;for(let i=1;i<=d;i++)if(!walkable(t.c+s*i,t.r))ok=false;if(ok&&walkable(t.c+s*d,t.r+sy)){P.stSlide=s;return alongX(s)}}}
+  if(want==='x'&&sx){const f=P.stSlide||Math.sign(P.vy)||1;for(let d=1;d<=3;d++)for(const s of[f,-f]){let ok=true;for(let i=1;i<=d;i++)if(!walkable(t.c,t.r+s*i))ok=false;if(ok&&walkable(t.c+sx,t.r+s*d)){P.stSlide=s;return alongY(s)}}}
   return inp;
  }
  // turning: finish lining up with the lane first so the corner can't snag
- if(ax==='y'&&openY&&Math.abs(c.x-P.x)>10)return alongX(Math.sign(c.x-P.x));
- if(ax==='x'&&openX&&Math.abs(c.y-P.y)>10)return alongY(Math.sign(c.y-P.y));
+ const tol=zone.ice?16:10; // on ice Dili slides past the lane centre, so accept a looser line-up before turning
+ if(ax==='y'&&openY&&Math.abs(c.x-P.x)>tol)return alongX(Math.sign(c.x-P.x));
+ if(ax==='x'&&openX&&Math.abs(c.y-P.y)>tol)return alongY(Math.sign(c.y-P.y));
  return ax==='x'?alongX(sx||1):alongY(sy||1);
 }
 const curTarget=()=>order.stolen?Object.assign({x:order.stolen.x,y:order.stolen.y},tileOf(order.stolen)):order.carrying?order.drop:order.pickup;

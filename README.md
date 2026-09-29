@@ -156,7 +156,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 - Music and sound effects separately, controls and vibration (phones), minimap, camera, and an FPS counter to include when you report lag
 
 ## Controls
-- WASD / Arrow keys: move. Lane steering keeps Dili centred on the road: hold a direction early and Dili takes the next turn that way; diagonals and analog stick input follow the lane at full speed instead of grinding on corners
+- WASD / Arrow keys: move. Lane steering keeps Dili centred on the road: hold a direction early and Dili takes the next turn that way; diagonals and analog stick input follow the lane at full speed instead of grinding on corners. At a junction where both directions of a held diagonal are open, Dili picks the turn once and sticks to it until leaving the tile. It used to re-decide every frame from the current velocity, which made Dili shake in place at 82% of junctions. A test drives every junction of every zone from both directions: Dili leaves each one within 1s (1.5s on ice)
 - Space / Shift: dash
 - P / Esc or the ⏸ button (top-left of the map): pause. The pause menu has Resume, Restart, Quit, Fullscreen and Sound (keys: P/Esc, R, Q)
 - D (menu): Daily Challenge · L (menu): leaderboard · K (menu): skins · S (game over): share / challenge
