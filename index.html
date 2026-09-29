@@ -1113,6 +1113,7 @@ function failOrder(msg){
  newOrder(null,order.origin); // same seed => same next order, wherever Dili is standing
 }
 function doPickup(){
+ tutMark('pickup');
  if(order.pickup.dropped){ // re-grab a package knocked loose in a crash: the order clock keeps running
   order.carrying=true;floats.push({x:order.pickup.x,y:order.pickup.y-26,text:'GOT IT!',color:'#ffd34d',t:.9,max:.9,size:18});
   burst(order.pickup.x,order.pickup.y,14,CONFETTI);player.pop=.3;SFX.pickup();pathTimer=0;return}
@@ -1158,7 +1159,7 @@ function doDeliver(di=0){
   diliSay('combo',true);hype={text:`COMBO x${combo}!`,sub:combo>=10?'ON FIRE 🔥':combo>=5?'UNSTOPPABLE':'NICE CHAIN',t:1.5,max:1.5};
   flash=.3;flashColor=zone.accent;SFX.hype();SFX.riser();camPunch=Math.max(camPunch,.12);comboGlow=.8;glowColor=combo>=10?'#ffb347':zone.accent;burst(player.x,player.y,30,[zone.accent,'#fff','#ffd34d'],true);
  }
- zoneDeliveries++;
+ zoneDeliveries++;tutMark('deliver');
  if(!final){pathTimer=0;if(deliveries%3===0)openUpgrade();return} // one more door to go on a double order
  const last=ZONES.length-1,nz=ZONE_AT.filter(z=>deliveries>=z).length-1,nl=nz===last?Math.floor((deliveries-ZONE_AT[last])/LOOP_EVERY):0;
  if(ot==='boss')bossDefeated();
@@ -1202,7 +1203,7 @@ function startRun(kind=runKind){
  powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  hitStop=0;camPunch=0;crashFx=0;comboGlow=0;crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
- upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
+ upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];tut=null;if(!store.get('diliDelivery.tutDone',false)&&(best.runs===0||/tutorial/.test(location.search)))startTutorial();diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
  enterZone(0,true);newOrder();mode='play';SFX.go();irisT=.75;
 }
@@ -1270,7 +1271,7 @@ function tryDash(){
  if(mode!=='play'||player.dashCd>0)return;
  const v=steer(player,inputVec()),l=Math.hypot(v.x,v.y); // dash along the lane, not into a wall
  player.dashDir=l>.1?{x:v.x/l,y:v.y/l}:{x:player.face,y:0};
- player.dash=.22;player.dashCd=dashCooldown();SFX.dash();missionTrack('dash');
+ player.dash=.22;player.dashCd=dashCooldown();SFX.dash();missionTrack('dash');tutMark('dash');
  rings.push({x:player.x,y:player.y,t:.3,max:.3,r0:8,r1:40,color:'#8fd0ff'});
 }
 function crash(sx,sy,by='car'){
@@ -1582,7 +1583,7 @@ function update(dt){
  if(banner&&(banner.t-=dt)<=0)banner=null;
  if(hype&&(hype.t-=dt)<=0)hype=null;
 
- shiftTime-=dt;
+ shiftTime-=dt;updateTutorial(dt);
  if(shiftTime<10){const s=Math.ceil(shiftTime);if(s<lastTickSec){lastTickSec=s;SFX.tick()}}
  if(shiftTime<=0){shiftTime=0;endRun();return}
 
@@ -1601,7 +1602,7 @@ function update(dt){
  // safety net: collision keeps Dili's centre on a road tile, so a centre inside a building means he got wedged
  // (e.g. squeezed sideways off roadworks in a one-tile alley). Never leave the player stuck: snap to the nearest road.
  {const tc=tileOf(P);if(!isRoad(tc.c,tc.r)){if((P.stuckT=(P.stuckT||0)+dt)>.4){const t=nearestRoad(tc),c=center(t.c,t.r);P.x=c.x;P.y=c.y;P.vx=P.vy=0;P.stuckT=0}}else P.stuckT=0}
- const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>40*dt;
+ const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>40*dt;if(tut&&(tut.moved+=moved)>90)tutMark('move');
  if(Math.abs(P.vx)>20)P.face=Math.sign(P.vx);
  P.faceS+=(P.face-P.faceS)*Math.min(1,dt*14);{const s0=Math.floor(P.step/Math.PI);P.step+=moved*.11;
   if(P.moving&&P.dash<=0&&!zone.ice&&Math.floor(P.step/Math.PI)!==s0)SFX.step(onSand?'sand':zone.snow?'snow':zone.lowgrav?'moon':zone.style==='village'?'dirt':'road',Math.floor(P.step/Math.PI)%2)}
@@ -2225,11 +2226,50 @@ function drawVignette(){
  if(mode!=='play'||shiftTime>=10)return;
  drawShade(W/2,H/2,H*.35,H*.9,'255,40,60',.22+.14*Math.sin(runT*8),-UX,HUD,SW,ROWS*T);
 }
+// ---------- first-run tutorial: 4 hands-on steps, each ticks off as soon as you do it ----------
+const TUT_STEPS=[
+ {id:'move',icon:'🕹️',title:'Move Dili',sub:()=>touchUI?(ctrlMode==='dpad'?'Press the arrows of the D-pad (bottom left)':'Drag the joystick (bottom left)'):'Use  W A S D  or the arrow keys',color:'#6fd3ff'},
+ {id:'pickup',icon:'📦',title:'Pick up the package',sub:()=>'Follow the YELLOW dots to the 📦',color:'#ffd34d'},
+ {id:'deliver',icon:'🏠',title:'Deliver it!',sub:()=>'Follow the GREEN dots to the 🏠 and dodge the cars 🚗',color:'#45e6a5'},
+ {id:'dash',icon:'⚡',title:'DASH!',sub:()=>touchUI?'Tap the ⚡ DASH button (bottom right)':'Press  SPACE  to zoom forward and jump barriers',color:'#ff9f5a'}];
+let tut=null;
+function startTutorial(){tut={step:0,t:0,check:0,moved:0,done:{},end:0}}
+function tutMark(id){ // remember what the player already did, so a step they did early ticks off at once
+ if(!tut||tut.end)return;tut.done[id]=true}
+function updateTutorial(dt){
+ if(!tut)return;tut.t+=dt;
+ if(tut.end){if((tut.end-=dt)<=0)tut=null;return}
+ if(tut.check>0){if((tut.check-=dt)<=0){tut.step++;tut.t=0;
+   if(tut.step>=TUT_STEPS.length){tut.end=3;store.set('diliDelivery.tutDone',true);shiftTime=Math.min(99,shiftTime+10);addCoins(20);SFX.up();buzz([20,30,40]);
+    floats.push({x:player.x,y:player.y-40,text:'🎓 TUTORIAL DONE! +10s  +20 🪙',color:'#45e6a5',t:1.6,max:1.6,size:18})}}
+  return}
+ const st=TUT_STEPS[tut.step];if(st&&tut.done[st.id]){tut.check=.7;SFX.coin(3);buzz(15)}
+}
+function skipTutorial(){store.set('diliDelivery.tutDone',true);tut=null;SFX.pickup()}
 function drawTutorial(){
- if(best.runs>1||deliveries>2||mode!=='play')return;
- const msg=order.carrying?'Follow the green dots to the 🏠 — dodge the cars!':'Follow the yellow dots to pick up the 📦';
- const fs=touchUI?21:19;ctx.font=font(fs,900);const w=ctx.measureText(msg).width+44;ctx.fillStyle='rgba(8,12,28,.9)';rr(ctx,W/2-w/2,H-58,w,42,21);ctx.fill();
- ctx.strokeStyle=order.carrying?'#45e6a5':'#ffd34d';ctx.lineWidth=2;ctx.stroke();text(msg,W/2,H-37,fs,'#fff','center',900);
+ if(!tut||mode!=='play')return;
+ const w=Math.min(600,W-40),h=86,x=W/2-w/2,y=H-h-14,t=tut.t,under=q=>{if(!q)return false;const s=toScreen(q);return s.x>x-24&&s.x<x+w+24&&s.y>y-40&&s.y<y+h+20},
+  a=Math.min(1,t/.25+(tut.check>0||tut.end?1:0))*(under(player)||(order&&under(curTarget()))?.35:1); // see-through when Dili or the target is behind it
+ if(tut.end){ // final card
+  const f=Math.min(1,tut.end/.4)*(a<1?.35:1);ctx.save();ctx.globalAlpha=f;ctx.fillStyle='rgba(8,40,30,.94)';rr(ctx,x,y,w,h,20);ctx.fill();ctx.strokeStyle='#45e6a5';ctx.lineWidth=2.5;ctx.stroke();
+  text("🎉 You're ready!",W/2,y+30,22,'#fff','center',900);text('Fast & clean deliveries = big combos 🔥  Watch out for the boss 💀',W/2,y+60,14,'#bff5dd','center',800);ctx.restore();return}
+ const st=TUT_STEPS[tut.step];if(!st)return;const ok=tut.check>0;
+ ctx.save();ctx.globalAlpha=a;ctx.translate(0,(1-a)*30);
+ ctx.fillStyle='rgba(8,12,28,.92)';rr(ctx,x,y,w,h,20);ctx.fill();ctx.strokeStyle=ok?'#45e6a5':st.color;ctx.lineWidth=2.5;ctx.stroke();
+ // step dots
+ for(let i=0;i<TUT_STEPS.length;i++){ctx.fillStyle=i<tut.step||(i===tut.step&&ok)?'#45e6a5':i===tut.step?st.color:'rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(x+26+i*16,y+18,5,0,7);ctx.fill()}
+ text(`STEP ${tut.step+1}/${TUT_STEPS.length}`,x+26+TUT_STEPS.length*16,y+18.5,11,'#8f9cbc','left',900);
+ // icon bubble (turns into a tick when the step is done)
+ const bx=x+44,by=y+54,pul=1+.06*Math.sin(t*6);ctx.fillStyle=ok?'#45e6a5':'rgba(255,255,255,.08)';ctx.beginPath();ctx.arc(bx,by,22*(ok?1:pul),0,7);ctx.fill();
+ text(ok?'✓':st.icon,bx,by+1,ok?24:22,ok?'#0b2a20':'#fff','center',900);
+ text(ok?'Nice!':st.title,x+80,y+44,20,ok?'#45e6a5':'#fff','left',900);text(st.sub(),x+80,y+68,14,'#bcd0ff','left',800);
+ ctx.restore();
+ // SKIP
+ const sw=64,sx=x+w-sw-12,sy=y+8;ctx.fillStyle='rgba(255,255,255,.1)';rr(ctx,sx,sy,sw,22,11);ctx.fill();text('SKIP ›',sx+sw/2,sy+11.5,11,'#8f9cbc','center',900);
+ buttons.push({x:sx,y:sy,w:sw,h:22,act:skipTutorial});
+ // point at the control this step is about
+ if(!ok&&touchUI&&(st.id==='move'||st.id==='dash')){const p=st.id==='move'?dpadC():{x:W+UX-66*CS-26,y:H-66*CS-26},r=(st.id==='move'?DPAD.r:66*CS)+10+6*Math.sin(t*6);
+  ctx.strokeStyle=st.color;ctx.lineWidth=4;ctx.globalAlpha=.6+.4*Math.sin(t*6);ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.stroke();ctx.globalAlpha=1}
 }
 const PAUSE_X=()=>36-UX;
 function drawPauseBtn(){ // visible on every platform, not only touch

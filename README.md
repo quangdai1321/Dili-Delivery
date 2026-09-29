@@ -24,9 +24,12 @@ Each shift starts with 60 seconds.
 | Close call (a car passes within a hair) | +25 points (+5 per combo level), brief slow-motion |
 | Every delivery | +4s shift time (+3s from delivery 12, +2s from delivery 24) |
 | Every 3 deliveries | Pick an upgrade: Speed, Dash, Shield, Magnet, +10s |
+| Clearing a zone | +8s shift time |
 
 Dili runs at 185 px/s (Speed upgrade: +12% per level, max 5). DASH recharges in 2.0s (−15% per Dash level).
-| Clearing a zone | +8s shift time |
+
+### 🎓 First-run tutorial
+A new player's first shift walks through 4 hands-on steps in a card at the bottom of the screen: **Move** (WASD/arrows, or the D-pad/joystick on phones) → **Pick up** the 📦 (yellow dots) → **Deliver** to the 🏠 (green dots, dodge cars) → **DASH** (SPACE, or the ⚡ button). Each step ticks ✓ the moment you do it, including a step you already did early. On phones a pulsing ring points at the D-pad and the DASH button. Finishing gives +10s and +20 🪙. The card turns see-through when Dili or the target is behind it. **SKIP ›** closes it for good. It only shows on the very first run. Add `?tutorial` to the URL to see it again.
 
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
 
