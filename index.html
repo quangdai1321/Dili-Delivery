@@ -2265,14 +2265,17 @@ function drawGoalPill(){
  const g=zgoal;if(!g||boss||resultCard||mode!=='play')return;if(g.done&&runT-g.doneT>3)return;
  g.pulse=Math.max(0,(g.pulse||0)-1/60);const s=1+g.pulse*.25,label=`🎯 ${g.icon} ${g.text}`,prog=g.done?'✓ DONE':`${g.prog}/${g.n}`;
  ctx.font=font(13,900);const w=mt(label)+mt(prog)+46,x=W/2-w/2,y=HUD+10;
- ctx.save();ctx.translate(W/2,y+13);ctx.scale(s,s);ctx.translate(-W/2,-(y+13));
+ ctx.save();ctx.globalAlpha=pillFade(x,y,w,26);ctx.translate(W/2,y+13);ctx.scale(s,s);ctx.translate(-W/2,-(y+13));
  ctx.fillStyle=g.done?'rgba(10,50,36,.9)':'rgba(8,12,28,.82)';rr(ctx,x,y,w,26,13);ctx.fill();ctx.strokeStyle=g.done?'#45e6a5':'rgba(69,230,165,.45)';ctx.lineWidth=2;ctx.stroke();
  ctx.fillStyle='rgba(69,230,165,.22)';rr(ctx,x,y,Math.max(26,w*g.prog/g.n),26,13);ctx.fill();
  text(label,x+14,y+13.5,13,'#fff','left',900);text(prog,x+w-14,y+13.5,13,'#45e6a5','right',900);ctx.restore();
 }
+// top pills fade out when Dili, the target or the boss truck is behind them (the top road row sits right under them)
+const pillFade=(x,y,w,h)=>{const under=q=>{if(!q)return false;const s=toScreen(q);return s.x>x-28&&s.x<x+w+28&&s.y>y-24&&s.y<y+h+34};
+ return under(player)||order&&under(curTarget())||bossEnt&&under(bossEnt)?.22:1};
 function drawBossPill(){
  if(!boss||resultCard||mode==='over'||mode==='stage')return;const w=400,h=48,x=W/2-w/2,y=HUD+10,p=.6+.4*Math.sin(runT*(4+2*(boss.phase||1))),hit=Math.max(0,boss.hitT||0)/.6;
- ctx.save();if(hit){ctx.translate(Math.sin(runT*90)*6*hit,0)}
+ ctx.save();ctx.globalAlpha=pillFade(x,y,w,h);if(hit){ctx.translate(Math.sin(runT*90)*6*hit,0)}
  ctx.fillStyle='rgba(40,6,14,.92)';rr(ctx,x,y,w,h,18);ctx.fill();ctx.strokeStyle=`rgba(255,48,72,${p})`;ctx.lineWidth=2.5;ctx.stroke();
  text(`💀 ${boss.icon} ${boss.name}`,x+18,y+15,15,'#fff','left',900);
  text(boss.hp===1?'LAST HIT! 😡':`DELIVER TO HIT · ${boss.max-boss.hp}/${boss.max}`,x+w-16,y+15,11,boss.hp===1?'#ffd34d':'#ff8a95','right',900);
@@ -2295,10 +2298,10 @@ function drawScreenFx(){
   ctx.strokeStyle='rgba(111,163,255,.8)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(q.x,q.y,r,0,7);ctx.stroke();ctx.restore()}
 }
 function drawEventPill(){
- if(!event||mode==='over')return;const e=event,x=68-UX,y=HUD+12,w=236,h=30,u=e.t/e.dur;
+ if(!event||mode==='over')return;const e=event,x=68-UX,y=HUD+12,w=236,h=30,u=e.t/e.dur;ctx.save();ctx.globalAlpha=pillFade(x,y,w,h);
  ctx.fillStyle='rgba(8,12,28,.85)';rr(ctx,x,y,w,h,15);ctx.fill();ctx.strokeStyle=e.color;ctx.lineWidth=2;ctx.stroke();
- ctx.fillStyle=e.color;ctx.globalAlpha=.25;rr(ctx,x,y,Math.max(h,w*u),h,15);ctx.fill();ctx.globalAlpha=1;
- text(`${e.icon} ${e.name}`,x+14,y+15.5,13,'#fff','left',900);text(Math.ceil(e.t)+'s',x+w-12,y+15.5,13,e.color,'right',900);
+ const ba=ctx.globalAlpha;ctx.fillStyle=e.color;ctx.globalAlpha=ba*.25;rr(ctx,x,y,Math.max(h,w*u),h,15);ctx.fill();ctx.globalAlpha=ba;
+ text(`${e.icon} ${e.name}`,x+14,y+15.5,13,'#fff','left',900);text(Math.ceil(e.t)+'s',x+w-12,y+15.5,13,e.color,'right',900);ctx.restore();
 }
 function drawAchPop(){
  const p=achPops[0];if(!p)return;const age=p.max-p.t,a=Math.min(1,age/.25,p.t/.4),s=easeOutBack(Math.min(1,age/.3)),y=tut&&mode==='play'?H-150:H-104; // above the tutorial card when it is up
