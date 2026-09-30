@@ -155,6 +155,7 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 
 ## Settings
 **⚙️** on the menu (top-right) or **Settings** in Pause:
+- **Menus are always sharp**: the menu, ranking, skins, missions and settings render at full device resolution (up to 3x on phones), even after a laggy run lowered the in-game resolution. The next run picks up the resolution it had settled on. The menu hero image is drawn with high-quality smoothing. Stars stay out of the buttons and stats column, the stat boxes are solid, the orbiting packages pass behind Dili, and the hint lines sit on a dark panel.
 - **Graphics**: Auto (adapts resolution to stay smooth; if it bottoms out and the device is still slow, it also switches to the lighter effect set) · High (always sharp) · Battery saver (lower resolution, fewer particles and ambient effects)
 - **Screen effects**: Full · Reduced (no shake, zoom kicks, big flashes or speed lines)
 - Music and sound effects separately, controls and vibration (phones), minimap, camera, and an FPS counter to include when you report lag
