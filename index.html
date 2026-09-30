@@ -85,26 +85,26 @@ ZONES.push(
  {name:'MOON BASE',tag:'INSANE',accent:'#35e8ff',alley:.4,park:.14,cars:8,scoot:.5,carSpd:[140,190],barriers:5,route:[16,30],
   road:'#1c1b30',mark:'#35e8ff',walk:'#2e2a45',ground:'#24203a',blds:['#cfd8ea','#aebbd6','#e3e9f5'],parkC:'#3a3552',win:'#35e8ff',winA:.9,dark:.45,style:'moon',meteors:true,lowgrav:true,fireflies:true,flyColor:'53,232,255',carColors:['#e8ecf5','#b9c6de','#9fe7ff','#ffffff']},
 );
-const ZONE_META=[['🏙️','Easy streets — learn the routes'],['🌃','💢 Angry drivers speed up when you are in their lane!'],['⛈️','Low visibility — lightning lights up the map'],
- ['⚓','🚆 Trains cross the tracks — wait for the red signal to pass!'],['❄️','Icy roads — Dili slides, brake early!'],['🌙','☄️ Meteors incoming — dodge the red circles!']];
+const ZONE_META=[['🏙️','Easy streets — learn the routes'],['🌃','💢 Angry drivers speed up behind you!'],['⛈️','Low visibility — lightning lights up the map'],
+ ['⚓','🚆 Wait for the red signal!'],['❄️','Icy roads — Dili slides, brake early!'],['🌙','☄️ Dodge the red circles!']];
 ZONES.forEach((z,i)=>{z.id=i;z.icon=ZONE_META[i][0];z.tip=ZONE_META[i][1];z.style=z.style||'city'});
 // newer zones are slotted into the progression; `id` stays stable (leaderboard rows, music) while the array index is the order you play them
 ZONES.splice(2,0,{id:6,name:'DESERT DUNES',tag:'MEDIUM+',accent:'#ffb347',alley:.25,park:.12,cars:6,scoot:.3,carSpd:[110,155],barriers:3,route:[12,24],
   road:'#8a6a4a',mark:'#fff1d0',walk:'#e8c996',ground:'#d9b27a',blds:['#e8a86b','#d98f5c','#f2c28b','#c97d4f','#f0d5a8'],parkC:'#d9b27a',win:'#6a4428',winA:.5,dark:0,
-  style:'desert',sand:true,sandstorm:true,tint:'rgba(255,170,80,.05)',icon:'🏜️',tip:'🌪️ Sandstorms blind you — and sand slows you down!'});
+  style:'desert',sand:true,sandstorm:true,tint:'rgba(255,170,80,.05)',icon:'🏜️',tip:'🌪️ Sandstorms blind you. Sand slows you!'});
 ZONES.splice(5,0,{id:7,name:'NIGHT MARKET',tag:'EXPERT',accent:'#ff5a5a',alley:.45,park:.06,cars:6,scoot:.6,carSpd:[115,160],barriers:4,route:[14,26],
   road:'#2a1d2a',mark:'#ffcf6b',walk:'#4a3040',ground:'#3a2632',blds:['#8a2a3a','#a8452a','#6a2a5a','#8a5a2a'],parkC:'#3a4a2a',win:'#ffcf6b',winA:.9,dark:.42,
-  neon:['#ff5a5a','#ffcf6b','#ff8ad8'],style:'city',crowd:true,lanterns:true,icon:'🏮',tip:'🚶 Crowds everywhere — bumping into people knocks you back!'});
+  neon:['#ff5a5a','#ffcf6b','#ff8ad8'],style:'city',crowd:true,lanterns:true,icon:'🏮',tip:'🚶 Crowds knock you back!'});
 ZONES[ZONES.length-1].tag='INSANE';ZONES[6].tag='EXPERT+';
 ZONES.splice(1,0,{id:8,name:'COUNTRY VILLAGE',tag:'EASY+',accent:'#9bd35a',alley:.2,park:.22,cars:3,scoot:.5,carSpd:[80,115],barriers:2,route:[10,20],
   road:'#a07a52',mark:'#c9a473',walk:'#86b85a',ground:'#7fae5a',blds:['#c0503a','#e8d8b0','#d9a066','#b5835a','#f2e2c4'],parkC:'#5f9e46',win:'#fff3c8',winA:.5,dark:0,
-  style:'village',animals:true,clouds:true,tint:'rgba(255,220,120,.04)',icon:'🐴',tip:'🐴 Horses gallop down the roads, cows block the way. DASH to hop past!'});
+  style:'village',animals:true,clouds:true,tint:'rgba(255,220,120,.04)',icon:'🐴',tip:'🐎 Horses kick, cows block. DASH past!'});
 ZONES.splice(3,0,{id:9,name:'SUNNY BEACH',tag:'MEDIUM',accent:'#35d6e8',alley:.2,park:.2,cars:5,scoot:.6,carSpd:[95,135],barriers:3,route:[12,22],
   road:'#b88a5a',mark:'#8e6a42',walk:'#e9cf98',ground:'#f3dfae',blds:['#7fd1e0','#ffb3ba','#fff1a8','#b8f2c9','#ffffff'],parkC:'#f3dfae',win:'#ffffff',winA:.5,dark:0,
-  style:'beach',gulls:true,animals:true,mix:['crab'],herdN:10,tint:'rgba(80,220,255,.05)',icon:'🏖️',tip:'🦀 Crabs scuttle across the boardwalk. A pinch costs 1s!'});
+  style:'beach',gulls:true,animals:true,mix:['crab'],herdN:10,tint:'rgba(80,220,255,.05)',icon:'🏖️',tip:'🦀 Crabs pinch: -1s!'});
 ZONES.splice(5,0,{id:10,name:'JUNGLE TRAIL',tag:'MEDIUM+',accent:'#5fe07a',alley:.35,park:.38,cars:4,scoot:.7,carSpd:[90,130],barriers:3,route:[12,24],
   road:'#7a5c3a',mark:'#9a7a52',walk:'#3f6e3a',ground:'#2f5a30',blds:['#8a5a32','#6d4a2b','#a0703d','#7b6a3a'],parkC:'#2a6a34',win:'#ffd98a',winA:.6,dark:0,
-  style:'jungle',tint:'rgba(0,30,10,.14)',fireflies:true,animals:true,mix:['monkey'],herdN:5,icon:'🐒',tip:'🐒 Monkeys steal your package! Chase them down to get it back.'});
+  style:'jungle',tint:'rgba(0,30,10,.14)',fireflies:true,animals:true,mix:['monkey'],herdN:5,icon:'🐒',tip:'🐒 Monkeys steal packages. Chase them!'});
 const zoneById=id=>ZONES.find(z=>z.id===id)||ZONES[0];
 const ZONE_AT=[0,5,9,13,17,21,25,29,34,39,45],LOOP_EVERY=8; // deliveries completed before entering each zone; last zone then loops harder
 const ROMAN=['','II','III','IV','V','VI','VII','VIII','IX','X'];
@@ -285,12 +285,12 @@ function missionTrack(metric,v=1){
 }
 const missionsDone=()=>{const m=missionState();return m.ids.filter(id=>m.done[id]).length};
 // each zone has its own side objective, built around what makes that zone different
-const ZOBJ={0:{icon:'😇',text:'Make 3 clean deliveries (no crash)',n:3,m:'clean'},1:{icon:'😎',text:'Get 3 close calls with cars',n:3,m:'near'},
- 8:{icon:'🐴',text:'Deliver 3 orders without bumping an animal',n:3,m:'nobump'},
- 9:{icon:'🦀',text:'Deliver 3 orders without getting pinched',n:3,m:'nobump'},10:{icon:'🐒',text:'Win back 2 stolen packages',n:2,m:'reclaim'},
- 6:{icon:'🏜️',text:'Deliver 2 orders without touching sand',n:2,m:'nosand'},2:{icon:'⚡',text:'Make 2 FAST deliveries',n:2,m:'fast'},
- 3:{icon:'🚀',text:'Grab 2 power-ups',n:2,m:'power'},7:{icon:'🙏',text:'Deliver 3 orders without bumping anyone',n:3,m:'nobump'},
- 4:{icon:'🚧',text:'Jump 2 barriers with DASH',n:2,m:'jump'},5:{icon:'☄️',text:'Dodge 5 meteors up close',n:5,m:'meteor'}};
+const ZOBJ={0:{icon:'😇',text:'3 deliveries, no crash',n:3,m:'clean'},1:{icon:'😎',text:'3 close calls',n:3,m:'near'},
+ 8:{icon:'🐴',text:'3 deliveries, no animal bumps',n:3,m:'nobump'},
+ 9:{icon:'🦀',text:'3 deliveries, no pinches',n:3,m:'nobump'},10:{icon:'🐒',text:'Win back 2 stolen packages',n:2,m:'reclaim'},
+ 6:{icon:'🏜️',text:'2 deliveries, no sand',n:2,m:'nosand'},2:{icon:'⚡',text:'2 FAST deliveries',n:2,m:'fast'},
+ 3:{icon:'🚀',text:'Grab 2 power-ups',n:2,m:'power'},7:{icon:'🙏',text:'3 deliveries, no bumps',n:3,m:'nobump'},
+ 4:{icon:'🚧',text:'DASH-jump 2 barriers',n:2,m:'jump'},5:{icon:'☄️',text:'Dodge 5 meteors up close',n:5,m:'meteor'}};
 let zgoal=null;
 function goalTrack(m,v=1){
  const g=zgoal;if(!g||g.done||g.m!==m||mode==='over')return;g.prog=Math.min(g.n,g.prog+v);g.pulse=.35;
@@ -647,7 +647,8 @@ function resize(){
  UX=(SW-W)/2;canvas.style.width=cw+'px';canvas.style.height=ch+'px';cssW=cw;cssH=ch;
  const st=canvas.style;if(rotated){st.position='absolute';st.left='50%';st.top='50%';st.transform='translate(-50%,-50%) rotate(90deg)'}else{st.position='';st.left='';st.top='';st.transform=''}
  // touch controls keep a usable physical size when the game is shown small (short or letterboxed screens)
- CS=clamp(58/(94*ch/H),1,1.7);DPAD.r=94*CS;DPAD.b=34*CS;JOY_R=55*CS;
+ // phones: controls ~20% bigger than before, more on small screens
+ CS=clamp(72/(94*ch/H),1.15,1.8);DPAD.r=94*CS;DPAD.b=34*CS;JOY_R=55*CS;
  // UI stays ~2x sharper than the world layer but never above what is needed (fill-rate on phones)
  const dev=window.devicePixelRatio||1,uw=Math.round(cw*Math.min(UI_MAX,dev,uiLow?1:resCap>=.9?UI_MAX:1.5)),uh=Math.round(H*uw/SW); // UI: device sharpness (capped)
  if(uw!==canvas.width||uh!==canvas.height){canvas.width=uw;canvas.height=uh;RSU=uw/SW}
@@ -985,11 +986,11 @@ function chooseSpot(from,[mn,mx],avoid){
 // order types: urgent (deadline), fragile (breaks on a crash), VIP (far, x3), double (one pickup, two doors)
 const ORDER_TYPES={
  normal:{icon:'',label:'',color:'#ffd34d',mult:1},
- urgent:{icon:'🔥',label:'URGENT',color:'#ff8a2a',mult:2,tip:'Deliver before the timer runs out!'},
- fragile:{icon:'🥚',label:'FRAGILE',color:'#8fe3ff',mult:2,tip:'One crash and it breaks!'},
+ urgent:{icon:'🔥',label:'URGENT',color:'#ff8a2a',mult:2,tip:'Beat the timer!'},
+ fragile:{icon:'🥚',label:'FRAGILE',color:'#8fe3ff',mult:2,tip:'One crash breaks it!'},
  vip:{icon:'👑',label:'VIP',color:'#ffd34d',mult:3,tip:'Long trip, huge tip'},
  double:{icon:'📦',label:'2 DROPS',color:'#c9a7ff',mult:1,tip:'Two doors, any order'},
- boss:{icon:'💀',label:'BOSS',color:'#ff4d5e',mult:3,tip:'Deliver it to hit the boss!'},
+ boss:{icon:'💀',label:'BOSS',color:'#ff4d5e',mult:3,tip:'Deliver = hit the boss!'},
 };
 function newOrder(force,from){
  // same seed => same chain of orders for everyone (daily, challenge links, ghost races), whatever route the player took
@@ -1013,9 +1014,9 @@ const BOSSES={
  9:{name:'CRAB INVASION',icon:'🦀',tip:'Crabs everywhere. Watch your step!',kind:'herd',animal:'crab',n:14},
  10:{name:'MONKEY GANG',icon:'🐒',tip:'The whole gang wants your package!',kind:'herd',animal:'monkey',n:6},
  6:{name:'MEGA SANDSTORM',icon:'🌪️',tip:'Endless sandstorm. Fight the wind!',kind:'storm'},
- 2:{name:'THUNDERSTORM',icon:'⚡',tip:'Lightning strikes the glowing circles!',kind:'bolt'},
- 3:{name:'TRAIN RUSH',icon:'🚆',tip:'Non-stop trains. Time your crossings!',kind:'trains'},
- 7:{name:'FESTIVAL CROWD',icon:'🎆',tip:'The whole city came out. Squeeze through!',kind:'crowd'},
+ 2:{name:'THUNDERSTORM',icon:'⚡',tip:'Avoid the glowing circles!',kind:'bolt'},
+ 3:{name:'TRAIN RUSH',icon:'🚆',tip:'Non-stop trains!',kind:'trains'},
+ 7:{name:'FESTIVAL CROWD',icon:'🎆',tip:'The whole city came out!',kind:'crowd'},
  4:{name:'AVALANCHE',icon:'☃️',tip:'Giant snowballs are falling!',kind:'snow'},
  5:{name:'METEOR STORM',icon:'☄️',tip:'The sky is falling. Keep moving!',kind:'meteor'},
 };
@@ -1032,7 +1033,7 @@ let boss=null,bossEnt=null,strikeT=1,camPunch=0,irisT=0,crashFx=0,comboGlow=0,gl
 const nextZoneAt=()=>{const L=ZONES.length-1;return zoneIdx<L?ZONE_AT[zoneIdx+1]:ZONE_AT[L]+(loop+1)*LOOP_EVERY};
 function startBoss(){
  const b=BOSSES[zone.id];if(!b)return;endEvent(true);diliCd=0;setTimeout(()=>diliSay('boss'),1400);const hp=3+(loop?1:0);boss=Object.assign({},b,{t:0,hp,max:hp,phase:1,hitT:0});strikeT=1.2;
- hype={text:`💀 BOSS: ${b.icon} ${b.name}`,sub:b.tip+`  Hit it ${hp} times!`,t:3,max:3};flash=.5;flashColor='#ff3048';shake=Math.max(shake,.35);SFX.boss();buzz([60,40,120]);
+ hype={text:`💀 BOSS: ${b.icon} ${b.name}`,sub:`${b.tip} · ${hp} hits`,t:3,max:3};flash=.5;flashColor='#ff3048';shake=Math.max(shake,.35);SFX.boss();buzz([60,40,120]);
  if(b.kind==='truck'){const pt=tileOf(player),far=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=10)far.push({c,r});
   const t=far.length?seeded(hashSeed(runSeed+deliveries*17),()=>pick(far)):nearestRoad({c:0,r:0}),q=center(t.c,t.r);bossEnt={x:q.x,y:q.y,tc:t.c,tr:t.r,ang:0,smoke:0}}
  if(b.kind==='blackout')for(const k of cars){k.wasRage=k.rage;if(!k.sc)k.rage=true}
@@ -1200,6 +1201,7 @@ function enterZone(i,first,lp=0){
 // the result is how many of the 11 bosses you took down (and how fast, for a full clear). Kept apart from the normal
 // leaderboard, personal bests and zone unlocks.
 let rush=null;
+const RUSH_BREAK=3; // seconds to breathe before each boss: the clock stops and the boss order can't be delivered yet
 function rushNext(){rush.cleared++;if(zoneIdx<ZONES.length-1)startStage(zoneIdx+1,0);else{rush.won=true;rush.time=runClock;endRun()}}
 function startRun(kind=runKind){
  if(player&&(mode==='play'||mode==='paused'||mode==='settings'))sendRunStats('restart');
@@ -1216,7 +1218,7 @@ function startRun(kind=runKind){
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
  upg={speed:0,dash:0,shield:0,magnet:0};particles=[];floats=[];bubbles=[];tut=null;if(!rush&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
- enterZone(0,true);if(rush){newOrder('boss');mode='play';startBoss()}else{newOrder();mode='play'}SFX.go();irisT=.75;
+ enterZone(0,true);if(rush){newOrder('boss');mode='play';rush.breakT=RUSH_BREAK}else{newOrder();mode='play'}SFX.go();irisT=.75;
 }
 function endRun(){
  sendRunStats('time');
@@ -1355,12 +1357,12 @@ function nearMiss(){
 // ---------- random events: something different happens every ~30s (seeded, so a challenge replays the same ones) ----------
 const EVENTS=[
  {id:'police',icon:'🚓',name:'POLICE CHASE',sub:"Don't get caught for 10 seconds!",dur:10,color:'#6fa3ff'},
- {id:'rain',icon:'🌧️',name:'FLASH RAIN',sub:'Slippery roads — brake early!',dur:12,color:'#8fd0ff'},
- {id:'happy',icon:'⭐',name:'HAPPY HOUR',sub:'Every point counts double!',dur:15,color:'#ffd34d'},
+ {id:'rain',icon:'🌧️',name:'FLASH RAIN',sub:'Slippery roads!',dur:12,color:'#8fd0ff'},
+ {id:'happy',icon:'⭐',name:'HAPPY HOUR',sub:'All points x2!',dur:15,color:'#ffd34d'},
  {id:'rush',icon:'🚗',name:'RUSH HOUR',sub:'Traffic floods the streets!',dur:12,color:'#ff8a2a'},
- {id:'fog',icon:'🌫️',name:'THICK FOG',sub:'You can barely see. Follow the dots!',dur:12,color:'#cfd8ea'},
- {id:'airdrop',icon:'🪂',name:'DLICOM AIRDROP',sub:'Dlicom crates are falling. Catch them!',dur:12,color:'#35d6e8'},
- {id:'coins',icon:'🪙',name:'COIN SHOWER',sub:'Grab as many coins as you can!',dur:12,color:'#ffd34d'},
+ {id:'fog',icon:'🌫️',name:'THICK FOG',sub:'Follow the dots!',dur:12,color:'#cfd8ea'},
+ {id:'airdrop',icon:'🪂',name:'DLICOM AIRDROP',sub:'Catch the crates!',dur:12,color:'#35d6e8'},
+ {id:'coins',icon:'🪙',name:'COIN SHOWER',sub:'Grab the coins!',dur:12,color:'#ffd34d'},
 ];
 const evOn=id=>!!(event&&event.id===id);
 function startEvent(){
@@ -1521,7 +1523,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(mode==='paused'){mode='play';return}
  if(mode==='stage'){if(stageT>1.2&&stageT<2.7)stageT=2.7;return}
  if(mode!=='play')return;
- if(Math.hypot(p.x-PAUSE_X(),p.y-(HUD+36))<28){mode='paused';return}
+ if(Math.hypot(p.x-PAUSE_X(),p.y-(HUD+36))<(touchUI?34:28)){mode='paused';return}
  // HUD icons get generous hit areas (they are tiny on phones)
  if(p.y<HUD+(touchUI?16:0)&&p.x>W-40){toggleMute();return}
  if(p.y<HUD+(touchUI?16:0)&&p.x>W-78){toggleCam();return}
@@ -1586,7 +1588,7 @@ function update(dt){
  if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(rush?'boss':null,tileOf(player))}
-  if(stageT>=3.2){mode=document.hidden?'paused':'play';if(rush&&!boss)startBoss();if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
+  if(stageT>=3.2){mode=document.hidden?'paused':'play';if(rush&&!boss)rush.breakT=RUSH_BREAK;if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
  if(mode!=='play')return;
  if(hitStop>0){hitStop-=dt;return}
  if(slowmo>0){slowmo-=dt;dt*=.45} // brief slow-motion on a close call
@@ -1599,7 +1601,7 @@ function update(dt){
  if(banner&&(banner.t-=dt)<=0)banner=null;
  if(hype&&(hype.t-=dt)<=0)hype=null;
 
- shiftTime-=dt;updateTutorial(dt);
+ if(rush&&rush.breakT>0){if((rush.breakT-=dt)<=0){rush.breakT=0;startBoss()}}else shiftTime-=dt;updateTutorial(dt);
  if(shiftTime<10){const s=Math.ceil(shiftTime);if(s<lastTickSec){lastTickSec=s;SFX.tick()}}
  if(shiftTime<=0){shiftTime=0;endRun();return}
 
@@ -1694,7 +1696,7 @@ function update(dt){
   else if(hit&&!P.hTouch&&P.inv<=0){P.hTouch=true;crash(hit.c.x,hit.c.y,'hurdle')}
   else if(!hit){P.hTouch=false;if(P.dash<=0)P.jumped=null}}
 
- if(order.stolen){} // no delivering (or picking up) while a monkey has the package
+ if(order.stolen||rush&&rush.breakT>0){} // no delivering (or picking up) while a monkey has the package, or during a boss-rush breather
  else if(order.carrying){ // any remaining door counts; the path follows the nearest one
   let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
   if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
@@ -2237,6 +2239,13 @@ function drawBanner(){
  outlined(banner.text,W/2+(1-Math.min(1,age/.25))*-80,y-8,44,zone.accent);text(banner.sub,W/2,y+28,15,'#dfe5f0','center',700);
  ctx.restore();
 }
+function drawRushBreak(){
+ if(!rush||!(rush.breakT>0)||mode!=='play')return;const b=BOSSES[zone.id],n=Math.ceil(rush.breakT),f=rush.breakT-Math.floor(rush.breakT),s=1+.25*f;
+ ctx.save();ctx.fillStyle='rgba(6,10,24,.5)';ctx.fillRect(-UX,H/2-70,SW,150);
+ outlined(`NEXT BOSS: ${b.icon} ${b.name}`,W/2,H/2-36,26,'#ff8a95');
+ ctx.translate(W/2,H/2+24);ctx.scale(s,s);outlined(String(n),0,0,56,'#fff');ctx.restore();
+ text('Catch your breath 😮‍💨',W/2,H/2+66,14,'#bcd0ff','center',800);
+}
 function drawHype(){
  if(!hype)return;const age=hype.max-hype.t,a=Math.min(1,hype.t/.3),s=easeOutBack(Math.min(1,age/.3));
  ctx.save();ctx.globalAlpha=a;ctx.translate(W/2,H/2+70);ctx.rotate(Math.sin(age*10)*.04*(1-Math.min(1,age)));ctx.scale(s,s);
@@ -2248,10 +2257,10 @@ function drawVignette(){
 }
 // ---------- first-run tutorial: 4 hands-on steps, each ticks off as soon as you do it ----------
 const TUT_STEPS=[
- {id:'move',icon:'🕹️',title:'Move Dili',sub:()=>touchUI?(ctrlMode==='dpad'?'Press the arrows of the D-pad (bottom left)':'Drag the joystick (bottom left)'):'Use  W A S D  or the arrow keys',color:'#6fd3ff'},
- {id:'pickup',icon:'📦',title:'Pick up the package',sub:()=>'Follow the YELLOW dots to the 📦',color:'#ffd34d'},
- {id:'deliver',icon:'🏠',title:'Deliver it!',sub:()=>'Follow the GREEN dots to the 🏠 and dodge the cars 🚗',color:'#45e6a5'},
- {id:'dash',icon:'⚡',title:'DASH!',sub:()=>touchUI?'Tap the ⚡ DASH button (bottom right)':'Press  SPACE  to zoom forward and jump barriers',color:'#ff9f5a'}];
+ {id:'move',icon:'🕹️',title:'Move Dili',sub:()=>touchUI?(ctrlMode==='dpad'?'Use the D-pad (bottom left)':'Drag the joystick (bottom left)'):'W A S D  or  arrow keys',color:'#6fd3ff'},
+ {id:'pickup',icon:'📦',title:'Pick up the package',sub:()=>'Follow the YELLOW dots',color:'#ffd34d'},
+ {id:'deliver',icon:'🏠',title:'Deliver it!',sub:()=>'Follow the GREEN dots. Dodge cars!',color:'#45e6a5'},
+ {id:'dash',icon:'⚡',title:'DASH!',sub:()=>touchUI?'Tap ⚡ DASH (bottom right)':'Press  SPACE',color:'#ff9f5a'}];
 let tut=null,forceTut=false,tutFromUrl=false; // ?tutorial shows it once per page load, even for players who already did it
 function startTutorial(){tut={step:0,t:0,check:0,moved:0,done:{},end:0}}
 function tutMark(id){ // remember what the player already did, so a step they did early ticks off at once
@@ -2272,7 +2281,7 @@ function drawTutorial(){
   a=Math.min(1,t/.25+(tut.check>0||tut.end?1:0))*(under(player)||(order&&under(curTarget()))?.35:1); // see-through when Dili or the target is behind it
  if(tut.end){ // final card
   const f=Math.min(1,tut.end/.4)*(a<1?.35:1);ctx.save();ctx.globalAlpha=f;ctx.fillStyle='rgba(8,40,30,.94)';rr(ctx,x,y,w,h,20);ctx.fill();ctx.strokeStyle='#45e6a5';ctx.lineWidth=2.5;ctx.stroke();
-  text("🎉 You're ready!",W/2,y+30,22,'#fff','center',900);text('Fast & clean deliveries = big combos 🔥  Watch out for the boss 💀',W/2,y+60,14,'#bff5dd','center',800);ctx.restore();return}
+  text("🎉 You're ready!",W/2,y+30,22,'#fff','center',900);text('Fast + clean = big combos 🔥',W/2,y+60,14,'#bff5dd','center',800);ctx.restore();return}
  const st=TUT_STEPS[tut.step];if(!st)return;const ok=tut.check>0;
  ctx.save();ctx.globalAlpha=a;ctx.translate(0,(1-a)*30);
  ctx.fillStyle='rgba(8,12,28,.92)';rr(ctx,x,y,w,h,20);ctx.fill();ctx.strokeStyle=ok?'#45e6a5':st.color;ctx.lineWidth=2.5;ctx.stroke();
@@ -2294,7 +2303,7 @@ function drawTutorial(){
 const PAUSE_X=()=>36-UX;
 function drawPauseBtn(){ // visible on every platform, not only touch
  if(mode!=='play')return;const px=PAUSE_X(),hov=Math.hypot(mouse.x-px,mouse.y-(HUD+36))<24;
- ctx.fillStyle=hov?'rgba(47,99,224,.9)':'rgba(8,12,28,.65)';ctx.beginPath();ctx.arc(px,HUD+36,22,0,7);ctx.fill();
+ const pr=touchUI?27:22;ctx.fillStyle=hov?'rgba(47,99,224,.9)':'rgba(8,12,28,.65)';ctx.beginPath();ctx.arc(px,HUD+36,pr,0,7);ctx.fill();
  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#fff';ctx.fillRect(px-7,HUD+27,5,18);ctx.fillRect(px+2,HUD+27,5,18);
 }
 function drawTouch(){
@@ -2731,7 +2740,7 @@ function draw(){
   ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
   const sk=shakeOff();ctx.translate(sk.x,sk.y);applyCam();drawWorld();ctx.restore();ctx=main}
  if(split)ctx.drawImage(wcv,0,Math.round(HUD*RS),wcv.width,Math.round(ROWS*T*RS),-UX,HUD,SW,ROWS*T);
- drawFloatsUI();if(mode==='play'||mode==='paused'||mode==='upgrade')drawBubbles();
+ drawFloatsUI();if(mode==='play'||mode==='paused'||mode==='upgrade')drawBubbles();drawRushBreak();
  drawPointer();drawMinimap();
  drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill();drawGoalPill()}drawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawScreenFx();drawHUD();drawCoins();

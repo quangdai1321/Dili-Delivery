@@ -34,7 +34,7 @@ A new player's first shift walks through 4 hands-on steps in a card at the botto
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
 
 ### 💀 Boss Rush
-A **💀 BOSS RUSH** button on the menu (between Daily and Ranking). You go straight into the boss of every zone, one after another: Monster Truck → Stampede → Blackout → … → Meteor Storm. Each boss takes 3 hits. Hits give +4s, a defeat +6s and the zone card +8s. When time runs out, the result is how many of the 11 bosses you took down, and your time for a full clear. The HUD shows `💀 BOSS RUSH 3/11`. There are no random events and no zone goals. Boss Rush keeps its own record (`BOSS RUSH BEST 7/11 bosses · FULL CLEAR 212.4s`). It never touches the leaderboard, your normal personal best, ghosts or zone unlocks. Sharing posts "I took down 7/11 bosses" with the game link (no challenge link).
+A **💀 BOSS RUSH** button on the menu (between Daily and Ranking). You go straight into the boss of every zone, one after another: Monster Truck → Stampede → Blackout → … → Meteor Storm. Before each boss there is a **3-second breather** ("NEXT BOSS: 🐎 STAMPEDE · 3·2·1"). The clock stops and the boss order can't be picked up yet. Each boss takes 3 hits. Hits give +4s, a defeat +6s and the zone card +8s. When time runs out, the result is how many of the 11 bosses you took down, and your time for a full clear. The HUD shows `💀 BOSS RUSH 3/11`. There are no random events and no zone goals. Boss Rush keeps its own record (`BOSS RUSH BEST 7/11 bosses · FULL CLEAR 212.4s`). It never touches the leaderboard, your normal personal best, ghosts or zone unlocks. Sharing posts "I took down 7/11 bosses" with the game link (no challenge link).
 
 ### Daily Challenge
 A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same city layouts, the same orders and the same upgrade offers that day. Your best score and number of attempts are saved per day.
@@ -46,7 +46,8 @@ A 📅 **Daily #N** button on the menu (or press **D**). Everyone gets the same 
 
 ### 📱 Phones
 - **Portrait screens** (including in-app browsers such as X's that never rotate): the landscape game is turned 90° to fill the whole screen, so you just turn the phone sideways. Touches are rotated back to game coordinates. When the browser itself rotates to landscape, the game switches back to the normal layout.
-- **Small or short screens**: the D-pad, joystick and DASH button grow (up to 1.7x) so they stay a usable physical size.
+- **Touch controls are big by default**: the D-pad, joystick and DASH button scale with the screen (at least 1.15x, up to 1.8x on small or short screens), and the ⏸ button is bigger on touch.
+- On-screen text is kept short: zone tips, goals, event and boss intros, and tutorial hints are one short line each.
 
 ### Zones
 | # | Zone | Reached after | Hazard |
