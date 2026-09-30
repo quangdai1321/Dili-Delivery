@@ -1203,7 +1203,7 @@ function doDeliver(di=0){
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
  const happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy;
  score+=bonus;
- {const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5);addCoins(cg);floats.push({x:dx+46,y:dy-2,text:`+${cg} 🪙`,color:'#ffd34d',t:1.1,max:1.1,size:16})}
+ const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5);addCoins(cg); // shown on the result card
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip'){unlockAch('vip');queueMoment(1,'👑 VIP delivery')}if(ot==='fragile')unlockAch('fragile');
  if(clean)goalTrack('clean');if(fast)goalTrack('fast');if(!order.sandTouched)goalTrack('nosand');if(!order.bumped)goalTrack('nobump');
@@ -1214,7 +1214,7 @@ function doDeliver(di=0){
  // time refund shrinks as the run goes on: +4s early, +2s from delivery 24
  shiftTime=Math.min(99,shiftTime+Math.max(2,4-Math.floor(deliveries/12))+(fast?2:0));lastTickSec=99;buzz(25);
  fastest=fastest==null?t:Math.min(fastest,t);totalDist+=order.dist;
- resultCard={no:deliveries,stars,combo,time:t,dist:Math.round(order.dist/T*10),bonus,fast,clean,t:2.8,max:2.8};
+ resultCard={no:deliveries,stars,combo,time:t,dist:Math.round(order.dist/T*10),bonus,coins:cg,fast,clean,t:2.8,max:2.8};
  floats.push({x:dx,y:dy-28,text:'+'+fmt(bonus),color:'#45e6a5',t:1.2,max:1.2,size:26});
  rings.push({x:dx,y:dy,t:.6,max:.6,r0:12,r1:120,color:'#45e6a5'},{x:dx,y:dy,t:.45,max:.45,r0:6,r1:70,color:'#fff'});
  {const q=toScreen({x:dx,y:dy});for(let i=0;i<9;i++)coins.push({sx:q.x,sy:q.y,cx:q.x+rand(-120,120),cy:q.y-rand(80,200),t:-i*.045,dur:.65,i})}
@@ -1224,10 +1224,10 @@ function doDeliver(di=0){
  SFX.deliver(combo);SFX.stars(stars);
  {const txt=ot==='vip'?cpick(MSG_VIP):fast||clean?cpick(MSG_OK):cpick(MSG_SLOW);
   if(Math.random()<.2){const b=say(dx,dy,'🔒',{t:2.6,max:2.6});b.enc=fast?'🔓 '+txt:'🔒 decrypt failed 😵';if(fast){addCoins(2);floats.push({x:dx,y:dy+18,text:'🔓 DECRYPTED +2 🪙',color:'#8fe3ff',t:1.2,max:1.2,size:14})}}
-  else say(dx,dy,txt)}
+  else say(dx,dy,txt);diliCd=Math.max(diliCd,2.5)} // the customer has the floor
  if(COMBO_HYPE.includes(combo)||(combo>30&&combo%10===0)){
   if(combo>=10)queueMoment(combo>=15?3.5:3,`🔥 COMBO x${combo}`);
-  diliSay('combo',true);hype={text:`COMBO x${combo}!`,sub:combo>=10?'ON FIRE 🔥':combo>=5?'UNSTOPPABLE':'NICE CHAIN',t:1.5,max:1.5};
+  diliSay('combo');hype={text:`COMBO x${combo}!`,sub:combo>=10?'ON FIRE 🔥':combo>=5?'UNSTOPPABLE':'NICE CHAIN',t:1.5,max:1.5};
   flash=.3;flashColor=zone.accent;SFX.hype();SFX.riser();camPunch=Math.max(camPunch,.12);comboGlow=.8;glowColor=combo>=10?'#ffb347':zone.accent;burst(player.x,player.y,30,[zone.accent,'#fff','#ffd34d'],true);
  }
  zoneDeliveries++;tutMark('deliver');
@@ -2332,7 +2332,7 @@ function paintResultCard(rc,x,y,w,h,age,bonus){
  for(let i=0;i<5;i++){const on=i<rc.stars,ap=Math.max(0,Math.min(1,(age-.32-i*.09)/.2)),sc=on?easeOutBack(ap):1;
   ctx.save();ctx.translate(x+w-94+i*18,y+20);ctx.scale(sc||.001,sc||.001);drawStar(0,0,7.5,on?'#ffd34d':'#2c3656');ctx.restore()}
  text('COMBO x'+rc.combo,x+18,y+48,22,zone.accent,'left',900);
- const rows=[['Time',rc.time.toFixed(2)+'s'],['Distance',rc.dist+'m'],['Bonus','+'+bonus]];
+ const rows=[['Time',rc.time.toFixed(2)+'s'],['Distance',rc.dist+'m'],['Bonus','+'+bonus+(rc.coins?`  ·  +${rc.coins} 🪙`:'')]];
  rows.forEach((r,i)=>{text(r[0],x+18,y+78+i*20,13,'#8f9cbc','left',700);text(r[1],x+w-18,y+78+i*20,13,'#fff','right',800)});
  let tx=x+18;for(const[on,label]of[[rc.fast,'FAST x2'],[rc.clean,'CLEAN x3']]){if(!on)continue;ctx.font=font(10,900);const tw=mt(label)+12;
   ctx.fillStyle='rgba(69,230,165,.18)';rr(ctx,tx,y+140,tw,17,8);ctx.fill();text(label,tx+tw/2,y+148.5,10,'#45e6a5','center',900);tx+=tw+6}
