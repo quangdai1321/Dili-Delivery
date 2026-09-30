@@ -147,8 +147,8 @@ function mt(s){const k=ctx.font+'|'+s;let w=mtCache.get(k);if(w===undefined){w=c
 function text(s,x,y,size,color,align='left',weight=800){ctx.font=font(size,weight);ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillStyle=color;ctx.fillText(s,x,y)}
 const txtCache=new Map(),txtG=document.createElement('canvas').getContext('2d');
 function outlined(s,x,y,size,color,align='center'){
- const m=ctx.getTransform(),k=Math.hypot(m.a,m.b);if((Math.abs(k-RSU)>.01||Math.abs(m.b)>1e-4)&&k>.05){ // scaled or rotated
-  const q=RSU*Math.max(1.6,Math.pow(1.25,Math.ceil(Math.log(k/RSU)/Math.log(1.25)))),key=s+'|'+size+'|'+color+'|'+q.toFixed(3);let e=txtCache.get(key);
+ const m=ctx.getTransform(),k=Math.hypot(m.a,m.b);if((Math.abs(k-RSU)>.01||Math.abs(m.b)>1e-4)&&k>.05){ // only for text that is being scaled or rotated // scaled or rotated
+  const q=RSU*Math.max(size>=40?1.15:1.6,Math.pow(1.25,Math.ceil(Math.log(k/RSU)/Math.log(1.25)))),key=s+'|'+size+'|'+color+'|'+q.toFixed(3);let e=txtCache.get(key);
   if(e){txtCache.delete(key);txtCache.set(key,e)}else{txtG.font=font(size,900);const w=Math.ceil(txtG.measureText(s).width)+10,h=Math.ceil(size*1.5)+6,cv=document.createElement('canvas');
    cv.width=Math.max(1,Math.ceil(w*q));cv.height=Math.max(1,Math.ceil(h*q));const g=cv.getContext('2d');g.scale(q,q);g.font=font(size,900);g.textAlign='left';g.textBaseline='middle';
    g.lineJoin='round';g.lineWidth=5;g.strokeStyle='rgba(5,8,20,.85)';g.strokeText(s,5,h/2);g.fillStyle=color;g.fillText(s,5,h/2);
@@ -408,7 +408,7 @@ function ensureAudio(){
  if(!actx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
   try{actx=new AC();master=actx.createGain();master.gain.value=1; // +5dB vs .55: the mix peaked around -15dB; the compressor keeps big SFX pile-ups under -4dB
    const comp=actx.createDynamicsCompressor();comp.threshold.value=-16;comp.knee.value=12;comp.ratio.value=4;comp.attack.value=.004;comp.release.value=.22;
-   master.connect(comp).connect(actx.destination);
+   master.connect(comp).connect(actx.destination);setTimeout(()=>{try{bakeSteps()}catch(e){}},600); // pre-render footsteps off the gameplay path
    try{const len=Math.floor(actx.sampleRate*2.2),ir=actx.createBuffer(2,len,actx.sampleRate); // exponentially decaying stereo noise = small hall
     for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}
     const verb=actx.createConvolver();verb.buffer=ir;verbIn=actx.createGain();verbIn.gain.value=.2;verbIn.connect(verb).connect(master)}catch(e){verbIn=null}
@@ -2085,11 +2085,13 @@ const trailColor=()=>{const tr=meta.equip.trail;return tr==='t_rainbow'?`hsl(${(
 const shakeOff=()=>shake>0&&!CALM()?{x:Math.sin(runT*53)*6*shake/.3,y:Math.cos(runT*47)*5*shake/.3}:{x:0,y:0};
 // floating texts (+score, CLOSE CALL, DROPPED!...) are drawn on the sharp UI layer at their on-screen position
 function drawFloatsUI(){
- if(!floats.length)return;const z=cam.z*(1+(CALM()?0:camPunch)),sk=shakeOff();
+ // floating texts are drawn straight at a steady size: making a bitmap per text (or re-rasterising a scaling pop-in)
+ // cost 25-70ms on big screens. The size follows the camera zoom in 0.05 steps, so glyphs stay cached.
+ if(!floats.length)return;const z=cam.z*(1+(CALM()?0:camPunch)),zq=Math.round(cam.z*20)/20,sk=shakeOff();
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
- for(const f of floats){const age=f.max-f.t,s=easeOutBack(Math.min(1,age/.25))*z;let qx=(f.x-cam.x)*z+W/2+sk.x,qy=(f.y-cam.y)*z+HUD+ROWS*T/2+sk.y;
+ for(const f of floats){const age=f.max-f.t;let qx=(f.x-cam.x)*z+W/2+sk.x,qy=(f.y-cam.y)*z+HUD+ROWS*T/2+sk.y+(1-Math.min(1,age/.18))*10;
   qx=clamp(qx,-UX+70,W+UX-70);if(qy<HUD+122&&qx<-UX+200)qx=-UX+200; // slide right, off the pause button and coin pill (a y clamp stacked texts on top of each other)
-  ctx.save();ctx.globalAlpha=Math.min(1,f.t/f.max*2);ctx.translate(qx,qy);ctx.scale(s,s);outlined(f.text,0,0,f.size,f.color);ctx.restore()}
+  ctx.globalAlpha=Math.min(1,f.t/f.max*2,age/.12);outlined(f.text,qx,qy,Math.round(f.size*zq),f.color)}ctx.globalAlpha=1;
  ctx.restore();
 }
 function drawWorld(){
@@ -2356,10 +2358,19 @@ function drawRushBreak(){
  ctx.translate(W/2,H/2+24);ctx.scale(s,s);outlined(String(n),0,0,56,'#fff');ctx.restore();
  text('Catch your breath 😮‍💨',W/2,H/2+66,14,'#bcd0ff','center',800);
 }
+// big announcements are drawn straight at a fixed size and bounce in on y only: glyphs are cached per character, so
+// only brand-new characters cost anything (a scaled / rotated pop-in rebuilt a ~1600px text bitmap: 50-70ms per hype)
 function drawHype(){
- if(!hype)return;const age=hype.max-hype.t,a=Math.min(1,hype.t/.3),s=easeOutBack(Math.min(1,age/.3));
- ctx.save();ctx.globalAlpha=a;ctx.translate(W/2,H/2+70);ctx.rotate(Math.sin(age*10)*.04*(1-Math.min(1,age)));ctx.scale(s,s);
- outlined(hype.text,0,0,54,combo>=10?'#ffd34d':zone.accent);outlined(hype.sub,0,40,20,'#fff');ctx.restore();
+ if(!hype)return;const age=hype.max-hype.t,a=Math.min(1,hype.t/.3,age/.12),dy=(1-easeOutBack(Math.min(1,age/.3)))*40;
+ ctx.save();ctx.globalAlpha=a;outlined(hype.text,W/2,H/2+70+dy,54,combo>=10?'#ffd34d':zone.accent);outlined(hype.sub,W/2,H/2+110+dy,20,'#fff');ctx.restore();
+}
+// warm the glyph cache for the announcement font on the menu (first use of a big emoji glyph costs ~50ms)
+let glyphWarm=0;
+function warmGlyphs(){
+ glyphWarm=RSU;const c=document.createElement('canvas');c.width=Math.ceil(1150*RSU);c.height=Math.ceil(90*RSU);const g=c.getContext('2d');g.setTransform(RSU,0,0,RSU,0,0);
+ g.textBaseline='middle';g.lineJoin='round';g.lineWidth=5;g.strokeStyle='#000';g.fillStyle='#fff';
+ const lines=['ABCDEFGHIJKLMNOPQRSTUVWXYZ','0123456789!?:/·…x+-','💀🚚🐎🌑🦀🌪️🐒⚡🚆🎆☃️☄️💥🔥🪂⭐🎯😡🏆🐴🏖️🌿📦'];
+ for(const [size,line] of [[54,lines[0]],[54,lines[1]],[54,lines[2]],[20,lines.join(' ')]]){g.clearRect(0,0,1150,90);g.font=font(size,900);g.strokeText(line,4,45);g.fillText(line,4,45)}
 }
 function drawVignette(){
  if(mode!=='play'||shiftTime>=10)return;
@@ -2880,6 +2891,7 @@ function frame(now){
  // after 6s of solid 60fps try a little more. Phones heat up and slow down over a session, so this keeps adjusting.
  fpsVal+=(1/Math.max(dt,1e-3)-fpsVal)*.05;
  // menus are light: always show them at full sharpness, and give a run back the resolution it had settled on
+ if(mode==='menu'&&glyphWarm!==RSU&&runT>1.2)warmGlyphs(); // once per UI resolution, while nothing else is going on
  {const menuish=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||mode==='settings'&&settingsFrom==='menu';
   if(menuish!==inMenuHQ){inMenuHQ=menuish;
    if(menuish){playRes={resCap,uiLow};uiLow=false;resCap=gfxMax();resize()}
