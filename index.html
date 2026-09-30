@@ -2087,7 +2087,8 @@ const shakeOff=()=>shake>0&&!CALM()?{x:Math.sin(runT*53)*6*shake/.3,y:Math.cos(r
 function drawFloatsUI(){
  if(!floats.length)return;const z=cam.z*(1+(CALM()?0:camPunch)),sk=shakeOff();
  ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
- for(const f of floats){const age=f.max-f.t,s=easeOutBack(Math.min(1,age/.25))*z,qx=(f.x-cam.x)*z+W/2+sk.x,qy=(f.y-cam.y)*z+HUD+ROWS*T/2+sk.y;
+ for(const f of floats){const age=f.max-f.t,s=easeOutBack(Math.min(1,age/.25))*z;let qx=(f.x-cam.x)*z+W/2+sk.x,qy=(f.y-cam.y)*z+HUD+ROWS*T/2+sk.y;
+  qx=clamp(qx,-UX+70,W+UX-70);if(qy<HUD+122&&qx<-UX+200)qx=-UX+200; // slide right, off the pause button and coin pill (a y clamp stacked texts on top of each other)
   ctx.save();ctx.globalAlpha=Math.min(1,f.t/f.max*2);ctx.translate(qx,qy);ctx.scale(s,s);outlined(f.text,0,0,f.size,f.color);ctx.restore()}
  ctx.restore();
 }
@@ -2300,7 +2301,7 @@ function drawEventPill(){
  text(`${e.icon} ${e.name}`,x+14,y+15.5,13,'#fff','left',900);text(Math.ceil(e.t)+'s',x+w-12,y+15.5,13,e.color,'right',900);
 }
 function drawAchPop(){
- const p=achPops[0];if(!p)return;const age=p.max-p.t,a=Math.min(1,age/.25,p.t/.4),s=easeOutBack(Math.min(1,age/.3)),y=H-104;
+ const p=achPops[0];if(!p)return;const age=p.max-p.t,a=Math.min(1,age/.25,p.t/.4),s=easeOutBack(Math.min(1,age/.3)),y=tut&&mode==='play'?H-150:H-104; // above the tutorial card when it is up
  const it=p.a.item&&skinItem(p.a.item),sub=`+${p.a.coins||0} 🪙`+(it?`  ·  unlocked ${it.name}`:'');
  ctx.save();ctx.globalAlpha=a;ctx.translate(W/2,y);ctx.scale(s,s);
  ctx.font=font(15,900);const w=Math.max(300,mt(p.a.name)+110,mt(sub)*.8+110);
@@ -2785,7 +2786,7 @@ function drawUpgrade(){
  const cw=240,ch=250,gap=28,x0=W/2-(cw*3+gap*2)/2,y=210;
  upgradeChoices.forEach((u,i)=>{const x=x0+i*(cw+gap),hov=hit(mouse,{x,y,w:cw,h:ch}),fl=Math.sin(runT*2+i)*4;
   ctx.save();ctx.translate(0,fl);
-  ctx.fillStyle=hov?'rgba(111,163,255,.18)':'rgba(255,255,255,.07)';rr(ctx,x,y,cw,ch,18);ctx.fill();
+  ctx.fillStyle=hov?'rgba(26,48,112,.97)':'rgba(14,26,68,.95)';rr(ctx,x,y,cw,ch,18);ctx.fill();
   ctx.strokeStyle=hov?BRAND.sky:'rgba(255,255,255,.15)';ctx.lineWidth=2;ctx.stroke();
   text(u.icon,x+cw/2,y+62,46,'#fff','center');text(u.name,x+cw/2,y+118,22,'#fff','center',900);text(u.desc,x+cw/2,y+146,13,'#aab8d5','center',700);
   if(u.id!=='time'){const n=u.max,lv=upg[u.id],sw=(cw-60-(n-1)*5)/n;for(let j=0;j<n;j++){ctx.fillStyle=j<lv?BRAND.sky:j===lv?'rgba(111,163,255,.45)':'#2c3656';rr(ctx,x+30+j*(sw+5),y+176,sw,10,5);ctx.fill()}}
@@ -2848,9 +2849,9 @@ function draw(){
   ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
   const sk=shakeOff();ctx.translate(sk.x,sk.y);applyCam();drawWorld();ctx.restore();ctx=main}
  if(split)ctx.drawImage(wcv,0,Math.round(HUD*RS),wcv.width,Math.round(ROWS*T*RS),-UX,HUD,SW,ROWS*T);
- drawFloatsUI();if(mode==='play'||mode==='paused'||mode==='upgrade')drawBubbles();drawRushBreak();
+ drawFloatsUI();if(mode==='play'&&!(rush&&rush.breakT>0))drawBubbles();drawRushBreak();
  drawPointer();drawMinimap();
- drawVignette();if(mode!=="paused"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill();drawGoalPill()}drawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
+ drawVignette();if(mode==="play"||mode==="stage"||mode==="over"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill();drawGoalPill()} // hidden behind pause / settings / upgrade overlaysdrawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawScreenFx();drawHUD();drawCoins();
  if(settings.fps){ctx.font=font(11,900);const t=`${Math.round(fpsVal)} FPS · ${(RS*SW/W).toFixed(2)}x`,w=mt(t)+14;ctx.fillStyle='rgba(8,12,28,.75)';const fy=showMini&&cam.z>=1.08?HUD+96:HUD+10;rr(ctx,W+UX-w-10,fy,w,18,9);ctx.fill();text(t,W+UX-10-w/2,fy+9,11,fpsVal<45?'#ff8a95':'#45e6a5','center',900)}
  if(flash>0){ctx.globalAlpha=Math.min(CALM()?.12:.45,flash);ctx.fillStyle=flashColor;ctx.fillRect(-UX,HUD,SW,ROWS*T);ctx.globalAlpha=1}
