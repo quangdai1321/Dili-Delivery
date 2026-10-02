@@ -336,8 +336,9 @@ function updatePet(dt){
 }
 // mobile niceties (all best-effort)
 // ---------- player settings ----------
-const settings=Object.assign({gfx:'auto',motion:'full',music:true,chill:false,steps:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
+const settings=Object.assign({gfx:'high',motion:'full',music:true,chill:false,steps:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
 const saveSettings=()=>store.set('diliDelivery.settings',settings);
+if(!store.get('diliDelivery.gfxHigh',false)){if(settings.gfx==='auto')settings.gfx='high';store.set('diliDelivery.gfxHigh',true)} // HIGH is the default now; AUTO / SAVER stay one tap away
 const LOWFX=()=>settings.gfx==='saver'||settings.gfx==='auto'&&uiLow; // auto: lighter effects once resolution alone could not keep up     // battery saver: fewer particles / ambient effects
 const CALM=()=>settings.motion==='reduced'; // reduced motion: no shake, zoom kicks, big flashes or speed lines
 const buzz=p=>{try{if(touchUI&&settings.vibe&&navigator.vibrate)navigator.vibrate(p)}catch(e){}};
@@ -606,18 +607,17 @@ function playStep(tr,step,t,spb){
  if(s%every===0){const i=(s/every)%4;mNote(t,ch[i]+(tr.oct||12)+(inten>=2&&s%4===2?12:0),spb*(tr.arp==='sine'?2:.9),tr.arp,{triangle:.045,sine:.05}[tr.arp]||.022)}
  if(tr.drums){
   if(s===0||s===8||(tr.drums===2&&(s===4||s===12))||(inten>=2&&s===10))mKick(t);
-  if(s===4||s===12)mNoise(t,.12,.14,1500,'bandpass');
+  if(s===4||s===12){mNote(t,55,.12,'triangle',.09);mNoise(t,.07,.06,1100,'bandpass')} // snare: a thump with a little snap, not a 'chh'
   const bar=Math.floor(step/16)%4;
-  if(bar===0&&s===0)mNoise(t,.6,.03,4200,'bandpass'); // soft crash on each phrase
-  if(bar===3&&s>=12&&(tr.drums===2||inten>=1))mNoise(t,.08,.09+(s-12)*.02,1800,'bandpass'); // snare fill into the next phrase
-  if(s%4===2||((inten>=2||tr.drums===2)&&s%2===1))mNoise(t,.025,.022,4800,'bandpass'); // closed hat: short, soft, not a hiss
+  if(bar===3&&s>=12&&(tr.drums===2||inten>=1))mNote(t,50+(s-12)*2,.08,'triangle',.06+(s-12)*.01); // tom fill into the next phrase
+  if(s%4===2||((inten>=2||tr.drums===2)&&s%2===1))mNoise(t,.018,.009,3600,'bandpass'); // closed hat: a faint tick
  }
 }
 // ambience: looping filtered-noise beds and a drone, shaped per zone, with little one-shot details
 const amb={bus:null,L:[],drone:null,eng:null,next:0};
 function ambInit(){
  const len=actx.sampleRate*3,b=actx.createBuffer(1,len,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1; // 3s: no audible loop
- amb.bus=actx.createGain();amb.bus.gain.value=0;amb.tame=actx.createBiquadFilter();amb.tame.type='lowpass';amb.tame.frequency.value=3800;amb.tame.Q.value=.5;amb.bus.connect(amb.tame).connect(master);if(verbIn){const v=actx.createGain();v.gain.value=.35;amb.bus.connect(v).connect(verbIn)}
+ amb.bus=actx.createGain();amb.bus.gain.value=0;amb.tame=actx.createBiquadFilter();amb.tame.type='lowpass';amb.tame.frequency.value=2600;amb.tame.Q.value=.5;amb.bus.connect(amb.tame).connect(master);if(verbIn){const v=actx.createGain();v.gain.value=.35;amb.bus.connect(v).connect(verbIn)}
  for(let i=0;i<2;i++){const src=actx.createBufferSource();src.buffer=b;src.loop=true;const f=actx.createBiquadFilter(),g=actx.createGain();g.gain.value=0;
   src.connect(f).connect(g).connect(amb.bus);src.start(0,i*1.3);amb.L.push({f,g})}
  const o=actx.createOscillator(),og=actx.createGain();o.type='sine';o.frequency.value=55;og.gain.value=0;o.connect(og).connect(amb.bus);o.start();amb.drone={o,g:og};
@@ -661,7 +661,7 @@ function ambTick(now){
  if(det==='market')lowG*=.75+.25*Math.sin(t*3.1)*Math.sin(t*1.7);
  if(det==='chimes')lowG*=.6+.4*Math.sin(t*.5);
  if(evOn('rain')&&det!=='rain'){highG+=.03;}
- if(settings.chill)highG*=.5; // CHILL: quieter, darker beds
+ highG*=settings.chill?.18:.35; // the hissy bed stays a faint air; CHILL even less
  const [a,b]=amb.L;a.f.type=lt;b.f.type=ht;
  a.f.frequency.setTargetAtTime(lowF,now,.3);a.g.gain.setTargetAtTime(lowG,now,.5);b.f.frequency.setTargetAtTime(highF,now,.3);b.g.gain.setTargetAtTime(highG,now,.5);
  amb.drone.g.gain.setTargetAtTime(dg+(boss?.03:0),now,.8);amb.drone.o.frequency.setTargetAtTime(boss?41:55,now,1);
@@ -687,7 +687,7 @@ function musicTick(){
  const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?.3:mode==='over'?.12:.14;
  if(vol!==music.vol){music.vol=vol;music.gain.gain.setTargetAtTime(vol,now,.2)}
  // the mix "opens up" as the combo grows, goes muffled (underwater) when paused
- const cut=mode==='paused'||mode==='upgrade'||(mode==='settings'&&settingsFrom==='paused')?650:mode==='over'?1100:mode==='play'?(settings.chill?1700:boss?9000:2600+Math.min(combo,10)*640):settings.chill?2600:9000;
+ const cut=mode==='paused'||mode==='upgrade'||(mode==='settings'&&settingsFrom==='paused')?650:mode==='over'?1100:mode==='play'?(settings.chill?1700:boss?6000:2600+Math.min(combo,10)*340):settings.chill?2600:7000;
  if(cut!==music.cut){music.cut=cut;music.filt.frequency.setTargetAtTime(cut,now,.25)}
  ambTick(now);
 }
@@ -766,7 +766,7 @@ const toScreen=p=>({x:(p.x-cam.x)*cam.z+W/2,y:(p.y-cam.y)*cam.z+HUD+ROWS*T/2});
 const isRoad=(c,r)=>inb(c,r)&&grid[r][c]>0;
 const walkable=(c,r)=>isRoad(c,r)&&!barriers.has(key(c,r));
 const playerSpeed=()=>185*(1+.12*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1);
-const diff=()=>1+.15*loop+.035*Math.min(zoneDeliveries,10);
+const diff=()=>(best.runs>0?1.08:1)+.15*loop+.045*Math.min(zoneDeliveries,10); // a bit harder after your first run (player feedback)
 const dashCooldown=()=>2*Math.pow(.85,upg.dash);
 const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1)*(meta.equip.pet==='p_parrot'?1.15:1);
 
@@ -2668,7 +2668,7 @@ function drawSettings(){
  const cyc=(k,vals)=>()=>{settings[k]=vals[(vals.indexOf(settings[k])+1)%vals.length];saveSettings();if(k==='gfx')applyGfx();SFX.pickup()};
  const tog=k=>()=>{settings[k]=!settings[k];saveSettings();if(k==='sfx'||k==='music')ensureAudio();SFX.pickup()};
  const rows=[
-  ['🖼️','Graphics',{auto:'AUTO',high:'HIGH',saver:'BATTERY SAVER'}[settings.gfx],cyc('gfx',['auto','high','saver']),{auto:'Adjusts resolution to keep it smooth',high:'Always sharp (needs a strong device)',saver:'Lower resolution, fewer effects'}[settings.gfx]],
+  ['🖼️','Graphics',{auto:'AUTO',high:'HIGH',saver:'BATTERY SAVER'}[settings.gfx],cyc('gfx',['high','auto','saver']),{auto:'Adjusts resolution to keep it smooth',high:'Always sharp (needs a strong device)',saver:'Lower resolution, fewer effects'}[settings.gfx]],
   ['🌀','Screen effects',settings.motion==='full'?'FULL':'REDUCED',cyc('motion',['full','reduced']),settings.motion==='full'?'Shake, zoom kicks and flashes':'No shake, zoom kicks or big flashes'],
   ['🎵','Music',!settings.music?'OFF':settings.chill?'CHILL 🌿':'ARCADE',()=>{if(!settings.music){settings.music=true;settings.chill=false}else if(!settings.chill)settings.chill=true;else settings.music=false;
    saveSettings();ensureAudio();music.step=0;SFX.pickup()},!settings.music?'No music':settings.chill?'Calm lo-fi: soft keys, no drums or hats':'Upbeat, speeds up with your combo'],
