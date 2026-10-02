@@ -1623,7 +1623,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>{keys.clear();joy=null;if(mode==='play'&&!coopRun())mode='paused'});
-addEventListener('pagehide',()=>{if(mode==='play'||mode==='paused'||mode==='upgrade'||mode==='stage')sendRunStats('abandon')});
+addEventListener('pagehide',()=>{if(coop)coopSend({k:'bye'});if(mode==='play'||mode==='paused'||mode==='upgrade'||mode==='stage')sendRunStats('abandon')});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play'&&!coopRun())mode='paused';
  if(!document.hidden&&['play','paused','upgrade','stage'].includes(mode))keepAwake(true)}); // the OS drops the wake lock when hidden
 function toCanvas(e){const r=canvas.getBoundingClientRect();
@@ -2983,10 +2983,12 @@ function coopOpen(join){
   ov:0,ordKey:'',csKey:'',stN:0,gs:0,gt:0,sS:0,sT:0,lastS:0,lastT:60,actT:0,passArm:false,zoneOffT:0,bossOffT:0,copied:0};
  coop.net=coopNet(code,coopRecv,s=>{if(!coop)return;coop.status=s==='open'?'waiting':s;if(s==='open'){coop.helloT=0;coop.hbT=0}});
  // heartbeat on a timer, not the frame loop: it keeps going while the tab is in the background (switching apps to send the link)
- coop.hbTimer=setInterval(()=>{if(coop&&coop.status==='waiting')coopSend({k:'hb',away:document.hidden||mode==='paused'?1:0,n:playerName,skin:coopSkin()})},2000);
- mode='coop';joy=null;ensureAudio();
+ coop.hbTimer=setInterval(()=>{if(coop&&coop.status==='waiting')coopSend({k:'hb',h:coop.role==='host'?1:0,away:document.hidden||mode==='paused'?1:0,n:playerName,skin:coopSkin()})},2000);
+ coop.promoteAt=performance.now()+3500+Math.random()*1500; // nobody hosting this room after that: host it yourself
+ coopUrl(code);mode='coop';joy=null;ensureAudio();
 }
-function coopClose(){if(!coop)return;clearInterval(coop.hbTimer);coopSend({k:'bye'});const n=coop.net;coop=null;setTimeout(()=>n&&n.close(),150);if(runKind==='coop')runKind='normal'}
+function coopUrl(code){try{const u=new URL(location.href);if(code)u.searchParams.set('coop',code);else u.searchParams.delete('coop');history.replaceState(null,'',u)}catch(e){}}
+function coopClose(){if(!coop)return;clearInterval(coop.hbTimer);coopUrl(null);coopSend({k:'bye'});const n=coop.net;coop=null;setTimeout(()=>n&&n.close(),150);if(runKind==='coop')runKind='normal'}
 function coopBack(){coopClose();mode='menu'}
 function coopJoinPrompt(){
  let c=null;try{c=prompt('Enter the 4-letter room code from your friend:')}catch(e){}
@@ -3009,6 +3011,7 @@ function coopRecv(m){
  if(!coop||!m||m.f===coop.id)return;const host=coop.role==='host',M=coop.mate,fromMate=M&&m.f===M.id,now=performance.now();
  if(fromMate){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin;if(m.k==='hb')M.away=!!m.away;else if(m.k==='st'||m.k==='me')M.away=false}
  if(host){
+  if(m.k==='hb'&&m.h&&!fromMate){if(!M&&!coopRun()&&m.f<coop.id){coop.role='guest';coop.helloT=0;coop.promoteAt=Infinity;coop.promoted=false}return}
   if(m.k==='hi'){
    if(M&&M.id!==m.f&&now-M.heard<6000){coopSend({k:'full',to:m.f});return}
    if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};
@@ -3026,6 +3029,8 @@ function coopRecv(m){
   if(m.k==='left'){coopMateLeftRun();return}
   return}
  // guest
+ // someone knocks and our host has gone quiet (reloaded / closed): take over the room and let them in
+ if(m.k==='hi'&&!coopRun()&&mode==='coop'&&(!M||now-M.heard>5000)){coop.mate=null;coop.role='host';coop.promoted=true;coop.msg=null;if(coop.status==='full')coop.status='waiting';coopRecv(m);return}
  if(m.k==='full'&&m.to===coop.id&&!M){coop.status='full';return}
  if(m.k==='welcome'&&m.to===coop.id){if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};if(mode==='coop')SFX.up()}
   coop.msg=m.run?'Your friend is mid-shift. You join the next one!':null;return}
@@ -3056,7 +3061,7 @@ function coopMateLost(bye){
   coop.mate=null;
   if(coopRun()&&mode!=='over'){if(order&&order.carrying&&order.holder==='guest'){order.holder='host';order.heldSince=runT;pathTimer=0}
    hype={text:'👋 '+M.name+' LEFT',sub:'Keep delivering solo!',t:2.4,max:2.4}}}
- else{coop.mate=null;if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false)}coop.msg=bye?'The host closed the room.':'Lost the connection to the host.';coop.helloT=0}
+ else{coop.mate=null;coop.promoteAt=performance.now()+3500+Math.random()*1500;if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false)}coop.msg=bye?'The host closed the room.':'Lost the connection to the host.';coop.helloT=0}
 }
 // ---- host side ----
 function coopOrd(){const o=order;if(!o)return null;
@@ -3181,6 +3186,7 @@ function coopFx(m){
 function coopTick(dt){
  if(!coop)return;const now=performance.now(),M=coop.mate,host=coop.role==='host';
  if(coop.copied>0)coop.copied-=dt;
+ if(!host&&!M&&mode==='coop'&&!coopRun()&&coop.status==='waiting'&&now>coop.promoteAt){coop.role='host';coop.promoted=true;coop.msg=null}
  if(coop.status==='waiting'||coop.status==='reconnecting'){
   if(!host&&!M&&now>=coop.helloT){coop.helloT=now+1000;coopSend({k:'hi',name:playerName,skin:coopSkin()})}
   if(now>=coop.hbT&&!host&&coopRun()&&mode==='over'){coop.hbT=now+2000;coopSend({k:'me',x:0,y:0,r:0,gs:coop.sS,gt:coop.sT})}}
@@ -3231,11 +3237,13 @@ function drawCoop(){
  else if(st==='full')text('This room already has two players. Ask for a new link!',W/2,480,14,'#ff8a95','center',800);
  else if(host){
   if(M){text(`${M.name} joined! Ready when you are.`,W/2,476,15,'#45e6a5','center',900);button('START CO-OP SHIFT',W/2-160,496,320,58,coopStartRun)}
-  else{text('Waiting for a friend to join'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,'#aab8d5','center',800);
+  else{text(coop.promoted?'No host was in this room, so you host it now. Send your friend the link!':'Waiting for a friend to join'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,coop.promoted?'#ffd34d':'#aab8d5','center',800);
+   button('🔑  JOIN ANOTHER ROOM',W/2-120,562,240,38,coopJoinPrompt,false,true);
    button(coop.copied>0?'✓ LINK COPIED':touchUI&&navigator.share?'📤  SEND INVITE LINK':'📋  COPY INVITE LINK',W/2-160,496,320,52,coopInvite,true,true)}}
  else{
   if(M)text(coop.msg||`Joined ${M.name}'s room. Waiting for the host to start…`,W/2,476,15,coop.msg?'#ffd34d':'#45e6a5','center',800);
-  else text(coop.msg||'Looking for the host'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,coop.msg?'#ff8a95':'#aab8d5','center',800)}
+  else{text(coop.msg||'Looking for the host'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,coop.msg?'#ff8a95':'#aab8d5','center',800);
+   button('🔑  JOIN ANOTHER ROOM',W/2-120,500,240,38,coopJoinPrompt,false,true)}}
  text('Each of you moves your own Dili · traffic, orders, score and the clock are shared',W/2,H-60,12,'#7d8bab','center',700);
  text(touchUI?'':'Esc: back'+(host&&M?'  ·  Enter: start':''),W/2,H-36,11,'#56627f','center',800);
 }
