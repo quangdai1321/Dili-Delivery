@@ -1752,7 +1752,8 @@ function update(dt){
  if(order.carrying&&!coopGuest()){order.clock+=dt;order.dist+=moved;
   if(order.type==='urgent'&&order.clock>order.deadline){failOrder('⏰ TOO LATE!');return}}
 
- if(coopGuest())coopCars(dt);else updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return; // (co-op hold: your own collisions and deliveries wait until you are back)
+ if(coopGuest())coopCars(dt);else updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(coopHost())coopPass(P,coopHold); // a paused player can still be relieved of the package
+ if(mode!=='play')return; // (co-op hold: your own collisions and deliveries wait until you are back)
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
  if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);
@@ -1829,7 +1830,6 @@ function update(dt){
   if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
   if(bd<pickRadius())doDeliver(bi);
  }else if(Math.hypot(P.x-order.pickup.x,P.y-order.pickup.y)<pickRadius()&&!(order.pickup.lockUntil>runT))doPickup();
- if(coopHost()&&mode==='play')coopPass(P);
  if(mode==='play'&&(pathTimer-=dt)<=0){pathTimer=.15;computePath()}
 }
 // lane steering: maps analog / diagonal / early input onto the road grid, so Dili follows lanes,
@@ -3074,8 +3074,10 @@ function coopSendState(){
  coopSend(m);
 }
 // touch your friend while one of you has the package: it changes hands (walk apart before the next pass)
-function coopPass(P){
+function coopPass(P,hostAway){
  const M=coop.mate;if(!M||!M.on||M.tx==null||M.z!==zoneIdx*100+loop||!order||!order.carrying||order.stolen)return;
+ // never hand the package to someone who is paused / picking an upgrade; taking it from them is fine
+ const mateAway=M.away||M.md==='paused'||M.md==='upgrade'||M.md==='settings';if(order.holder==='host'?mateAway:hostAway)return;
  const d=Math.hypot(P.x-M.x,P.y-M.y);
  if(d>70){coop.passArm=true;return}
  if(d<36&&coop.passArm&&runT-(order.heldSince||0)>.5){
