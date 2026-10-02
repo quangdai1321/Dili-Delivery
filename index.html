@@ -677,7 +677,7 @@ function ambTick(now){
 function musicTick(){
  if(!actx||!music.gain)return;
  const now=actx.currentTime;if(music.next<now-.1)music.next=now+.05;
- const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||(mode==='settings'&&settingsFrom==='menu')?'menu':String(zone.id);
+ const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||mode==='coop'||(mode==='settings'&&settingsFrom==='menu')?'menu':String(zone.id);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
   const tr=TRACKS[music.track],spb=60/(tr.bpm*(settings.chill?.66:mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
@@ -988,7 +988,7 @@ function carRect(k){const l=k.l;
  return l.h?{x:k.pos-k.len/2,y:HUD+l.idx*T+T/2-k.wid/2,w:k.len,h:k.wid}:{x:l.idx*T+T/2-k.wid/2,y:HUD+k.pos-k.len/2,w:k.wid,h:k.len};}
 function makeCar(){
  const sc=RNG()<zone.scoot,model=sc?null:pick(ZONE_CARS[zone.id]||['sedan']),M=model&&CAR_MODELS[model]||{len:42,wid:26,spd:1};
- const k={l:null,pos:0,len:sc?26:M.len,wid:sc?14:M.wid,sc,model,spd:rand(...zone.carSpd)*(sc?1.5:M.spd),v:0,color:pick(!sc&&M.colors||zone.carColors||CAR_COLORS)};
+ const k={id:++carSeq,l:null,pos:0,len:sc?26:M.len,wid:sc?14:M.wid,sc,model,spd:rand(...zone.carSpd)*(sc?1.5:M.spd),v:0,color:pick(!sc&&M.colors||zone.carColors||CAR_COLORS)};
  for(let tries=0;tries<30;tries++){k.l=pick(lines);k.pos=rand(0,k.l.h?W:ROWS*T);const R=carRect(k);
   if(!player||Math.hypot(R.x+R.w/2-player.x,R.y+R.h/2-player.y)>220)break}
  // road ragers (Night District on): floor it when Dili is ahead in their lane
@@ -1102,7 +1102,7 @@ function newOrder(force,from){
   const mk=s=>Object.assign({},s,center(s.c,s.r),{len:Math.max(1,dist[s.r*COLS+s.c])});
   const drops=[mk(d)];if(type==='double'){const d2=chooseSpot(p,[6,zone.route[1]],[p,pt,d]);if(d2.b&&(d2.c!==d.c||d2.r!==d.r))drops.push(mk(d2));else type='normal'}
   const pathLen=drops.length>1?drops[0].len+Math.max(1,bfs(drops[0].c,drops[0].r).dist[drops[1].r*COLS+drops[1].c]):drops[0].len;
-  order={type,origin:{c:pt.c,r:pt.r},chain:{c:d.c,r:d.r},pickup:Object.assign({},p,center(p.c,p.r)),drops,drop:drops[0],carrying:false,pathLen,clock:0,dist:0,par:0,deadline:0,clean:true,born:runT}});
+  order={uid:++orderUid,type,origin:{c:pt.c,r:pt.r},chain:{c:d.c,r:d.r},pickup:Object.assign({},p,center(p.c,p.r)),drops,drop:drops[0],carrying:false,pathLen,clock:0,dist:0,par:0,deadline:0,clean:true,born:runT}});
  orderCrashes=0;pathTimer=0;
  if(order.type!=='normal'){const o=ORDER_TYPES[order.type];floats.push({x:order.pickup.x,y:order.pickup.y-54,text:`${o.icon} ${o.label} ORDER`,color:o.color,t:2.4,max:2.4,size:20})}
 }
@@ -1133,7 +1133,7 @@ let boss=null,bossEnt=null,strikeT=1,camPunch=0,irisT=0,crashFx=0,comboGlow=0,gl
 const nextZoneAt=()=>{const L=ZONES.length-1;return zoneIdx<L?ZONE_AT[zoneIdx+1]:ZONE_AT[L]+(loop+1)*LOOP_EVERY};
 function startBoss(){
  const b=BOSSES[zone.id];if(!b)return;endEvent(true);diliCd=0;setTimeout(()=>diliSay('boss'),1400);const hp=3+(loop?1:0);boss=Object.assign({},b,{t:0,hp,max:hp,phase:1,hitT:0});strikeT=1.2;
- hype={text:`💀 BOSS: ${b.icon} ${b.name}`,sub:`${b.tip} · ${hp} hits`,t:3,max:3};flash=.5;flashColor='#ff3048';shake=Math.max(shake,.35);SFX.boss();buzz([60,40,120]);
+ hype={text:`💀 BOSS: ${b.icon} ${b.name}`,sub:`${b.tip} · ${hp} hits`,t:3,max:3};if(coopHost())coopSend({k:'boss'});flash=.5;flashColor='#ff3048';shake=Math.max(shake,.35);SFX.boss();buzz([60,40,120]);
  if(b.kind==='truck'){const pt=tileOf(player),far=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=10)far.push({c,r});
   const t=far.length?seeded(hashSeed(runSeed+deliveries*17),()=>pick(far)):nearestRoad({c:0,r:0}),q=center(t.c,t.r);bossEnt={x:q.x,y:q.y,tc:t.c,tr:t.r,ang:0,smoke:0}}
  if(b.kind==='blackout')for(const k of cars){k.wasRage=k.rage;if(!k.sc)k.rage=true}
@@ -1152,7 +1152,7 @@ function bossHit(di){
  floats.push({x:drop.x,y:drop.y-30,text:`+${fmt(pts)}  +3 🪙  +4s`,color:'#ff8a95',t:1.2,max:1.2,size:20});
  flash=.35;flashColor='#ff3048';shake=Math.max(shake,.32);camPunch=Math.max(camPunch,.14);hitStop=.08;
  burst(drop.x,drop.y,30,['#ff3048','#ffd34d','#ffffff'],true);rings.push({x:drop.x,y:drop.y,t:.5,max:.5,r0:14,r1:120,color:'#ff3048'});
- SFX.bossHit();buzz([40,30,80]);diliSay('bosshit',true);
+ SFX.bossHit();buzz([40,30,80]);diliSay('bosshit',true);if(coopHost())coopSend({k:'fx',e:'bhit',x:Math.round(drop.x),y:Math.round(drop.y),hp:b.hp,max:b.max,ph:b.phase});
  // enrage: more of whatever this boss throws at you
  if(b.kind==='blackout'&&lines.length)for(let i=0;i<2;i++){const k=makeCar();k.rage=true;k.bossExtra=true;cars.push(k)}
  if(b.kind==='herd'||b.kind==='crowd'){const pt=tileOf(player),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=5)road.push({c,r});
@@ -1168,7 +1168,7 @@ function endBoss(){
  if(b.kind==='crowd'||b.kind==='herd')peds=peds.filter(p=>!p.extra||(order&&order.stolen===p));
 }
 function bossDefeated(){
- const b=boss;if(!b)return;endBoss();
+ const b=boss;if(!b)return;endBoss();if(coopHost())coopSend({k:'fx',e:'bdown'});
  const bonus=800*(1+loop);score+=bonus;shiftTime=Math.min(99,shiftTime+6);addCoins(30);
  meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();missionTrack('boss');unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
  queueMoment(5,`💀 Defeated ${b.icon} ${b.name}`,.5);hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +30 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
@@ -1213,13 +1213,14 @@ function drawBossTruck(){
 }
 // an order can be lost: urgent ran out of time, fragile broke. No refund, combo resets, next order.
 function failOrder(msg){
+ if(coopHost())coopSend({k:'fx',e:'fail',msg});
  const at=player;failedOrders++;combo=0;cleanStreak=0;
  floats.push({x:at.x,y:at.y-40,text:msg,color:'#ff6473',t:1.4,max:1.4,size:24});
  burst(at.x,at.y,24,['#ff6473','#ffd34d','#fff']);flash=.3;flashColor='#ff4d5e';shake=Math.max(shake,.2);SFX.drop();buzz([30,30,60]);
  newOrder(null,order.origin); // same seed => same next order, wherever Dili is standing
 }
-function doPickup(){
- tutMark('pickup');
+function doPickup(by='host'){
+ tutMark('pickup');order.holder=by;order.heldSince=runT;if(coop)coop.passArm=false;
  if(order.pickup.dropped){ // re-grab a package knocked loose in a crash: the order clock keeps running
   order.carrying=true;floats.push({x:order.pickup.x,y:order.pickup.y-26,text:'GOT IT!',color:'#ffd34d',t:.9,max:.9,size:18});
   burst(order.pickup.x,order.pickup.y,14,CONFETTI);player.pop=.3;SFX.pickup();pathTimer=0;return}
@@ -1231,13 +1232,13 @@ function doPickup(){
  rings.push({x:order.pickup.x,y:order.pickup.y,t:.45,max:.45,r0:10,r1:60,color:o.color});
  burst(order.pickup.x,order.pickup.y,22,CONFETTI);player.pop=.35;SFX.pickup();pathTimer=0;
 }
-function doDeliver(di=0){
+function doDeliver(di=0,by='host'){
  if(order.type==='boss'&&boss&&boss.hp>1){bossHit(di);return} // not the last hit: it does not count as a delivery
  const drop=order.drops[di];lastDrop=order.chain||{c:drop.c,r:drop.r};const t=order.clock,fast=t<=order.par,clean=order.clean,dx=drop.x,dy=drop.y,ot=order.type,om=ORDER_TYPES[ot];
  order.drops.splice(di,1);const final=!order.drops.length;if(!final)order.drop=order.drops[0];
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
- const happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy;
- score+=bonus;
+ const team=coopRun()&&order.passed,happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy*(team?1.5:1);
+ score+=bonus;if(team)floats.push({x:dx,y:dy-78,text:'🤝 TEAM DELIVERY x1.5',color:'#8fe3ff',t:1.4,max:1.4,size:18});
  const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5)+(meta.equip.pet==='p_cat'?1:0);addCoins(cg);if(petId())setTimeout(()=>SFX.pet(petId()),180); // shown on the result card
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip'){unlockAch('vip');queueMoment(1,'👑 VIP delivery')}if(ot==='fragile')unlockAch('fragile');
@@ -1250,6 +1251,7 @@ function doDeliver(di=0){
  shiftTime=Math.min(99,shiftTime+Math.max(2,4-Math.floor(deliveries/12))+(fast?2:0));lastTickSec=99;buzz(25);
  fastest=fastest==null?t:Math.min(fastest,t);totalDist+=order.dist;
  resultCard={no:deliveries,stars,combo,time:t,dist:Math.round(order.dist/T*10),bonus,coins:cg,fast,clean,t:2.8,max:2.8};
+ if(coopHost())coopSend({k:'fx',e:'dlv',x:Math.round(dx),y:Math.round(dy),b:Math.round(bonus),cg,st:stars,cb:combo,tm:team?1:0,ot,rc:Object.assign({},resultCard,{t:undefined,max:undefined})});
  floats.push({x:dx,y:dy-28,text:'+'+fmt(bonus),color:'#45e6a5',t:1.2,max:1.2,size:26});
  rings.push({x:dx,y:dy,t:.6,max:.6,r0:12,r1:120,color:'#45e6a5'},{x:dx,y:dy,t:.45,max:.45,r0:6,r1:70,color:'#fff'});
  {const q=toScreen({x:dx,y:dy});for(let i=0;i<9;i++)coins.push({sx:q.x,sy:q.y,cx:q.x+rand(-120,120),cy:q.y-rand(80,200),t:-i*.045,dur:.65,i})}
@@ -1282,6 +1284,7 @@ function startStage(i,lp){
  if(stageInfo.unlocked){best.maxZone=i;store.set('diliDelivery.best',best)}
  pendingZone={i,loop:lp};mode='stage';stageT=0;joy=null;shiftTime=Math.min(99,shiftTime+8);SFX.stage();
  addCoins(10);if(i===ZONES.length-1)unlockAch('moon');endEvent(true);
+ if(coopHost())coopSend({k:'stage',i,lp,ld:lastDrop});
 }
 
 // ---------- run flow ----------
@@ -1302,33 +1305,39 @@ function enterZone(i,first,lp=0){
 // BOSS RUSH: straight into the boss of every zone, one after another. Hits and clears give time as usual;
 // the result is how many of the 11 bosses you took down (and how fast, for a full clear). Kept apart from the normal
 // leaderboard, personal bests and zone unlocks.
-let rush=null;
+let rush=null,coop=null,carSeq=0,orderUid=0; // coop: see the CO-OP section
 const RUSH_BREAK=3; // seconds to breathe before each boss: the clock stops and the boss order can't be delivered yet
 function rushNext(){rush.cleared++;if(zoneIdx<ZONES.length-1)startStage(zoneIdx+1,0);else{rush.won=true;rush.time=runClock;endRun()}}
 function startRun(kind=runKind){
+ if(kind==='coop'&&coop&&coop.role==='guest'&&!coop.go)return; // a guest's run starts when the host starts it
+ if(kind==='coop'&&!(coop&&coop.mate))kind='normal';
  if(player&&(mode==='play'||mode==='paused'||mode==='settings'))sendRunStats('restart');
  ensureAudio();keepAwake(true);resetRunStats();
  if(kind===true)kind='daily';else if(kind===false)kind='normal';if(kind==='challenge'&&!CH)kind='normal';
  runKind=kind;daily=kind==='daily';chRun=kind==='challenge'?CH:null;rush=kind==='bossrush'?{cleared:0,won:false,time:0}:null;
  if(daily){const t=today(),rec=dailyRec();rec.tries++;store.set('diliDelivery.daily',rec);missionTrack('dailyplay');dailyNo=t.no;dailySeed=hashSeed(t.key);dailyTries=rec.tries;paceRef=rec.pace;runSeed=dailySeed;unlockAch('daily')}
  else if(chRun){dailySeed=null;runSeed=chRun.seed;paceRef=null}
+ else if(kind==='coop'&&coop.role==='guest'){dailySeed=null;runSeed=coop.seed;paceRef=null}
  else if(kind==='retry'&&lastGhost){dailySeed=null;runSeed=lastGhost.seed;paceRef=lastGhost.pace} // race your own ghost on the same city
  else{if(kind==='retry')runKind='normal';dailySeed=null;runSeed=(Math.random()*4294967296)>>>0;paceRef=best.pace||null}
  ghostRef=daily?(dailyRec().ghost||null):runKind==='retry'&&lastGhost?lastGhost.log:null;ghostLog=[];lastDrop=null;
  powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  hitStop=0;camPunch=0;crashFx=0;comboGlow=0;crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
- upg={speed:0,dash:0,shield:meta.equip.pet==='p_dog'?1:0,magnet:0};pet=null;respawnQ=[];hudPulseShield=0;particles=[];floats=[];bubbles=[];tut=null;if(!rush&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
+ upg={speed:0,dash:0,shield:meta.equip.pet==='p_dog'?1:0,magnet:0};pet=null;respawnQ=[];hudPulseShield=0;particles=[];floats=[];bubbles=[];tut=null;if(!rush&&kind!=='coop'&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
  enterZone(0,true);if(rush){newOrder('boss');mode='play';rush.breakT=RUSH_BREAK}else{newOrder();mode='play'}SFX.go();irisT=.75;
+ if(runKind==='coop'){coopOnStart();if(coop.role==='guest'){const q=center(tileOf(player).c,tileOf(player).r);player.x=q.x+6;player.y=q.y}}
 }
 function endRun(){
  sendRunStats('time');
+ if(coopHost())coopSend({k:'over',sc:Math.round(score),dl:deliveries,cb:runBestCombo,cr:crashes,cl:crashLost});
  mode='over';overDelay=.6;joy=null;resultCard=null;banner=null;hype=null;dispScore=score;keepAwake(false);
  paceLog.push(score);endEvent(true);
  if(score>=10000)unlockAch('score10k');
- const prevBest=daily?dailyRec().best:rush?Infinity:best.score;
+ const prevBest=daily?dailyRec().best:rush||runKind==='coop'?Infinity:best.score;
  rage=rageReport(prevBest);
+ if(runKind==='coop')rage={line:`🤝 Team shift with ${coop&&coop.mate?coop.mate.name:'your friend'}`,taunt:deliveries>=10?'Dream team 💙':'Better together. One more?'};
  if(rush){const r=best.rush||{cleared:0,time:null},better=rush.cleared>r.cleared||(rush.won&&(r.time==null||rush.time<r.time));
   rage.line=rush.won?`💀 ALL ${ZONES.length} BOSSES DOWN in ${rush.time.toFixed(1)}s! 🏆`:`💀 ${rush.cleared}/${ZONES.length} bosses defeated`;
   rage.taunt=better&&(r.cleared||r.time)?'NEW BOSS RUSH RECORD! 🔥':rush.won?'Can you do it faster?':rush.cleared?`Next up was ${ZONES[Math.min(ZONES.length-1,rush.cleared)].icon} ${BOSSES[ZONES[Math.min(ZONES.length-1,rush.cleared)].id].name}…`:'The Monster Truck says hi 🚚';
@@ -1340,15 +1349,15 @@ function endRun(){
  if(runKind==='retry'&&lastGhost&&!chRun){const d=Math.round(score-lastGhost.score); // ghost race verdict
   rage.line=d>0?`👻 You beat your ghost by ${fmt(d)}!`:d<0?`👻 Your ghost wins by ${fmt(-d)} 😤`:'👻 Dead heat with your ghost!';rage.taunt=d>0?'New ghost saved. Can you beat THAT one?':'Same city, same orders. Only you changed.'}
  // keep the best ghost of this city for "race your ghost"
- if(!daily&&!chRun&&!rush&&(runKind!=='retry'||!lastGhost||score>lastGhost.score))lastGhost={seed:runSeed,log:ghostLog,pace:paceLog,score};
+ if(!daily&&!chRun&&!rush&&runKind!=='coop'&&(runKind!=='retry'||!lastGhost||score>lastGhost.score))lastGhost={seed:runSeed,log:ghostLog,pace:paceLog,score};
  if(newBest&&!daily&&!chRun)best.pace=paceLog;
- if(!rush){best.score=Math.max(best.score,score);best.combo=Math.max(best.combo,runBestCombo);
+ if(!rush&&runKind!=='coop'){best.score=Math.max(best.score,score);best.combo=Math.max(best.combo,runBestCombo);
   best.deliveries=Math.max(best.deliveries,deliveries);if(fastest!=null)best.time=best.time==null?fastest:Math.min(best.time,fastest);
   best.maxZone=Math.max(best.maxZone||0,zoneIdx)}best.runs++;store.set('diliDelivery.best',best);SFX.over();buzz([30,40,30]);
  if(newBest)for(let i=0;i<5;i++)setTimeout(()=>burst(rand(W*.3,W*.7),rand(150,300),40,CONFETTI,true),i*220);
  makeShareCard();
  lastRun={mode:daily?'daily':'all',day:daily?today().key:null,score:Math.round(score),deliveries,combo:runBestCombo,zone:zone.id,loop,skin:meta.equip.color};lbSubmit=null;
- if(rush)lastRun=null; // boss rush stays off the leaderboard
+ if(rush||runKind==='coop')lastRun=null; // boss rush and co-op stay off the leaderboard
  else if(LB_ON&&deliveries>0&&score>0){if(playerName)submitScore();else lbSubmit={state:'needName'}}
 }
 // ---------- rage: the game over screen tells you exactly how close you were ----------
@@ -1377,6 +1386,7 @@ function rageReport(prevBest){
  return{line:lines[0]||null,taunt:pick(Math.random()<.6?pool:TAUNTS.any)};
 }
 function openUpgrade(){
+ if(coopHost())coopSend({k:'fx',e:'upg'});
  const pool=seeded(hashSeed(runSeed+deliveries*31),()=>shuffle(UPGRADES.filter(u=>u.id==='time'||upg[u.id]<u.max)));
  upgradeChoices=pool.slice(0,3);mode='upgrade';joy=null;SFX.up();
 }
@@ -1400,6 +1410,9 @@ function crash(sx,sy,by='car'){
  if(upg.shield>0){upg.shield--;player.inv=1;SFX.shield();burst(player.x,player.y,20,['#6fb3ff','#bfe0ff']);
   rings.push({x:player.x,y:player.y,t:.4,max:.4,r0:18,r1:50,color:'#9fd0ff'});
   floats.push({x:player.x,y:player.y-30,text:'🛡️ SHIELD',color:'#9fd0ff',t:1,max:1,size:20});return}
+ if(coopGuest()){coopGuestCrash(sx,sy,by);return} // the host applies the time penalty for the team
+ if(coopHost())coopSend({k:'fx',e:'hc',x:Math.round(player.x),y:Math.round(player.y)});
+ const mine=!coopRun()||order.holder!=='guest';
  // repeated crashes on the same order hurt more: -3s, -4s, -5s, -6s
  crashCauses[by]=(crashCauses[by]||0)+1;
  const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;lastCrashBy=by;cleanStreak=0;
@@ -1408,9 +1421,11 @@ function crash(sx,sy,by='car'){
  floats.push({x:player.x,y:player.y-30,text:had>=2?`COMBO x${had} BROKEN`:'CRASH!',color:'#ff6473',t:1.1,max:1.1,size:22});
  floats.push({x:player.x,y:player.y-8,text:`-${pen}s`,color:'#ffb3bb',t:.9,max:.9,size:16+(pen-3)*2});
  burst(player.x,player.y,26,['#ff6473','#ffd34d','#fff']);SFX.crash();buzz([40,30,70]);crashFx=.45;
- if(order.carrying&&order.type==='fragile'){failOrder('🥚 BROKEN!');return}
- // the package flies out of Dili's hands and lands back where the hit came from: go get it
- if(order.carrying&&!(best.runs===0&&deliveries<2)){
+ if(order.carrying&&mine&&order.type==='fragile'){failOrder('🥚 BROKEN!');return}
+ if(order.carrying&&mine&&!(best.runs===0&&deliveries<2))dropPackage(sx,sy);
+}
+// the package flies out of Dili's hands and lands back where the hit came from: go get it
+function dropPackage(sx,sy){{
   const t=nearestRoad(tileOf({x:clamp(sx,T/2,W-T/2),y:clamp(sy,HUD+T/2,H-T/2)})),c=center(t.c,t.r);
   order.carrying=false;order.pickup={c:t.c,r:t.r,x:c.x,y:c.y,b:null,dropped:true,lockUntil:runT+.5};
   floats.push({x:c.x,y:c.y-30,text:'📦 DROPPED!',color:'#ffd34d',t:1.3,max:1.3,size:20});
@@ -1467,16 +1482,16 @@ const EVENTS=[
  {id:'coins',icon:'🪙',name:'COIN SHOWER',sub:'Grab the coins!',dur:12,color:'#ffd34d'},
 ];
 const evOn=id=>!!(event&&event.id===id);
-function startEvent(){
+function startEvent(forceId){
  const ok=EVENTS.filter(e=>!(e.id==='police'&&zoneIdx<1)&&!(e.id==='fog'&&(zone.dark>.6||zone.sandstorm))&&!(e.id==='rain'&&(zone.rain||zone.ice||zone.sand||zone.style==='moon')));
- const e=seeded(hashSeed(runSeed+evCount*97+13),()=>pick(ok));evCount++;
+ const e=forceId&&EVENTS.find(x=>x.id===forceId)||seeded(hashSeed(runSeed+evCount*97+13),()=>pick(ok));evCount++;if(coopHost())coopSend({k:'ev',id:e.id});
  event=Object.assign({},e,{t:e.dur,siren:0});
  hype={text:e.icon+' '+e.name,sub:e.sub,t:2.6,max:2.6};SFX.event();flash=.2;flashColor=e.color;
  if(e.id==='police'){chaseCaught=false;const pt=tileOf(player),far=[];
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=9)far.push({c,r});
   const t=far.length?seeded(hashSeed(runSeed+evCount*7),()=>pick(far)):nearestRoad({c:0,r:0}),p=center(t.c,t.r);cop={x:p.x,y:p.y,tc:t.c,tr:t.r,ang:0}}
  if(e.id==='rain'&&!rain.length){for(let n=0;n<120;n++)rain.push({x:rand(0,W),y:rand(HUD,H),l:rand(10,22),s:rand(520,760)});event.madeRain=true}
- if(e.id==='rush')for(let i=0;i<3&&lines.length;i++){const k=makeCar();k.rush=true;cars.push(k)}
+ if(e.id==='rush'&&!coopGuest())for(let i=0;i<3&&lines.length;i++){const k=makeCar();k.rush=true;cars.push(k)}
  if(e.id==='airdrop'){const pt=tileOf(player),road=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(walkable(c,r)&&Math.abs(c-pt.c)+Math.abs(r-pt.r)>=2)road.push({c,r});
   // seeded like every event: a challenge / ghost replay gets the same crates at the same spots
   crates=seeded(hashSeed(runSeed+evCount*23),()=>shuffle(road).slice(0,9).map((t,i)=>Object.assign(center(t.c,t.r),{at:.8+i*1.05,t:0,gold:RNG()<.18,landed:false,life:5})));setTimeout(()=>diliSay('airdrop'),2600)}
@@ -1484,7 +1499,7 @@ function startEvent(){
   pickups=seeded(hashSeed(runSeed+evCount*11),()=>shuffle(road).slice(0,14)).map(t=>Object.assign(center(t.c,t.r),{ph:rand(0,7)}))}
 }
 function endEvent(silent){
- if(!event)return;const e=event;event=null;
+ if(!event)return;const e=event;event=null;if(coopHost())coopSend({k:'eve',s:silent?1:0});
  if(e.id==='police'){if(!chaseCaught&&!silent&&player){unlockAch('police');missionTrack('police');queueMoment(2,'🚓 Escaped the police');score+=150;addCoins(5);floats.push({x:player.x,y:player.y-40,text:'🚓 ESCAPED! +150',color:'#6fa3ff',t:1.3,max:1.3,size:20});SFX.up()}cop=null}
  if(e.id==='rain'&&e.madeRain)rain=[];
  if(e.id==='rush')cars=cars.filter(k=>!k.rush);
@@ -1493,7 +1508,7 @@ function endEvent(silent){
  evT=seeded(hashSeed(runSeed+evCount*53),()=>rand(22,34));
 }
 function updateEvent(dt,P){
- if(!event){if(!boss&&runClock>15&&deliveries>=3&&(evT-=dt)<=0)startEvent();return}
+ if(!event){if(!coopGuest()&&!boss&&runClock>15&&deliveries>=3&&(evT-=dt)<=0)startEvent();return}
  if((event.t-=dt)<=0){endEvent();return}
  if(cop){ // the cop drives tile to tile along the shortest path to Dili
   if((event.siren-=dt)<=0){event.siren=.45;sfxAt(cop,()=>SFX.siren(Math.floor(event.t/.45)%2))}
@@ -1592,10 +1607,11 @@ addEventListener('keydown',e=>{
  if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab({all:'week',week:'daily',daily:'all'}[board.tab])}return}
  if(mode==='shop'||mode==='missions'){if(e.code==='Escape'||e.code==='Backspace')mode='menu';return}
  if(mode==='settings'){if(e.code==='Escape'||e.code==='Backspace')mode=settingsFrom;return}
+ if(mode==='coop'){if(e.code==='Escape'||e.code==='Backspace')coopBack();else if(go)coopStartRun();return}
  if(mode==='menu'&&ctrlPrompt){if(e.code==='Escape')ctrlPrompt=false;return}
  if(mode==='menu'&&chPrompt){if(go)startRun('challenge'),chPrompt=false;else if(e.code==='Escape')chPrompt=false;return}
  if(mode==='menu'){if(go)startRun(false);else if(e.code==='KeyD')startRun(true);else if(e.code==='KeyK')openShop();else if(e.code==='KeyL'&&LB_ON)openBoard('all','menu')}
- else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun();else if(e.code==='KeyS')shareRun();else if(e.code==='KeyG'&&overDelay<=0&&(runKind==='normal'||runKind==='retry'))startRun('retry');else if(e.code==='Escape')mode='menu'}
+ else if(mode==='over'){if((go||e.code==='KeyR')&&overDelay<=0)startRun();else if(e.code==='Escape'&&coopRun())mode='coop';else if(e.code==='KeyS')shareRun();else if(e.code==='KeyG'&&overDelay<=0&&(runKind==='normal'||runKind==='retry'))startRun('retry');else if(e.code==='Escape')mode='menu'}
  else if(mode==='paused'){if(go||e.code==='KeyP'||e.code==='Escape')mode='play';else if(e.code==='KeyR')startRun();else if(e.code==='KeyQ')quitToMenu()}
  else if(mode==='stage'){if(go&&stageT>1.2&&stageT<2.7)stageT=2.7}
  else if(mode==='upgrade'){const i=['Digit1','Digit2','Digit3','Numpad1','Numpad2','Numpad3'].indexOf(e.code);if(i>=0)chooseUpgrade(i%3)}
@@ -1619,7 +1635,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(mode==='splash'){mode='menu';return}
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
  const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
- if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
+ if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings'||mode==='coop')return;
  if(mode==='menu')return; // only the buttons start a run; tapping empty space does nothing
  if(mode==='over')return; // same as the menu: only RUN AGAIN / SHARE / MENU react to taps
  if(mode==='settings')return;
@@ -1688,7 +1704,7 @@ function update(dt){
  dispShift+=(shiftTime-dispShift)*Math.min(1,dt*6);if(mode!=='menu')updateCam(dt);
  if(mode==='splash'){splashT+=dt;if(splashT>=2.6)mode='menu';return}
  if(mode==='menu'){updateCars(dt);return}
- if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings')return;
+ if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings'||mode==='coop')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(rush?'boss':null,tileOf(player))}
   if(stageT>=3.2){mode=document.hidden?'paused':'play';if(rush&&!boss)rush.breakT=RUSH_BREAK;if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
@@ -1704,9 +1720,9 @@ function update(dt){
  if(banner&&(banner.t-=dt)<=0)banner=null;
  if(hype&&(hype.t-=dt)<=0)hype=null;
 
- if(rush&&rush.breakT>0){if((rush.breakT-=dt)<=0){rush.breakT=0;startBoss()}}else shiftTime-=dt;updateTutorial(dt);
+ if(rush&&rush.breakT>0){if((rush.breakT-=dt)<=0){rush.breakT=0;startBoss()}}else if(!coopGuest())shiftTime-=dt;updateTutorial(dt);
  if(shiftTime<10){const s=Math.ceil(shiftTime);if(s<lastTickSec){lastTickSec=s;SFX.tick()}}
- if(shiftTime<=0){shiftTime=0;endRun();return}
+ if(shiftTime<=0&&!coopGuest()){shiftTime=0;endRun();return}
 
  const P=player;P.inv=Math.max(0,P.inv-dt);P.dash=Math.max(0,P.dash-dt);P.dashCd=Math.max(0,P.dashCd-dt);P.pop=Math.max(0,P.pop-dt);P.dizzy=Math.max(0,P.dizzy-dt);
  const pt0=tileOf(P),onSand=sandTiles.has(key(pt0.c,pt0.r));if(onSand&&order)order.sandTouched=true;
@@ -1731,16 +1747,16 @@ function update(dt){
  P.lean+=(clamp(P.vx/spd,-1,1)*.13-P.lean)*Math.min(1,dt*10);
  if(P.moving&&(P.dustT-=dt)<=0){P.dustT=onSand?.03:.07;dust(P.x,P.y+14)}
  if(combo>=5&&Math.random()<dt*(combo>=10?40:22))flame(P.x,P.y,combo>=10);
- if(order.carrying){order.clock+=dt;order.dist+=moved;
+ if(order.carrying&&!coopGuest()){order.clock+=dt;order.dist+=moved;
   if(order.type==='urgent'&&order.clock>order.deadline){failOrder('⏰ TOO LATE!');return}}
 
- updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
+ if(coopGuest())coopCars(dt);else updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
  if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);
   if(p.stun>0)continue;
   if(p.animal){const A=ANIMALS[p.animal];if(d>=P.r*.8+A.r)continue;
-   if(A.thief){if(!order||!order.carrying||order.stolen||stealCd>0||P.inv>0)continue;
+   if(A.thief){if(coopRun()||!order||!order.carrying||order.stolen||stealCd>0||P.inv>0)continue;
     order.stolen=p;order.stealT=9;p.thief=true;p.spd0=p.spd;p.spd=playerSpeed()*.85;p.wait=0;bumpCd=.7;stealCd=1;pathTimer=0;P.vx=dx/(d||1)*220;P.vy=dy/(d||1)*220;
     diliSay('steal',true);hype={text:'🐒 MONKEY THIEF!',sub:'Catch it to get your package back!',t:1.6,max:1.6};sfxAt(p,()=>SFX.animal('monkey'));buzz([20,20,40]);
     floats.push({x:P.x,y:P.y-30,text:'HEY! 📦',color:'#ff8a95',t:.9,max:.9,size:16});break}
@@ -1804,12 +1820,14 @@ function update(dt){
   else if(hit&&!P.hTouch&&P.inv<=0){P.hTouch=true;crash(hit.c.x,hit.c.y,'hurdle')}
   else if(!hit){P.hTouch=false;if(P.dash<=0)P.jumped=null}}
 
- if(order.stolen||rush&&rush.breakT>0){} // no delivering (or picking up) while a monkey has the package, or during a boss-rush breather
+ if(coopGuest())coopGuestAct(P);
+ else if(order.stolen||rush&&rush.breakT>0||order.carrying&&coopRun()&&order.holder==='guest'){} // no delivering (or picking up) while a monkey has the package, or during a boss-rush breather
  else if(order.carrying){ // any remaining door counts; the path follows the nearest one
   let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
   if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
   if(bd<pickRadius())doDeliver(bi);
  }else if(Math.hypot(P.x-order.pickup.x,P.y-order.pickup.y)<pickRadius()&&!(order.pickup.lockUntil>runT))doPickup();
+ if(coopHost()&&mode==='play')coopPass(P);
  if(mode==='play'&&(pathTimer-=dt)<=0){pathTimer=.15;computePath()}
 }
 // lane steering: maps analog / diagonal / early input onto the road grid, so Dili follows lanes,
@@ -2163,10 +2181,10 @@ function drawWorld(){
   drawGhost();
   {const gc=trailColor();for(const g of P.trail){ctx.globalAlpha=g.t/.22*.35;drawDili(g.x,g.y,1,P.faceS,{ghost:true,ghostColor:gc})}}ctx.globalAlpha=1;
   if(combo>=5){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite(combo>=10?'255,170,60':'111,163,255',.45),P.x-34,P.y-34,68,68);ctx.restore()}
-  drawPet();
+  drawMate();drawPet();
   if(P.inv>0&&Math.floor(P.inv*14)%2===0)ctx.globalAlpha=.4;
   {const hop=P.dash>0?Math.sin(Math.PI*(1-P.dash/.22))*16:0;if(hop>1){ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(P.x,P.y+17,11-hop*.25,4,0,0,7);ctx.fill()}
-  ctx.save();ctx.translate(0,-hop);drawDili(P.x,P.y,1,P.faceS,{moving:P.moving,pop:P.pop,carrying:order&&order.carrying,dizzy:P.dizzy>0,float:zone.lowgrav,step:P.step,lean:P.lean,land:P.land});ctx.restore()}ctx.globalAlpha=1;
+  ctx.save();ctx.translate(0,-hop);drawDili(P.x,P.y,1,P.faceS,{moving:P.moving,pop:P.pop,carrying:iCarry(),dizzy:P.dizzy>0,float:zone.lowgrav,step:P.step,lean:P.lean,land:P.land});ctx.restore()}ctx.globalAlpha=1;
   if(P.dizzy>0)for(let i=0;i<3;i++){const a=runT*6+i*2.1;drawStar(P.x+3+Math.cos(a)*14,P.y-32+Math.sin(a)*4,4,'#ffd34d')}
   if(upg.shield>0){ctx.strokeStyle='rgba(120,190,255,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(P.x,P.y-4,24+Math.sin(runT*5)*1.5,0,7);ctx.stroke()}
  }
@@ -2233,6 +2251,7 @@ function drawMinimap(){
  for(const tr of trains)if(tr.state!=='idle'){ctx.fillStyle=tr.state==='warn'?'rgba(255,60,80,.6)':'#ff3048';ctx.fillRect(mx,my+(tr.row*T+T/2)*k-1.5,mw,3)}
  for(const m of meteors){const q=Q(m);ctx.fillStyle='#ff4d5e';ctx.beginPath();ctx.arc(q.x,q.y,2.5,0,7);ctx.fill()}
  if(order){const q=Q(order.carrying?order.drop:order.pickup);ctx.fillStyle=order.carrying?'#45e6a5':'#ffd34d';ctx.beginPath();ctx.arc(q.x,q.y,3.5+Math.sin(runT*8),0,7);ctx.fill()}
+ if(coopMateOn()){const q=Q(coop.mate);ctx.fillStyle='#8fe3ff';ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,7);ctx.fill()}
  if(player){const q=Q(player);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y,3.6,0,7);ctx.fill();ctx.fillStyle=BRAND.bright;ctx.beginPath();ctx.arc(q.x,q.y,2.3,0,7);ctx.fill()}
  const vw=Math.min(W,SW/cam.z),vh=ROWS*T/cam.z;ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1;ctx.strokeRect(mx+(cam.x-vw/2)*k,my+(cam.y-HUD-vh/2)*k,vw*k,vh*k);
  ctx.restore();
@@ -2241,7 +2260,7 @@ const hudCv=document.createElement('canvas'),hudCtx=hudCv.getContext('2d');let h
 function hudKey(){
  const cd=player?player.dashCd/dashCooldown():0,o=order,low=shiftTime<10,
   ord=o&&o.carrying?(o.type==='urgent'?'u'+Math.max(0,o.deadline-o.clock).toFixed(1)+(Math.max(0,o.deadline-o.clock)<3&&Math.sin(runT*14)>0):o.clock.toFixed(1)+'/'+o.par.toFixed(1)):'g';
- return [SW,RSU,touchUI,daily,dailyNo,runKind,chRun&&chRun.name,zone.id,loop,deliveries,o&&o.type,Math.round(clamp(dispShift/Math.max(60,dispShift),0,1)*296),shiftTime.toFixed(1),
+ return [SW,RSU,touchUI,daily,dailyNo,runKind,o&&o.holder,coop&&coop.mate&&coop.mate.name,chRun&&chRun.name,zone.id,loop,deliveries,o&&o.type,Math.round(clamp(dispShift/Math.max(60,dispShift),0,1)*296),shiftTime.toFixed(1),
   low&&Math.sin(runT*12)>0,shiftTime<25,ord,chRun?Math.round(score-chRun.score):hudPace(),Math.round(dispScore),Math.round(scorePulse*15),combo,Math.round(comboPulse*15),Math.round(cd*24),upg.shield,Math.round(hudPulseShield*10),camClose,muted].join('|');
 }
 const hudPace=()=>{const d=paceDelta();return d==null?'':Math.round(d/10)*10}; // shown to the nearest 10 so the HUD isn't redrawn every frame
@@ -2268,7 +2287,7 @@ function drawHUDRaw(){
  if(ratio>0){rr(ctx,bx,13,Math.max(22,bw*ratio),22,11);ctx.fill();ctx.fillStyle='rgba(255,255,255,.18)';rr(ctx,bx+4,15,Math.max(14,bw*ratio-8),6,3);ctx.fill()}
  outlined('SHIFT '+shiftTime.toFixed(1)+'s',bx+bw/2,24.5,Math.round(15*F),'#fff');
  // this order
- {const ot=order&&ORDER_TYPES[order.type];text(ot&&ot.label?ot.icon+' '+ot.label:'THIS ORDER',596,14,L,ot&&ot.label?ot.color:'#7d8bab','left',ot&&ot.label?900:800)}
+ {const ot=order&&ORDER_TYPES[order.type],who=coopRun()&&order&&order.carrying?(order.holder===coop.role?' · 📦 YOU':' · 🤝 '+(coop.mate?coop.mate.name:'FRIEND')):'';text((ot&&ot.label?ot.icon+' '+ot.label:'THIS ORDER')+who,596,14,L,ot&&ot.label?ot.color:'#7d8bab','left',ot&&ot.label?900:800)}
  if(order&&order.carrying&&order.type==='urgent'){const left=Math.max(0,order.deadline-order.clock),hot=left<3&&Math.sin(runT*14)>0;
   text('⏱ '+left.toFixed(1)+'s left',596,33,Math.round(18*F),hot?'#ff4d5e':'#ff8a2a','left',900)}
  else if(order&&order.carrying){const under=order.clock<=order.par,s1=order.clock.toFixed(1)+'s';text(s1,596,33,Math.round(20*F),under?'#45e6a5':'#ffb347','left',900);
@@ -2539,9 +2558,11 @@ function drawMenu(){
  button(`🎨 SKINS   🪙 ${fmt(meta.coins)}`,16,16,230,40,openShop,false);
  if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',16,H-58,260,42,toggleCtrl,false);
  if(CH&&!chPrompt)button(`⚔️ VS ${CH.name.toUpperCase()} · ${fmt(CH.score)}`,258,16,280,40,()=>{chPrompt=true},false);
+ button(coop&&coop.mate?'🤝 CO-OP · '+coop.mate.name:'🤝 CO-OP  (2 PLAYERS)',16,112,230,40,()=>{mode='coop'},false);
+ if(!coop){const p=.5+.5*Math.sin(runT*4);ctx.strokeStyle=`rgba(143,227,255,${.3+.5*p})`;ctx.lineWidth=2;rr(ctx,16,112,230,40,20);ctx.stroke()}
  {const n=missionsDone();button(`📋 MISSIONS  ${n}/3`,16,64,230,40,()=>{mode='missions'},false);
   if(n<3){const p=.6+.4*Math.sin(runT*5);ctx.fillStyle=`rgba(255,211,77,${p})`;ctx.beginPath();ctx.arc(240,68,6,0,7);ctx.fill()}}
- if(!canBuySomething()&&meta.coins<120)text('Deliver packages to earn 🪙 for skins',22,118,11,'#bcd0ff','left',800);
+ if(!canBuySomething()&&meta.coins<120){ctx.fillStyle='rgba(4,9,28,.72)';rr(ctx,16,158,230,20,10);ctx.fill();text('Deliver packages to earn 🪙 for skins',131,168,11,'#bcd0ff','center',800)}
  if(canBuySomething()){const p=.6+.4*Math.sin(runT*6);ctx.fillStyle=`rgba(255,77,94,${p})`;ctx.beginPath();ctx.arc(240,20,7,0,7);ctx.fill()}
  button('⚙️',fsOK&&!standalone?W-262:W-64,16,48,38,()=>openSettings('menu'),false);
  if(fsOK&&!standalone)button(isFS()?'⛶  EXIT FULLSCREEN':'⛶  FULLSCREEN',W-206,16,190,38,toggleFullscreen,false);
@@ -2595,7 +2616,9 @@ function drawOver(){
  {const rb=best.rush||{cleared:0,time:null},pb=rush?`BOSS RUSH BEST  ${rb.cleared}/${ZONES.length} bosses${rb.time!=null?`   ·   FULL CLEAR ${rb.time.toFixed(1)}s`:''}`:daily?`DAILY BEST  ${fmt(dailyRec().best)}   ·   ALL-TIME BEST  ${fmt(best.score)}`:`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`;
   text(pb,W/2,396,12,'#aab8d5','center',800)}
  if(overDelay<=0){
-  if(runKind==='normal'||runKind==='retry'){button('RUN AGAIN',W/2-212,416,204,58,()=>startRun('normal'));
+  if(runKind==='coop'){if(coop&&coop.role==='host'&&coop.mate)button('🤝 PLAY AGAIN TOGETHER',W/2-170,416,340,58,()=>startRun('coop'));
+   else text(coop&&coop.mate?`Waiting for ${coop.mate.name} to start the next shift…`:'Your friend left the room',W/2,445,17,'#8fe3ff','center',900)}
+  else if(runKind==='normal'||runKind==='retry'){button('RUN AGAIN',W/2-212,416,204,58,()=>startRun('normal'));
    button('👻  RACE YOUR GHOST',W/2+8,416,204,58,()=>startRun('retry'),false);
    const p=.5+.5*Math.sin(runT*4);ctx.strokeStyle=`rgba(216,230,255,${.3+.5*p})`;ctx.lineWidth=2;rr(ctx,W/2+8,416,204,58,29);ctx.stroke()}
   else button('RUN AGAIN',W/2-130,416,260,58,()=>startRun());
@@ -2603,7 +2626,7 @@ function drawOver(){
   button(!shareFile?'…':daily||rush?'📤  SHARE':'⚔️ CHALLENGE',bx,488,bw,42,shareRun,false,true);
   if(shareFile){ctx.strokeStyle='rgba(255,211,77,.7)';ctx.lineWidth=2;rr(ctx,bx,488,bw,42,21);ctx.stroke()}
   if(LB_ON)button('🏆 RANKING',W/2-75,488,150,42,()=>openBoard(lastRun?lastRun.mode:'all','over'),false);
-  button('MENU',LB_ON?W/2+85:W/2+35,488,LB_ON?150:130,42,()=>{mode='menu'},false);
+  button(runKind==='coop'&&coop?'🤝 LOBBY':'MENU',LB_ON?W/2+85:W/2+35,488,LB_ON?150:130,42,()=>{mode=runKind==='coop'&&coop?'coop':'menu'},false);
   // leaderboard status under the buttons
   const s=lbSubmit;
   if(s&&s.state==='needName'){button('🏆  ADD YOUR NAME TO THE LEADERBOARD',W/2-200,542,400,36,()=>askName(submitScore),false,true);
@@ -2882,7 +2905,7 @@ function drawStage(){
  if(t<=2.7){const e=-UX+cover*(SW+300);ctx.beginPath();ctx.moveTo(e,0);ctx.lineTo(e+8,0);ctx.lineTo(e-292,H);ctx.lineTo(e-300,H);ctx.fill()}
  ctx.globalAlpha=1;
 }
-function quitToMenu(){sendRunStats('quit');mode='menu';joy=null;keepAwake(false)}
+function quitToMenu(){sendRunStats('quit');if(coopRun()){coopSend({k:'left'});runKind='normal';mode='coop';joy=null;keepAwake(false);return}mode='menu';joy=null;keepAwake(false)}
 function drawPaused(){
  ctx.fillStyle='rgba(6,10,24,.78)';ctx.fillRect(-UX,0,SW,H);
  outlined('PAUSED',W/2,H/2-150,56,'#fff');
@@ -2899,7 +2922,7 @@ function draw(){
  buttons=[];ctx.setTransform(RSU,0,0,RSU,RSU*UX,0);ctx.imageSmoothingQuality='low';
  if(mode==='splash'){drawSplash();return}
  if(mode==='settings'&&settingsFrom==='menu'){drawSettings();drawAchPop();return}
- if(mode==='menu'||mode==='board'||mode==='shop'||mode==='missions'){({menu:drawMenu,board:drawBoard,shop:drawShop,missions:drawMissions})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
+ if(mode==='menu'||mode==='board'||mode==='shop'||mode==='missions'||mode==='coop'){({menu:drawMenu,board:drawBoard,shop:drawShop,missions:drawMissions,coop:drawCoop})[mode]();if(mode==='menu'&&chPrompt)drawChallengePrompt();if(mode==='menu'&&ctrlPrompt)drawCtrlPrompt();drawAchPop();return}
  // the world gets its own lower-resolution layer only while the adaptive scaler has it below the UI resolution;
  // otherwise it is drawn straight onto the screen (no extra full-screen copy per frame)
  const split=wcv.width<canvas.width;
@@ -2908,7 +2931,7 @@ function draw(){
   ctx.save();ctx.beginPath();ctx.rect(-UX,HUD,SW,ROWS*T);ctx.clip();
   const sk=shakeOff();ctx.translate(sk.x,sk.y);applyCam();drawWorld();ctx.restore();ctx=main}
  if(split)ctx.drawImage(wcv,0,Math.round(HUD*RS),wcv.width,Math.round(ROWS*T*RS),-UX,HUD,SW,ROWS*T);
- drawFloatsUI();if(mode==='play'&&!(rush&&rush.breakT>0))drawBubbles();drawRushBreak();
+ drawFloatsUI();if(mode==='play'&&!(rush&&rush.breakT>0))drawBubbles();drawRushBreak();drawCoopPill();
  drawPointer();drawMinimap();
  drawVignette();if(mode==="play"||mode==="stage"||mode==="over"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill();drawGoalPill()} // hidden behind pause / settings / upgrade overlaysdrawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawScreenFx();drawHUD();drawCoins();
@@ -2920,6 +2943,296 @@ function draw(){
  drawAchPop();
 }
 
+// ---------- 🤝 CO-OP: two Dilis, one city, one shared shift, online through a Supabase Realtime broadcast room ----------
+// The host's game is the truth for orders, time, score, zone, bosses, events and traffic (cars are streamed).
+// Each player moves their own Dili locally (no input lag) and streams its position; hazards like trains, meteors,
+// animals and boss strikes run on each screen for that player. Touch your friend to pass the package:
+// a passed package scores x1.5 as a TEAM DELIVERY. Nothing is written to the database.
+const coopRun=()=>!!(coop&&runKind==='coop'),coopGuest=()=>coopRun()&&coop.role==='guest',coopHost=()=>coopRun()&&coop.role==='host';
+const iCarry=()=>!!(order&&order.carrying&&(!coopRun()||order.holder===coop.role));
+const coopMateOn=()=>!!(coopRun()&&coop.mate&&coop.mate.on);
+const coopName=n=>(n||'FRIEND').toUpperCase().slice(0,10);
+const coopSkin=()=>({c:meta.equip.color,h:meta.equip.hat});
+const coopLink=()=>location.origin+location.pathname+'?coop='+(coop?coop.code:'');
+function coopNet(code,onMsg,onState){
+ if(/coopnet=local/.test(location.search)){ // tests: two tabs of the same browser, no server
+  const bc=new BroadcastChannel('dili-coop-'+code);bc.onmessage=e=>onMsg(e.data);setTimeout(()=>onState('open'),30);return{send:m=>bc.postMessage(m),close:()=>bc.close()}}
+ const topic='realtime:dili-coop-'+code;let ws=null,ref=0,hb=null,closed=false,open=false,retry=0;const q=[];
+ const raw=(event,payload,tp=topic)=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({topic:tp,event,payload,ref:String(++ref),join_ref:'1'}))};
+ const send=m=>{if(open)raw('broadcast',{type:'broadcast',event:'m',payload:m});else if(q.length<10&&m.k!=='st'&&m.k!=='me')q.push(m)};
+ const connect=()=>{
+  try{ws=new WebSocket(SUPABASE_URL.replace(/^http/,'ws').replace(/\/+$/,'')+'/realtime/v1/websocket?apikey='+encodeURIComponent(SUPABASE_KEY)+'&vsn=1.0.0')}catch(e){onState('error');return}
+  ws.onopen=()=>{ref=0;raw('phx_join',{config:{broadcast:{self:false,ack:false},presence:{key:''},private:false}})};
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(err){return}
+   if(m.event==='phx_reply'&&m.ref==='1'){if(m.payload&&m.payload.status==='ok'){open=true;retry=0;onState('open');for(const x of q.splice(0))send(x)}else onState('error')}
+   else if(m.event==='broadcast'&&m.payload&&m.payload.payload)onMsg(m.payload.payload)};
+  ws.onclose=()=>{open=false;clearInterval(hb);if(closed)return;onState('reconnecting');setTimeout(()=>{if(!closed)connect()},Math.min(5000,500*2**retry++))};
+  ws.onerror=()=>{};
+  clearInterval(hb);hb=setInterval(()=>raw('heartbeat',{},'phoenix'),25000)};
+ connect();
+ return{send,close:()=>{closed=true;clearInterval(hb);try{ws&&ws.close()}catch(e){}}};
+}
+function coopSend(m){if(coop&&coop.net){m.f=coop.id;coop.net.send(m)}}
+function coopOpen(join){
+ coopClose();
+ const code=join||Array.from({length:4},()=>'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
+ coop={role:join?'guest':'host',code,id:Math.random().toString(36).slice(2,10),mate:null,status:'connecting',msg:null,helloT:0,hbT:0,sendT:0,
+  ov:0,ordKey:'',csKey:'',stN:0,gs:0,gt:0,sS:0,sT:0,lastS:0,lastT:60,actT:0,passArm:false,zoneOffT:0,bossOffT:0,copied:0};
+ coop.net=coopNet(code,coopRecv,s=>{if(!coop)return;coop.status=s==='open'?'waiting':s;if(s==='open'){coop.helloT=0;coop.hbT=0}});
+ mode='coop';joy=null;ensureAudio();
+}
+function coopClose(){if(!coop)return;coopSend({k:'bye'});const n=coop.net;coop=null;setTimeout(()=>n&&n.close(),150);if(runKind==='coop')runKind='normal'}
+function coopBack(){coopClose();mode='menu'}
+function coopJoinPrompt(){
+ let c=null;try{c=prompt('Enter the 4-letter room code from your friend:')}catch(e){}
+ c=(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(c.length>=4)coopOpen(c)}
+function coopInvite(){
+ if(!coop)return;const url=coopLink(),txt=`Deliver with me in Dili Delivery 🤝 Room ${coop.code}`;
+ if(touchUI&&navigator.share){navigator.share({title:'Dili Delivery co-op',text:txt,url}).catch(()=>{});return}
+ const done=()=>{coop&&(coop.copied=2.2)};
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(done,()=>{try{prompt('Copy this link for your friend:',url)}catch(e){}});
+ else try{prompt('Copy this link for your friend:',url)}catch(e){}
+}
+function coopStartRun(){if(coop&&coop.role==='host'&&coop.mate&&coop.status==='waiting')startRun('coop')}
+// host: a run just started, tell the guest which city to build
+function coopOnStart(){
+ coop.ov=0;coop.ordKey='';coop.csKey='';coop.stN=0;coop.gs=0;coop.gt=0;coop.sS=0;coop.sT=0;coop.lastS=0;coop.lastT=shiftTime;coop.passArm=false;coop.actT=0;coop.zoneOffT=0;coop.bossOffT=0;
+ if(coop.mate){coop.mate.tx=null;coop.mate.on=false}
+ if(coop.role==='host')coopSend({k:'start',seed:runSeed,name:playerName,skin:coopSkin()});
+}
+function coopRecv(m){
+ if(!coop||!m||m.f===coop.id)return;const host=coop.role==='host',M=coop.mate,fromMate=M&&m.f===M.id,now=performance.now();
+ if(fromMate){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin}
+ if(host){
+  if(m.k==='hi'){
+   if(M&&M.id!==m.f&&now-M.heard<6000){coopSend({k:'full',to:m.f});return}
+   if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};
+    if(mode==='coop')SFX.up();else floats.push({x:player?player.x:W/2,y:player?player.y-40:H/2,text:'🤝 '+coopName(m.name)+' is in the lobby',color:'#8fe3ff',t:2,max:2,size:16})}
+   coopSend({k:'welcome',to:m.f,name:playerName,skin:coopSkin(),run:runKind==='coop'&&mode!=='over'?1:0});return}
+  if(!fromMate)return;
+  if(m.k==='bye'){coopMateLost(true);return}
+  if(m.k==='me'){M.tx=m.x;M.ty=m.y;M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z;M.inRun=m.r;
+   if(coopRun()&&m.r){if(m.gs>coop.gs){score+=m.gs-coop.gs;coop.gs=m.gs}if(m.gt!==coop.gt){shiftTime=clamp(shiftTime+m.gt-coop.gt,0,99);coop.gt=m.gt}}return}
+  if(!coopRun()||mode==='over')return;
+  if(m.k==='act'&&m.ov===coop.ov&&order){
+   if(m.a==='pick'&&!order.carrying&&!(order.pickup.lockUntil>runT))doPickup('guest');
+   else if(m.a==='drop'&&order.carrying&&order.holder==='guest'&&order.drops[m.di])doDeliver(m.di,'guest');return}
+  if(m.k==='crash'){coopMateCrash(m);return}
+  if(m.k==='left'){coopMateLeftRun();return}
+  return}
+ // guest
+ if(m.k==='full'&&m.to===coop.id&&!M){coop.status='full';return}
+ if(m.k==='welcome'&&m.to===coop.id){if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};if(mode==='coop')SFX.up()}
+  coop.msg=m.run?'Your friend is mid-shift. You join the next one!':null;return}
+ if(!fromMate&&m.k!=='start')return;
+ if(m.k==='start'){if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0}}
+  coop.seed=m.seed;coop.msg=null;coop.go=true;startRun('coop');coop.go=false;return}
+ if(m.k==='bye'){coopMateLost(true);return}
+ if(!coopRun())return;
+ if(m.k==='left'){coopMateLeftRun();return}
+ if(m.k==='st'){coopApplyState(m);return}
+ if(m.k==='over'){if(mode==='over')return;score=m.sc;deliveries=m.dl;runBestCombo=m.cb;crashes=m.cr;crashLost=m.cl;endRun();return}
+ if(m.k==='stage'){coopGuestStage(m);return}
+ if(m.k==='boss'){if(!boss&&mode==='play')startBoss();return}
+ if(m.k==='ev'){if(event)endEvent(true);startEvent(m.id);return}
+ if(m.k==='eve'){if(event)endEvent(!!m.s);return}
+ if(m.k==='fx')coopFx(m);
+}
+// the friend quit the shift but is still in the room
+function coopMateLeftRun(){
+ const M=coop.mate;if(!M)return;M.inRun=0;
+ if(coop.role==='host'){if(coopRun()&&mode!=='over'){if(order&&order.carrying&&order.holder==='guest'){order.holder='host';order.heldSince=runT;pathTimer=0}
+  hype={text:'👋 '+M.name+' LEFT THE SHIFT',sub:'Keep delivering solo!',t:2.4,max:2.4}}}
+ else if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false);coop.msg='The host ended the shift.'}
+}
+function coopMateLost(bye){
+ const M=coop&&coop.mate;if(!M)return;
+ if(coop.role==='host'){
+  coop.mate=null;
+  if(coopRun()&&mode!=='over'){if(order&&order.carrying&&order.holder==='guest'){order.holder='host';order.heldSince=runT;pathTimer=0}
+   hype={text:'👋 '+M.name+' LEFT',sub:'Keep delivering solo!',t:2.4,max:2.4}}}
+ else{coop.mate=null;if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false)}coop.msg=bye?'The host closed the room.':'Lost the connection to the host.';coop.helloT=0}
+}
+// ---- host side ----
+function coopOrd(){const o=order;if(!o)return null;
+ return{uid:o.uid,type:o.type,origin:o.origin,chain:o.chain,pickup:Object.assign({},o.pickup,{lockUntil:undefined,lk:o.pickup.lockUntil>runT?+(o.pickup.lockUntil-runT).toFixed(2):0}),
+  drops:o.drops,di:Math.max(0,o.drops.indexOf(o.drop)),carrying:o.carrying,holder:o.holder||null,passed:!!o.passed,pathLen:o.pathLen,par:o.par,deadline:o.deadline,clean:o.clean}}
+function coopSendState(){
+ const P=player;coop.stN++;
+ const ids=cars.map(k=>k.id).join(','),m={k:'st',x:Math.round(P.x),y:Math.round(P.y),fc:P.face,mv:P.moving?1:0,ds:P.dash>0?1:0,dz:P.dizzy>0?1:0,
+  sc:Math.round(score),tm:+shiftTime.toFixed(2),cb:combo,dl:deliveries,z:zoneIdx,lp:loop,ld:lastDrop,md:mode,gs:coop.gs,gt:coop.gt,
+  bh:boss?[boss.hp,boss.max,boss.phase]:0,oc:order?+order.clock.toFixed(2):0,ov:coop.ov,
+  cd:cars.flatMap(k=>[k.id,Math.round(k.pos),Math.round(k.v),(k.angry?1:0)|(k.rage?2:0)])};
+ const o=coopOrd(),ok=JSON.stringify(o);if(ok!==coop.ordKey){coop.ordKey=ok;coop.ov++;m.ov=coop.ov}
+ if(coop.stN%5===0||m.ov!==coop.sentOv){m.ord=o;coop.sentOv=m.ov}
+ if(ids!==coop.csKey||coop.stN%30===0){coop.csKey=ids;m.cs=cars.map(k=>[k.id,lines.indexOf(k.l),k.len,k.wid,k.sc?1:0,k.model||'',k.color])}
+ coopSend(m);
+}
+// touch your friend while one of you has the package: it changes hands (walk apart before the next pass)
+function coopPass(P){
+ const M=coop.mate;if(!M||!M.on||M.tx==null||M.z!==zoneIdx*100+loop||!order||!order.carrying||order.stolen)return;
+ const d=Math.hypot(P.x-M.x,P.y-M.y);
+ if(d>70){coop.passArm=true;return}
+ if(d<36&&coop.passArm&&runT-(order.heldSince||0)>.5){
+  coop.passArm=false;order.holder=order.holder==='host'?'guest':'host';order.passed=true;order.heldSince=runT;pathTimer=0;
+  const x=(P.x+M.x)/2,y=(P.y+M.y)/2,pts=50*(evOn('happy')?2:1);score+=pts;coopPassFx(x,y,pts);coopSend({k:'fx',e:'pass',x:Math.round(x),y:Math.round(y),p:pts})}
+}
+function coopPassFx(x,y,pts){
+ floats.push({x,y:y-34,text:`🤝 PASS! +${pts}`,color:'#8fe3ff',t:1.1,max:1.1,size:20});rings.push({x,y,t:.45,max:.45,r0:8,r1:56,color:'#8fe3ff'});
+ burst(x,y,16,['#8fe3ff','#ffffff','#ffd34d']);SFX.pickup();SFX.close();buzz(20);
+}
+function coopMateCrash(m){
+ const M=coop.mate;crashCauses[m.by]=(crashCauses[m.by]||0)+1;
+ const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;cleanStreak=0;combo=0;if(order)order.clean=false;shiftTime=Math.max(0,shiftTime-pen);
+ floats.push({x:M.x,y:M.y-30,text:had>=2?`COMBO x${had} BROKEN`:'💥 '+M.name+' CRASHED',color:'#ff6473',t:1.1,max:1.1,size:18});
+ floats.push({x:M.x,y:M.y-8,text:`-${pen}s`,color:'#ffb3bb',t:.9,max:.9,size:16});burst(M.x,M.y,18,['#ff6473','#ffd34d','#fff']);sfxAt(M,SFX.crash);
+ if(order&&order.carrying&&order.holder==='guest'){if(order.type==='fragile'){failOrder('🥚 BROKEN!');return}dropPackage(m.sx,m.sy)}
+}
+// ---- guest side ----
+function coopApplyState(m){
+ const M=coop.mate;M.tx=m.x;M.ty=m.y;M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z*100+m.lp;M.md=m.md;M.inRun=1;
+ // whatever changed score / clock here since the last update (jumps, coins, power-ups, close calls) goes to the host
+ const dS=score-coop.lastS,dT=shiftTime-coop.lastT;if(Math.abs(dS)>=.5)coop.sS+=dS;if(Math.abs(dT)>.001)coop.sT+=dT;
+ score=m.sc+(coop.sS-m.gs);shiftTime=clamp(m.tm+(coop.sT-m.gt),0,99);coop.lastS=score;coop.lastT=shiftTime;
+ combo=m.cb;deliveries=m.dl;
+ if(m.ord&&m.ov!==coop.ov){coop.ov=m.ov;coopApplyOrd(m.ord)}else if(m.ord&&!order)coopApplyOrd(m.ord);
+ if(order&&order.carrying)order.clock=m.oc;
+ if(m.cs)coopCarStatics(m.cs);
+ if(m.cd){const by=new Map(cars.map(k=>[k.id,k]));for(let i=0;i<m.cd.length;i+=4){const k=by.get(m.cd[i]);if(!k)continue;
+  k.tp=m.cd[i+1];k.v=m.cd[i+2];k.angry=m.cd[i+3]&1?.6:0;k.rage=!!(m.cd[i+3]&2);if(!k.init){k.pos=k.tp;k.init=true}}}
+ if(boss&&m.bh){boss.hp=m.bh[0];boss.max=m.bh[1];boss.phase=m.bh[2]}
+ // recover from a lost message: zone / boss state follow the host after a moment
+ const now=performance.now();
+ if(mode==='play'&&(m.z!==zoneIdx||m.lp!==loop)){if(!coop.zoneOffT)coop.zoneOffT=now;else if(now-coop.zoneOffT>1500){coop.zoneOffT=0;coopGuestStage({i:m.z,lp:m.lp,ld:m.ld})}}else coop.zoneOffT=0;
+ if(mode==='play'&&!!boss!==!!m.bh){if(!coop.bossOffT)coop.bossOffT=now;else if(now-coop.bossOffT>1500){coop.bossOffT=0;if(m.bh)startBoss();else endBoss()}}else coop.bossOffT=0;
+}
+function coopApplyOrd(o){
+ const prev=order,same=prev&&prev.uid===o.uid;
+ order=Object.assign({},o,{clock:same?prev.clock:0,dist:0,born:same?prev.born:runT});
+ order.pickup=Object.assign({},o.pickup);order.pickup.lockUntil=o.pickup.lk?runT+o.pickup.lk:0;order.drop=order.drops[o.di]||order.drops[0];pathTimer=0;
+ if(same&&!prev.carrying&&o.carrying){const mine=o.holder==='guest';
+  floats.push({x:o.pickup.x,y:o.pickup.y-26,text:mine?'+ PACKAGE':'🤝 '+coop.mate.name+' GOT IT',color:mine?'#ffd34d':'#8fe3ff',t:1,max:1,size:18});
+  rings.push({x:o.pickup.x,y:o.pickup.y,t:.45,max:.45,r0:10,r1:60,color:'#ffd34d'});burst(o.pickup.x,o.pickup.y,16,CONFETTI);SFX.pickup();if(mine)player.pop=.35}
+ if(same&&prev.carrying&&!o.carrying&&o.pickup.dropped){floats.push({x:o.pickup.x,y:o.pickup.y-30,text:'📦 DROPPED!',color:'#ffd34d',t:1.3,max:1.3,size:20});SFX.drop()}
+}
+function coopCarStatics(cs){
+ const by=new Map(cars.map(k=>[k.id,k])),out=[];
+ for(const s of cs){const l=lines[s[1]];if(!l)continue;const k=by.get(s[0]);
+  out.push(k&&k.l===l?k:{id:s[0],l,pos:0,len:s[2],wid:s[3],sc:!!s[4],model:s[5]||null,color:s[6],v:0,nm:false,init:false})}
+ cars=out;
+}
+// guest traffic: dead-reckon each car along its lane and ease it toward where the host says it is
+function coopCars(dt){
+ for(const k of cars){const span=k.l.h?W:ROWS*T,mv=k.l.dir*k.v*dt;k.pos+=mv;
+  if(k.tp!=null){k.tp+=mv;if(k.l.dir>0&&k.tp>span+50)k.tp=-50;if(k.l.dir<0&&k.tp<-50)k.tp=span+50;
+   const e=k.tp-k.pos;if(Math.abs(e)>120)k.pos=k.tp;else k.pos+=e*Math.min(1,dt*6)}
+  if(k.l.dir>0&&k.pos>span+50)k.pos=-50;if(k.l.dir<0&&k.pos<-50)k.pos=span+50}
+}
+function coopGuestAct(P){
+ if(!order||runT<coop.actT)return;
+ if(order.carrying){if(order.holder!=='guest')return;let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
+  if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
+  if(bd<pickRadius()){coopSend({k:'act',a:'drop',di:bi,ov:coop.ov});coop.actT=runT+.4}}
+ else if(Math.hypot(P.x-order.pickup.x,P.y-order.pickup.y)<pickRadius()&&!(order.pickup.lockUntil>runT)){coopSend({k:'act',a:'pick',ov:coop.ov});coop.actT=runT+.4}
+}
+function coopGuestCrash(sx,sy,by){
+ crashCauses[by]=(crashCauses[by]||0)+1;crashes++;lastCrashBy=by;cleanStreak=0;for(const k of cars)k.nm=false;
+ meta.crashes=(meta.crashes||0)+1;saveMeta();if(meta.crashes>=25)unlockAch('grumpy');if(by==='police')chaseCaught=true;
+ player.inv=1.2;player.dizzy=1.2;flash=.35;flashColor='#ff4d5e';
+ floats.push({x:player.x,y:player.y-30,text:combo>=2?`COMBO x${combo} BROKEN`:'CRASH!',color:'#ff6473',t:1.1,max:1.1,size:22});
+ burst(player.x,player.y,26,['#ff6473','#ffd34d','#fff']);SFX.crash();buzz([40,30,70]);crashFx=.45;
+ coopSend({k:'crash',by,sx:Math.round(sx),sy:Math.round(sy)});
+}
+function coopGuestStage(m){
+ lastDrop=m.ld||lastDrop;
+ stageInfo={cleared:zone.name+(loop?' '+ROMAN[Math.min(loop,9)]:''),i:m.i,loop:m.lp,unlocked:m.i>(best.maxZone||0),goalDone:!!(zgoal&&zgoal.done),hadGoal:!!zgoal};
+ if(stageInfo.unlocked){best.maxZone=m.i;store.set('diliDelivery.best',best)}
+ pendingZone={i:m.i,loop:m.lp};mode='stage';stageT=0;joy=null;SFX.stage();addCoins(10);if(m.i===ZONES.length-1)unlockAch('moon');endEvent(true);
+}
+function coopFx(m){
+ if(m.e==='dlv'){const dx=m.x,dy=m.y;
+  floats.push({x:dx,y:dy-28,text:'+'+fmt(m.b),color:'#45e6a5',t:1.2,max:1.2,size:26});
+  if(m.tm)floats.push({x:dx,y:dy-78,text:'🤝 TEAM DELIVERY x1.5',color:'#8fe3ff',t:1.4,max:1.4,size:18});
+  rings.push({x:dx,y:dy,t:.6,max:.6,r0:12,r1:120,color:'#45e6a5'},{x:dx,y:dy,t:.45,max:.45,r0:6,r1:70,color:'#fff'});burst(dx,dy,48,CONFETTI,true);
+  {const q=toScreen({x:dx,y:dy});for(let i=0;i<9;i++)coins.push({sx:q.x,sy:q.y,cx:q.x+rand(-120,120),cy:q.y-rand(80,200),t:-i*.045,dur:.65,i})}
+  if(m.rc){resultCard=Object.assign({},m.rc,{t:2.8,max:2.8})}addCoins(m.cg);if(petId())setTimeout(()=>SFX.pet(petId()),180);
+  SFX.deliver(m.cb);SFX.stars(m.st);sfxAt({x:dx,y:dy},()=>SFX.doorbell());say(dx,dy,m.ot==='vip'?cpick(MSG_VIP):cpick(MSG_OK));
+  missionTrack('deliveries');
+  if(COMBO_HYPE.includes(m.cb)||(m.cb>30&&m.cb%10===0)){hype={text:`COMBO x${m.cb}!`,sub:m.cb>=10?'ON FIRE 🔥':m.cb>=5?'UNSTOPPABLE':'NICE CHAIN',t:1.5,max:1.5};
+   flash=.3;flashColor=zone.accent;SFX.hype();comboGlow=.8;glowColor=m.cb>=10?'#ffb347':zone.accent}}
+ else if(m.e==='pass')coopPassFx(m.x,m.y,m.p);
+ else if(m.e==='upg'){if(mode==='stage')pendingUpgrade=true;else if(mode==='play')openUpgrade()}
+ else if(m.e==='fail'){floats.push({x:player.x,y:player.y-40,text:m.msg,color:'#ff6473',t:1.4,max:1.4,size:22});SFX.drop();flash=.3;flashColor='#ff4d5e'}
+ else if(m.e==='hc'){burst(m.x,m.y,18,['#ff6473','#ffd34d','#fff']);sfxAt(m,SFX.crash);floats.push({x:m.x,y:m.y-30,text:'💥 '+coop.mate.name+' CRASHED',color:'#ff6473',t:1,max:1,size:16})}
+ else if(m.e==='bhit'&&boss){boss.hp=m.hp;boss.max=m.max;boss.phase=m.ph;boss.hitT=.6;
+  hype={text:`💥 BOSS HIT! ${m.max-m.hp}/${m.max}`,sub:m.hp===1?`LAST HIT! ${boss.icon} ${boss.name} is ENRAGED 😡`:`${boss.icon} ${boss.name} is getting angrier…`,t:1.8,max:1.8};
+  flash=.35;flashColor='#ff3048';shake=Math.max(shake,.3);burst(m.x,m.y,30,['#ff3048','#ffd34d','#ffffff'],true);SFX.bossHit();addCoins(3)}
+ else if(m.e==='bdown'){const b=boss;endBoss();addCoins(30);SFX.victory();flash=.4;flashColor='#ffd34d';
+  hype={text:'💀 BOSS DEFEATED!',sub:b?`${b.icon} ${b.name}  ·  +30 🪙`:'+30 🪙',t:2.6,max:2.6};missionTrack('boss');unlockAch('boss1')}
+}
+// ---- both ----
+function coopTick(dt){
+ if(!coop)return;const now=performance.now(),M=coop.mate,host=coop.role==='host';
+ if(coop.copied>0)coop.copied-=dt;
+ if(coop.status==='waiting'||coop.status==='reconnecting'){
+  if(!host&&!M&&now>=coop.helloT){coop.helloT=now+1000;coopSend({k:'hi',name:playerName,skin:coopSkin()})}
+  if(now>=coop.hbT){coop.hbT=now+2000;if(!coopRun()||mode==='over')coopSend({k:host?'hb':'me',x:0,y:0,r:0,gs:coop.sS,gt:coop.sT,n:playerName,skin:coopSkin()})}}
+ if(M){if(now-M.heard>12000){coopMateLost(false);return}
+  M.on=coopRun()&&M.inRun&&now-M.heard<4000&&M.z===zoneIdx*100+loop;
+  if(M.tx!=null){const d=Math.hypot(M.tx-M.x,M.ty-M.y);if(d>160||!M.seen){M.x=M.tx;M.y=M.ty;M.seen=true}else{const k=Math.min(1,dt*10);M.x+=(M.tx-M.x)*k;M.y+=(M.ty-M.y)*k}
+   M.step+=d*.05;M.fs+=((M.fc||1)-M.fs)*Math.min(1,dt*14)}}
+ if(!coopRun()||!player)return;
+ const live=mode==='play'||mode==='paused'||mode==='stage'||mode==='upgrade'||mode==='settings';
+ if(live&&now>=coop.sendT){coop.sendT=now+(host?140:100); // ~7 + 10 messages a second per pair: the free Realtime quota is shared by every room
+  if(host)coopSendState();
+  else{const P=player;coopSend({k:'me',x:Math.round(P.x),y:Math.round(P.y),fc:P.face,mv:P.moving?1:0,ds:P.dash>0?1:0,dz:P.dizzy>0?1:0,z:zoneIdx*100+loop,r:1,gs:Math.round(coop.sS),gt:+coop.sT.toFixed(2)})}}
+}
+function drawMate(){
+ if(!coopMateOn())return;const M=coop.mate,skin={color:skinItem(M.skin.c)||SKINS.color[0],hat:M.skin.h||'h_none'};
+ const carrying=!!(order&&order.carrying&&order.holder&&order.holder!==coop.role);
+ drawDili(M.x,M.y,1,M.fs,{skin,moving:!!M.mv,carrying,dizzy:!!M.dz,step:M.step});
+ ctx.font=font(10,900);const lb='🤝 '+M.name,w=mt(lb)+12;ctx.fillStyle='rgba(8,12,28,.72)';rr(ctx,M.x-w/2,M.y-48,w,16,8);ctx.fill();text(lb,M.x,M.y-39.5,10,'#8fe3ff','center',900);
+}
+function drawCoopPill(){
+ if(!coopRun()||mode!=='play')return;const M=coop.mate;let t=null;
+ if(!M)t='👋 Playing solo now';else if(coop.role==='guest'&&M.md==='paused')t='⏸ '+M.name+' paused the shift';else if(performance.now()-M.heard>2500)t='📡 Waiting for '+M.name+'…';
+ if(!t)return;ctx.font=font(13,900);const w=mt(t)+28,x=W/2-w/2,y=H-44;ctx.fillStyle='rgba(8,12,28,.82)';rr(ctx,x,y,w,28,14);ctx.fill();text(t,W/2,y+14,13,'#ffd34d','center',900);
+}
+function drawCoop(){
+ const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#1f8a9a');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
+ for(const s of menuStars){ctx.globalAlpha=.25+.4*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;
+ outlined('🤝 CO-OP DELIVERY',W/2,70,46,'#fff');
+ text('Two Dilis · one city · one shared clock. Touch your friend to pass the 📦',W/2,114,16,'#dfe5f0','center',800);
+ text('A passed package scores x1.5 as a TEAM DELIVERY 🤝',W/2,138,14,'#8fe3ff','center',800);
+ button('← BACK',16,16,120,40,coopBack,false);
+ const M=coop&&coop.mate,bob=Math.sin(runT*3)*5;
+ // the two couriers
+ drawDili(W/2-150,300+bob,3.2,1,{carrying:true});text(playerName?coopName(playerName)+' (you)':'YOU',W/2-150,372,14,'#fff','center',900);
+ if(M){drawDili(W/2+150,300-bob,3.2,-1,{skin:{color:skinItem(M.skin.c)||SKINS.color[0],hat:M.skin.h||'h_none'}});text(M.name,W/2+150,372,14,'#8fe3ff','center',900);
+  text('🤝',W/2,300,40,'#fff','center')}
+ else{ctx.save();ctx.globalAlpha=.25+.15*Math.sin(runT*4);drawDili(W/2+150,300,3.2,-1,{skin:GHOST_SKIN});ctx.restore();text('?',W/2+150,300,40,'#fff','center',900)}
+ if(!coop){
+  button('CREATE ROOM',W/2-250,420,240,58,()=>coopOpen());
+  button('🔑  JOIN WITH CODE',W/2+10,420,240,58,coopJoinPrompt,false,true);
+  text('Create a room and send the link to a friend. They tap it and you are in the same city.',W/2,510,13,'#aab8d5','center',700);
+  text('Works across phones and computers · needs an internet connection',W/2,532,12,'#7d8bab','center',700);
+  return}
+ const st=coop.status,host=coop.role==='host';
+ text(host?'ROOM CODE':'ROOM',W/2,400,12,'#8f9cbc','center',900);outlined(coop.code,W/2,438,40,'#ffd34d');
+ if(st==='connecting'||st==='reconnecting')text('📡 Connecting…',W/2,480,15,'#aab8d5','center',800);
+ else if(st==='error')text('⚠️ Could not reach the co-op server. Check your connection and try again.',W/2,480,14,'#ff8a95','center',800);
+ else if(st==='full')text('This room already has two players. Ask for a new link!',W/2,480,14,'#ff8a95','center',800);
+ else if(host){
+  if(M){text(`${M.name} joined! Ready when you are.`,W/2,476,15,'#45e6a5','center',900);button('START CO-OP SHIFT',W/2-160,496,320,58,coopStartRun)}
+  else{text('Waiting for a friend to join'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,'#aab8d5','center',800);
+   button(coop.copied>0?'✓ LINK COPIED':touchUI&&navigator.share?'📤  SEND INVITE LINK':'📋  COPY INVITE LINK',W/2-160,496,320,52,coopInvite,true,true)}}
+ else{
+  if(M)text(coop.msg||`Joined ${M.name}'s room. Waiting for the host to start…`,W/2,476,15,coop.msg?'#ffd34d':'#45e6a5','center',800);
+  else text(coop.msg||'Looking for the host'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,coop.msg?'#ff8a95':'#aab8d5','center',800)}
+ text('Each of you moves your own Dili · traffic, orders, score and the clock are shared',W/2,H-60,12,'#7d8bab','center',700);
+ text(touchUI?'':'Esc: back'+(host&&M?'  ·  Enter: start':''),W/2,H-36,11,'#56627f','center',800);
+}
+
 // ---------- installable app (PWA): offline play via sw.js, install button where the browser supports it ----------
 let installEvt=null,installed=false;
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))
@@ -2929,6 +3242,7 @@ addEventListener('appinstalled',()=>{installEvt=null;installed=true;achPops.push
 function installApp(){const e=installEvt;if(!e)return;installEvt=null;e.prompt();e.userChoice.then(c=>{if(c.outcome!=='accepted')installEvt=e}).catch(()=>{})}
 // ---------- boot ----------
 resize();genMap({c:12,r:6});spawnCars();
+{const c=(new URLSearchParams(location.search).get('coop')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(c.length>=4)coopOpen(c)}
 let last=performance.now(),perfAcc=0,perfN=0,goodT=0,badN=0,lastScale=0,fpsVal=60,inMenuHQ=false,playRes=null;
 function frame(now){
  const dt=Math.min(.1,(now-last)/1000);last=now;
@@ -2937,7 +3251,7 @@ function frame(now){
  fpsVal+=(1/Math.max(dt,1e-3)-fpsVal)*.05;
  // menus are light: always show them at full sharpness, and give a run back the resolution it had settled on
  if(mode==='menu'&&glyphWarm!==RSU&&runT>1.2)warmGlyphs(); // once per UI resolution, while nothing else is going on
- {const menuish=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||mode==='settings'&&settingsFrom==='menu';
+ {const menuish=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||mode==='coop'||mode==='settings'&&settingsFrom==='menu';
   if(menuish!==inMenuHQ){inMenuHQ=menuish;
    if(menuish){playRes={resCap,uiLow};uiLow=false;resCap=gfxMax();resize()}
    else{if(playRes){resCap=Math.min(gfxMax(),playRes.resCap);uiLow=playRes.uiLow}resize()}}
@@ -2951,7 +3265,7 @@ function frame(now){
  // sub-step long frames so game speed stays real-time on slow devices
  if(mode==='play'&&!document.hidden){frameHist[Math.min(100,Math.round(dt*1000))]++;frameN++;frameSum+=dt}
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
- draw();if(momentPend&&(mode==='play'||mode==='stage')&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
+ coopTick(dt);draw();if(momentPend&&(mode==='play'||mode==='stage')&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script>

@@ -33,6 +33,15 @@ A new player's first shift walks through 4 hands-on steps in a card at the botto
 
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
 
+### 🤝 Co-op (online, 2 players)
+**🤝 CO-OP** on the menu (idea from @NaikwadiRe49999). Create a room, send the invite link (or the 4-letter code) to a friend, and deliver together in the same city:
+- Two Dilis, one shared shift clock, score, combo and order. Each player moves their own Dili locally, so controls feel exactly like solo.
+- **Pass the package**: when one of you carries it, walk apart and then touch your friend to hand it over (+50). A package that was passed scores **x1.5 as a TEAM DELIVERY**. Either of you can pick up and deliver.
+- Traffic, orders, zones, bosses, random events and upgrades follow the room's host; trains, meteors, animals and boss strikes hit each player on their own screen. A crash by either player costs the team time, and drops the package if that player held it.
+- Your friend shows with their skin and name, as a cyan dot on the minimap, and the HUD says who has the package. If one of you quits, the other keeps the shift going solo; both can start the next shift together from the lobby.
+- Co-op runs stay off the leaderboard and personal bests; coins still count for each player.
+- Network: a Supabase Realtime **broadcast** room (`dili-coop-CODE`), straight over WebSocket with the publishable key; nothing is written to the database. Each pair sends about 17 small messages a second, so the free Realtime quota (about 100 messages/s for the whole project) fits only a handful of rooms at the same time; a paid plan raises it. `?coopnet=local` swaps the network for a BroadcastChannel between two tabs (used by the tests).
+
 ### 💀 Boss Rush
 A **💀 BOSS RUSH** button on the menu (between Daily and Ranking). You go straight into the boss of every zone, one after another: Monster Truck → Stampede → Blackout → … → Meteor Storm. Before each boss there is a **3-second breather** ("NEXT BOSS: 🐎 STAMPEDE · 3·2·1"). The clock stops and the boss order can't be picked up yet. Each boss takes 3 hits. Hits give +4s, a defeat +6s and the zone card +8s. When time runs out, the result is how many of the 11 bosses you took down, and your time for a full clear. The HUD shows `💀 BOSS RUSH 3/11`. There are no random events and no zone goals. Boss Rush keeps its own record (`BOSS RUSH BEST 7/11 bosses · FULL CLEAR 212.4s`). It never touches the leaderboard, your normal personal best, ghosts or zone unlocks. Sharing posts "I took down 7/11 bosses" with the game link (no challenge link).
 
