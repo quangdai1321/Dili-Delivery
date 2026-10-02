@@ -133,6 +133,7 @@ Each zone has its own traffic: sedans, 🚕 taxis, 🚌 buses (long and slow), v
 
 ### 🔵 Dlicom around the city
 Every map has 4 rooftop billboards with the Dlicom logo, baked into the map so they cost nothing per frame. Every package (the one to pick up, the one Dili carries, the airdrop crates) carries a Dlicom logo stamp, and the trains are Dlicom-blue with the logo on the engine.
+The official account is one tap away (player feedback: highlight the official Dlicom logo): the DLICOM PRESENTS logo on the menu and the **𝕏 FOLLOW @DlicomApp** button open https://x.com/DlicomApp, the splash and the game over screen show @DlicomApp next to the logo, and every shared score post ends with `@DlicomApp #DlicomGameJam`.
 
 ### 💬 Chatter
 - **Customers answer** when their package arrives: *"gm! ☀️"*, *"WAGMI 🚀"*, *"faster than my wallet tx 😂"*… Slow deliveries get grumpier replies, and VIPs have their own lines.
