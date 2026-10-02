@@ -237,6 +237,9 @@ const SKINS={
   {id:'h_party',name:'PARTY HAT',cost:350},{id:'h_crown',name:'CROWN',ach:'moon'},{id:'h_halo',name:'HALO',ach:'clean10'},{id:'h_horns',name:'BOSS HORNS',ach:'bosses'},{id:'h_trophy',name:'CHAMPION TROPHY',weekly:true}],
  trail:[{id:'t_ghost',name:'CLASSIC DASH',cost:0},{id:'t_spark',name:'SPARKLES',cost:200},{id:'t_coin',name:'COIN RAIN',cost:600},
   {id:'t_fire',name:'FIRE',ach:'combo15'},{id:'t_rainbow',name:'RAINBOW',ach:'challenge'}],
+ // pets follow Dili around and each has a small perk
+ pet:[{id:'p_none',name:'NO PET',cost:0},{id:'p_dog',name:'PUPPY',icon:'🐶',cost:300,perk:'Starts every run with +1 🛡️'},
+  {id:'p_cat',name:'KITTY',icon:'🐱',cost:450,perk:'+1 🪙 on every delivery'},{id:'p_parrot',name:'PARROT',icon:'🦜',cost:600,perk:'+15% pickup & drop range'}],
 };
 const skinItem=id=>{for(const k in SKINS){const s=SKINS[k].find(x=>x.id===id);if(s)return s}return null};
 const ACHS=[
@@ -316,6 +319,21 @@ function unlockAch(id){
  achPops.push({a,t:3.2,max:3.2});try{SFX.hype()}catch(e){}
 }
 const equipped=()=>({color:skinItem(meta.equip.color)||SKINS.color[0],hat:meta.equip.hat,trail:meta.equip.trail});
+if(!meta.equip.pet)meta.equip.pet='p_none';if(!meta.owned.includes('p_none'))meta.owned.push('p_none'); // older saves had no pet slot
+const petId=()=>meta.equip.pet&&meta.equip.pet!=='p_none'?meta.equip.pet:null;
+let pet=null; // {x,y,face,ph}
+function drawPet(){
+ const id=petId();if(!id||!player)return;const it=skinItem(id);if(!it)return;
+ if(!pet)pet={x:player.x-20,y:player.y+6,face:1,ph:0};
+ const b=Math.abs(Math.sin(pet.ph))*4;ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(pet.x,pet.y+10,9,3.5,0,0,7);ctx.fill();
+ ctx.save();ctx.translate(pet.x,pet.y-b);if(pet.face>0)ctx.scale(-1,1);ctx.drawImage(emojiSprite(it.icon,SPR()),-12,-14,24,24);ctx.restore();
+}
+function updatePet(dt){
+ if(!petId()||!player){pet=null;return}const P=player;if(!pet)pet={x:P.x-20,y:P.y+6,face:1,ph:0};
+ // trot behind Dili (opposite to where it faces), a little lower so the two never overlap
+ const tx=P.x-P.faceS*22,ty=P.y+8,dx=tx-pet.x,dy=ty-pet.y,d=Math.hypot(dx,dy),k=Math.min(1,dt*(d>90?12:6));
+ pet.x+=dx*k;pet.y+=dy*k;if(Math.abs(dx)>1.5)pet.face=dx>0?1:-1;pet.ph+=dt*(d>3?14:3);
+}
 // mobile niceties (all best-effort)
 // ---------- player settings ----------
 const settings=Object.assign({gfx:'auto',motion:'full',music:true,chill:false,steps:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
@@ -451,14 +469,15 @@ function duck(amt,dur){ // briefly pull the music down so a big sound cuts throu
  if(!actx||!music.duck)return;const t=actx.currentTime,g=music.duck.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);
  g.linearRampToValueAtTime(1-amt,t+.03);g.setTargetAtTime(1,t+.08,dur/3);
 }
+let sfxPitch=1;
 function tone(f,d,type='square',v=.1,slide=1,delay=0){
- if(!actx||muted||!settings.sfx)return;if(SPAT)v*=SPAT.vol;const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
+ if(!actx||muted||!settings.sfx)return;f*=sfxPitch;if(SPAT)v*=SPAT.vol;const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
  o.type=type;o.frequency.setValueAtTime(f,t);if(slide!==1)o.frequency.exponentialRampToValueAtTime(f*slide,t+d);
  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);
  o.connect(g);sfxOut(g);o.start(t);o.stop(t+d+.03);
 }
 function noise(d,v=.2,freq=900,delay=0,type='lowpass',dest){
- if(!actx||muted||!settings.sfx)return;if(SPAT)v*=SPAT.vol;const t=actx.currentTime+delay,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
+ if(!actx||muted||!settings.sfx)return;freq*=sfxPitch;if(SPAT)v*=SPAT.vol;const t=actx.currentTime+delay,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
  s.buffer=getNoise();f.type=type;f.frequency.value=freq;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);
  s.connect(f).connect(g);if(dest)g.connect(dest);else sfxOut(g);s.start(t);s.stop(t+d+.02);
 }
@@ -468,7 +487,8 @@ const SFX={
   if(k==='horse'){tone(620,.32,'sawtooth',.05,.55);tone(880,.18,'square',.02,.7,.04);noise(.12,.08,500,.2)}
   else if(k==='cow'){tone(150,.6,'sawtooth',.07,.8);tone(300,.5,'sine',.02,.8)}
   else{tone(1150,.07,'square',.035,1.4);tone(1450,.08,'square',.03,.85,.09)}},
- pickup(){tone(660,.08,'square',.08);tone(990,.12,'square',.08,1,.07);tone(1320,.18,'sine',.06,1,.12);tone(165,.12,'sine',.12,.7)},
+ pickup(){noise(.09,.07,2600,0,'bandpass');noise(.06,.05,1200,.05,'bandpass'); // paper rustle of the parcel
+  tone(660,.08,'square',.08);tone(990,.12,'square',.08,1,.07);tone(1320,.18,'sine',.06,1,.12);tone(165,.12,'sine',.12,.7)},
  deliver(c){duck(.35,.45);const b=1+Math.min(c,15)*.035;[523,659,784,1047].forEach((f,i)=>tone(f*b,.13,'triangle',.14,1,i*.06));
   [1568,2093,2637].forEach((f,i)=>tone(f*b,.1,'sine',.05,1,.26+i*.05));tone(110,.25,'sine',.22,.5);noise(.35,.08,3500,.02,'bandpass')},
  stars(n){for(let i=0;i<n;i++)tone(880+i*140,.07,'square',.05,1,.32+i*.09)},
@@ -476,7 +496,8 @@ const SFX={
  // footsteps: the audible part is a mid-range tap/crunch (phone speakers drop everything under ~250Hz); the low thud is only a bonus on headphones
  step(k,alt=0){if(!settings.steps||!actx||muted||!settings.sfx)return;const b=stepBufs[k+alt];if(b){const src=actx.createBufferSource();src.buffer=b;sfxOut(src);src.start();return}
   bakeSteps();stepLive(k,alt)},
- crash(){duck(.5,.6);noise(.35,.35,700);tone(170,.35,'sawtooth',.1,.35);tone(62,.4,'sine',.3,.6);noise(.25,.12,6000,.03,'highpass')},
+ crash(){duck(.5,.6);noise(.35,.35,700);tone(170,.35,'sawtooth',.1,.35);tone(62,.4,'sine',.3,.6);noise(.25,.12,6000,.03,'highpass');
+  for(let i=0;i<3;i++)tone(1800+i*700+Math.random()*300,.07,'square',.02,.7,.03+i*.04);noise(.4,.05,7500,.08,'highpass')}, // metal clank + glass tinkle
  bump(){tone(140,.07,'square',.05,.7)},
  dash(){tone(240,.16,'triangle',.09,3);noise(.18,.08,2500,0,'highpass')},
  shield(){tone(900,.22,'sine',.12,.5)},
@@ -493,6 +514,11 @@ const SFX={
  whoosh(){noise(.5,.1,1500,0,'bandpass')},
  boom(){noise(.6,.4,500);tone(90,.4,'sine',.2,.4)},
  stage(){[523,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,.14,'square',.06,1,i*.08))},
+ doorbell(){tone(1319,.45,'sine',.06,1);tone(2637,.25,'sine',.012,1);tone(1047,.6,'sine',.06,1,.28);tone(2093,.3,'sine',.012,1,.28)},
+ passby(){noise(.35,.07,900,0,'bandpass');noise(.25,.04,2400,.05,'bandpass')},
+ pet(id){if(id==='p_dog'){tone(520,.07,'square',.05,.6);noise(.05,.05,1200,0,'bandpass');tone(560,.08,'square',.05,.6,.13);noise(.05,.05,1200,.13,'bandpass')}
+  else if(id==='p_cat'){tone(700,.32,'sawtooth',.03,1.35);tone(950,.25,'sine',.02,.8,.12)}
+  else if(id==='p_parrot'){for(let i=0;i<3;i++)tone(1700+i*250,.06,'square',.03,1.3,i*.07)}},
  honk(){tone(415,.12,'square',.06);tone(349,.18,'square',.06,1,.14)},
  close(){noise(.22,.12,3000,0,'bandpass');tone(1200,.08,'triangle',.06,1.5)},
  jump(){tone(520,.12,'square',.07,1.8);tone(880,.1,'triangle',.06,1.4,.06)},
@@ -507,6 +533,9 @@ const SFX={
  boss(){duck(.6,1.2);tone(98,.9,'sawtooth',.12,.7);tone(147,.9,'sawtooth',.08,.7,.05);noise(1,.22,260);[392,370,349,330].forEach((f,i)=>tone(f,.18,'square',.05,1,.5+i*.14))},
  victory(){duck(.5,1.2);[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.2,'triangle',.12,1,i*.07));tone(2093,.5,'sine',.07,1,.42);noise(.6,.1,5000,.1,'highpass')},
 };
+// a tiny random pitch (+-3%) per sound, shared by all its notes: repeated sounds stop feeling robotic
+for(const k of Object.keys(SFX)){const fn=SFX[k];if(k==='step'||k==='tick'||k==='siren')continue;
+ SFX[k]=function(...a){const prev=sfxPitch;sfxPitch=prev*(1+(Math.random()-.5)*.06);try{return fn.apply(this,a)}finally{sfxPitch=prev}}}
 function toggleCam(){camClose=!camClose;store.set('diliDelivery.cam',camClose);
  if(player&&mode!=='menu')floats.push({x:player.x,y:player.y-40,text:camClose?'🔍 CLOSE CAMERA':'🗺️ FULL MAP',color:'#fff',t:1,max:1,size:16})}
 function toggleMute(){muted=!muted;store.set('diliDelivery.muted',muted);if(!muted){ensureAudio();SFX.pickup()}}
@@ -733,7 +762,7 @@ const walkable=(c,r)=>isRoad(c,r)&&!barriers.has(key(c,r));
 const playerSpeed=()=>185*(1+.12*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1);
 const diff=()=>1+.15*loop+.035*Math.min(zoneDeliveries,10);
 const dashCooldown=()=>2*Math.pow(.85,upg.dash);
-const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1);
+const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1)*(meta.equip.pet==='p_parrot'?1.15:1);
 
 // ---------- map generation ----------
 function bfs(sc,sr){
@@ -776,7 +805,7 @@ function drawPowerups(){
 }
 // 💥 BLAST: a shockwave that wrecks the cars around Dili (they come back a few seconds later), stuns animals and people,
 // makes a monkey drop the package and clears incoming meteors
-let respawnQ=[],hudPulseShield=0;
+let respawnQ=[],hudPulseShield=0,passCd=0;
 function blastWave(x,y){
  const R=150;let wrecked=0;
  cars=cars.filter(k=>{const r=carRect(k),cx=r.x+r.w/2,cy=r.y+r.h/2;if(Math.hypot(cx-x,cy-y)>R)return true;
@@ -1203,7 +1232,7 @@ function doDeliver(di=0){
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
  const happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy;
  score+=bonus;
- const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5);addCoins(cg); // shown on the result card
+ const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5)+(meta.equip.pet==='p_cat'?1:0);addCoins(cg);if(petId())setTimeout(()=>SFX.pet(petId()),180); // shown on the result card
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip'){unlockAch('vip');queueMoment(1,'👑 VIP delivery')}if(ot==='fragile')unlockAch('fragile');
  if(clean)goalTrack('clean');if(fast)goalTrack('fast');if(!order.sandTouched)goalTrack('nosand');if(!order.bumped)goalTrack('nobump');
@@ -1221,7 +1250,7 @@ function doDeliver(di=0){
  burst(dx,dy,48,CONFETTI,true);player.pop=.45;shake=Math.max(shake,.12);hitStop=.05;camPunch=Math.max(camPunch,.06);
  for(let i=0;i<10&&particles.length<PART_MAX+10;i++){const a=i/10*Math.PI*2,sp=rand(140,260);particles.push({x:dx,y:dy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:.7,max:.7,size:rand(6,10),color:pick(['#ffd34d','#ffffff','#fff3b0']),g:0,rot:rand(0,6),star:true})}
  rings.push({x:dx,y:dy,t:.25,max:.25,r0:4,r1:46,color:'#ffffff'});
- SFX.deliver(combo);SFX.stars(stars);
+ SFX.deliver(combo);SFX.stars(stars);sfxAt({x:dx,y:dy},()=>SFX.doorbell());
  {const txt=ot==='vip'?cpick(MSG_VIP):fast||clean?cpick(MSG_OK):cpick(MSG_SLOW);
   if(Math.random()<.2){const b=say(dx,dy,'🔒',{t:2.6,max:2.6});b.enc=fast?'🔓 '+txt:'🔒 decrypt failed 😵';if(fast){addCoins(2);floats.push({x:dx,y:dy+18,text:'🔓 DECRYPTED +2 🪙',color:'#8fe3ff',t:1.2,max:1.2,size:14})}}
   else say(dx,dy,txt);diliCd=Math.max(diliCd,2.5)} // the customer has the floor
@@ -1253,6 +1282,7 @@ function startStage(i,lp){
 function enterZone(i,first,lp=0){
  zoneIdx=i;zone=ZONES[i];loop=lp;zoneDeliveries=0;
  const sp=seeded(hashSeed(runSeed^(zone.id*104729+lp*7)),()=>{const s=genMap(first?{c:12,r:6}:lastDrop||tileOf(player)),q=center(s.c,s.r);player.x=q.x;player.y=q.y;spawnCars();spawnPeds();return s}),c=center(sp.c,sp.r);
+ if(verbIn)verbIn.gain.setTargetAtTime({8:.1,9:.12,6:.14,0:.2,3:.22,1:.26,4:.28,10:.32,7:.34,2:.36,5:.45}[zone.id]??.2,actx.currentTime,.5);
  stormT=rand(6,9);stormOn=0;stormA=0;bumpCd=0;stealCd=0;powerups=[];bubbles=[];if(!first){diliCd=0;setTimeout(()=>diliSay('zone'),900)}zgoal=!rush&&ZOBJ[zone.id]?Object.assign({prog:0,done:false,pulse:0},ZOBJ[zone.id]):null;if(!first)missionTrack('zone',i);boss=null;bossEnt=null;
  player.x=c.x;player.y=c.y;player.vx=player.vy=0;player.inv=Math.max(player.inv,1.2);player.trail=[];updateCam(0,true);
  rain=[];
@@ -1282,7 +1312,7 @@ function startRun(kind=runKind){
  powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  hitStop=0;camPunch=0;crashFx=0;comboGlow=0;crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
- upg={speed:0,dash:0,shield:0,magnet:0};respawnQ=[];hudPulseShield=0;particles=[];floats=[];bubbles=[];tut=null;if(!rush&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
+ upg={speed:0,dash:0,shield:meta.equip.pet==='p_dog'?1:0,magnet:0};pet=null;respawnQ=[];hudPulseShield=0;particles=[];floats=[];bubbles=[];tut=null;if(!rush&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
  enterZone(0,true);if(rush){newOrder('boss');mode='play';rush.breakT=RUSH_BREAK}else{newOrder();mode='play'}SFX.go();irisT=.75;
 }
@@ -1490,6 +1520,7 @@ function drawCrates(){
   if(c.gold){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite('255,211,77',.55),c.x-26,c.y-30,52,52);ctx.restore()}
   if(c.gold)ctx.drawImage(emojiSprite('🎁',k),c.x-13,c.y-16+b,26,26);else drawPackage(c.x,c.y-4+b,1.2)}
 }
+// (also used by pets)
 const emojiSprite=(e,k)=>sprite('emo'+e+k,Math.ceil(30*k),Math.ceil(30*k),(g,w)=>{g.font=`${Math.round(24*k)}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(e,w/2,w/2+1)});
 function drawCop(){
  if(!cop)return;const on=Math.sin(runT*18)>0;
@@ -1697,7 +1728,7 @@ function update(dt){
  if(order.carrying){order.clock+=dt;order.dist+=moved;
   if(order.type==='urgent'&&order.clock>order.deadline){failOrder('⏰ TOO LATE!');return}}
 
- updateCars(dt);updatePeds(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
+ updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
  if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);
@@ -1723,6 +1754,10 @@ function update(dt){
  if(P.inv<=0){
   for(const k of cars){const R=carRect(k);if(circleHitsRect(P,{x:R.x+3,y:R.y+3,w:R.w-6,h:R.h-6})){crash(R.x+R.w/2,R.y+R.h/2,k.angry?'rage':'car');break}}
  }
+ // pass-by whoosh: a car flying past within ~2 tiles, panned to where it is
+ passCd=Math.max(0,passCd-dt);
+ if(passCd<=0)for(const k of cars){if(k.v<90)continue;const R=carRect(k),cx=R.x+R.w/2,cy=R.y+R.h/2,d=Math.hypot(cx-P.x,cy-P.y);
+  if(d<90&&!k.passed){k.passed=true;passCd=.35;sfxAt({x:cx,y:cy},()=>SFX.passby());break}else if(d>140)k.passed=false}
  // near miss: a car passes within a hair of Dili without a hit
  for(const k of cars){const R=carRect(k);
   if(circleHitsRect(P,R,11)){if(P.inv<=0&&k.v>50)k.nm=true}
@@ -2122,6 +2157,7 @@ function drawWorld(){
   drawGhost();
   {const gc=trailColor();for(const g of P.trail){ctx.globalAlpha=g.t/.22*.35;drawDili(g.x,g.y,1,P.faceS,{ghost:true,ghostColor:gc})}}ctx.globalAlpha=1;
   if(combo>=5){ctx.save();ctx.globalCompositeOperation='lighter';ctx.drawImage(glowSprite(combo>=10?'255,170,60':'111,163,255',.45),P.x-34,P.y-34,68,68);ctx.restore()}
+  drawPet();
   if(P.inv>0&&Math.floor(P.inv*14)%2===0)ctx.globalAlpha=.4;
   {const hop=P.dash>0?Math.sin(Math.PI*(1-P.dash/.22))*16:0;if(hop>1){ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(P.x,P.y+17,11-hop*.25,4,0,0,7);ctx.fill()}
   ctx.save();ctx.translate(0,-hop);drawDili(P.x,P.y,1,P.faceS,{moving:P.moving,pop:P.pop,carrying:order&&order.carrying,dizzy:P.dizzy>0,float:zone.lowgrav,step:P.step,lean:P.lean,land:P.land});ctx.restore()}ctx.globalAlpha=1;
@@ -2491,6 +2527,7 @@ function drawMenu(){
  if(heroCanvas&&meta.equip.color==='c_blue'&&meta.equip.hat==='h_none'){const hh=560,hw=hh*heroCanvas.width/heroCanvas.height;ctx.imageSmoothingQuality='high';ctx.drawImage(heroCanvas,40,H-hh-8+bob,hw,hh);ctx.imageSmoothingQuality='low'}
  else drawDili(290,380+bob,6.5,1,{carrying:true});
  orbit(true); // in front of the hero
+ {const it=petId()&&skinItem(petId());if(it){const b=Math.abs(Math.sin(runT*3))*8;ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(470,H-46,34,9,0,0,7);ctx.fill();ctx.drawImage(emojiSprite(it.icon,3),436,H-118-b,70,70)}}
  const cx=815;
  drawLogoFancy(cx-62,76,56);text('DLICOM',cx-22,68,26,'#fff','left',900);text('PRESENTS',cx-21,92,11,'#bcd0ff','left',800);
  button(`🎨 SKINS   🪙 ${fmt(meta.coins)}`,16,16,230,40,openShop,false);
@@ -2646,14 +2683,15 @@ function drawShop(){
  if(shop.tab==='trail'){const gc=trailColor();for(let i=3;i>=1;i--){ctx.globalAlpha=.12*(4-i);drawDili(px-i*38,py+Math.sin(runT*4+i)*4,4,1,{ghost:true,ghostColor:gc})}ctx.globalAlpha=1;
   if(Math.random()<.5){const P0={x:px-60,y:py+20};dashFx(P0)}}
  drawDili(px,py+Math.sin(runT*2)*6,4.6,1,{carrying:true,moving:shop.tab==='trail'});
+ {const it=petId()&&skinItem(petId());if(it)ctx.drawImage(emojiSprite(it.icon,3),px+70,py+28-Math.abs(Math.sin(runT*4))*8,64,64)}
  outlined('🎨 DILI STYLE',px,64,34,'#fff');
  ctx.fillStyle='rgba(255,211,77,.14)';rr(ctx,px-95,96,190,40,20);ctx.fill();text(`🪙 ${fmt(meta.coins)}`,px,117,20,'#ffd34d','center',900);
  ctx.fillStyle='rgba(8,12,28,.6)';rr(ctx,px-160,482,320,118,14);ctx.fill();text('HOW TO EARN 🪙',px,499,12,'#ffd34d','center',900);
  [['📦 Each delivery','+3 to +20'],['⚡ Close call (near miss)','+1'],['🏁 Clear a zone','+10'],['🪙 Coin shower event','+1 each'],['🏆 Achievements','+20 to +100']]
   .forEach(([a,b],i)=>{text(a,px-146,518+i*17,12,'#dfe5f0','left',700);text(b,px+146,518+i*17,12,'#ffd34d','right',900)});
  // right: tabs + cards
- const tabs=[['color','COLORS'],['hat','HATS'],['trail','DASH TRAILS'],['ach','🏆 ACHIEVEMENTS']],tx=440;
- tabs.forEach(([id,l],i)=>button(l,tx+i*172,40,164,40,()=>{shop.tab=id},shop.tab===id));
+ const tabs=[['color','COLORS'],['hat','HATS'],['trail','DASH TRAILS'],['pet','🐾 PETS'],['ach','🏆 AWARDS']],tx=440;
+ tabs.forEach(([id,l],i)=>button(l,tx+i*140,40,132,40,()=>{shop.tab=id},shop.tab===id));
  if(shop.tab==='ach'){
   const done=ACHS.filter(a=>meta.ach[a.id]).length;text(`${done} / ${ACHS.length} unlocked`,tx+340,104,13,'#aab8d5','center',800);
   ACHS.forEach((a,i)=>{const col=i%2,row=Math.floor(i/2),x=tx+col*344,y=122+row*62,got=!!meta.ach[a.id],it=a.item&&skinItem(a.item);
@@ -2671,8 +2709,9 @@ function drawShop(){
    if(shop.tab==='trail'){const sv=meta.equip.trail;meta.equip.trail=it.id;const gc=trailColor();meta.equip.trail=sv;
     for(let j=3;j>=1;j--){ctx.globalAlpha=(own?1:.55)*.2*(4-j);drawDili(x+cw/2-j*22,y+74,1.9,1,{ghost:true,ghostColor:gc})}ctx.globalAlpha=own?1:.55;
     text({t_ghost:'💨',t_spark:'✨',t_coin:'🪙',t_fire:'🔥',t_rainbow:'🌈'}[it.id],x+cw-30,y+30,20,'#fff','center')}
-   drawDili(x+cw/2+(shop.tab==='trail'?14:0),y+78+Math.sin(runT*3+i)*3,2.2,1,{skin:prev});ctx.restore();
-   text(it.name,x+cw/2,y+134,14,'#fff','center',900);
+   if(shop.tab==='pet'){drawDili(x+cw/2-22,y+78+Math.sin(runT*3+i)*3,1.9,1,{skin:{color:cur.color,hat:cur.hat}});if(it.icon)ctx.drawImage(emojiSprite(it.icon,3),x+cw/2+18,y+70+Math.abs(Math.sin(runT*5+i))*-5,36,36)}
+   else drawDili(x+cw/2+(shop.tab==='trail'?14:0),y+78+Math.sin(runT*3+i)*3,2.2,1,{skin:prev});ctx.restore();
+   text(it.name,x+cw/2,y+(it.perk?126:134),14,'#fff','center',900);if(it.perk)text(it.perk,x+cw/2,y+143,10,'#bcd0ff','center',700);
    const a=it.ach&&ACHS.find(q=>q.id===it.ach);
    text(on?'✓ EQUIPPED':own?'TAP TO EQUIP':it.weekly?'🔒 🏆 Weekly top 3':a?`🔒 ${a.icon} ${a.name}`:`🪙 ${fmt(it.cost)}`,x+cw/2,y+156,12,on?'#45e6a5':own?'#aab8d5':a?'#ff8ad8':meta.coins>=it.cost?'#ffd34d':'#8f9cbc','center',900);
    buttons.push({x,y,w:cw,h:ch,act:()=>shopPick(it,shop.tab)})});
