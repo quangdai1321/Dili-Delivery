@@ -1219,8 +1219,8 @@ function failOrder(msg){
  burst(at.x,at.y,24,['#ff6473','#ffd34d','#fff']);flash=.3;flashColor='#ff4d5e';shake=Math.max(shake,.2);SFX.drop();buzz([30,30,60]);
  newOrder(null,order.origin); // same seed => same next order, wherever Dili is standing
 }
-function doPickup(by='host'){
- tutMark('pickup');order.holder=by;order.heldSince=runT;if(coop)coop.passArm=false;
+function doPickup(by=coopRun()?coop.id:'host'){
+ tutMark('pickup');order.holder=by;order.heldSince=runT;if(coop)coop.arm={};
  if(order.pickup.dropped){ // re-grab a package knocked loose in a crash: the order clock keeps running
   order.carrying=true;floats.push({x:order.pickup.x,y:order.pickup.y-26,text:'GOT IT!',color:'#ffd34d',t:.9,max:.9,size:18});
   burst(order.pickup.x,order.pickup.y,14,CONFETTI);player.pop=.3;SFX.pickup();pathTimer=0;return}
@@ -1310,7 +1310,7 @@ const RUSH_BREAK=3; // seconds to breathe before each boss: the clock stops and 
 function rushNext(){rush.cleared++;if(zoneIdx<ZONES.length-1)startStage(zoneIdx+1,0);else{rush.won=true;rush.time=runClock;endRun()}}
 function startRun(kind=runKind){
  if(kind==='coop'&&coop&&coop.role==='guest'&&!coop.go)return; // a guest's run starts when the host starts it
- if(kind==='coop'&&!(coop&&coop.mate))kind='normal';
+ if(kind==='coop'&&!coopHas())kind='normal';
  if(player&&(mode==='play'||mode==='paused'||mode==='settings'))sendRunStats('restart');
  ensureAudio();keepAwake(true);resetRunStats();
  if(kind===true)kind='daily';else if(kind===false)kind='normal';if(kind==='challenge'&&!CH)kind='normal';
@@ -1337,7 +1337,7 @@ function endRun(){
  if(score>=10000)unlockAch('score10k');
  const prevBest=daily?dailyRec().best:rush||runKind==='coop'?Infinity:best.score;
  rage=rageReport(prevBest);
- if(runKind==='coop')rage={line:`🤝 Team shift with ${coop&&coop.mate?coop.mate.name:'your friend'}`,taunt:deliveries>=10?'Dream team 💙':'Better together. One more?'};
+ if(runKind==='coop')rage={line:`🤝 Team shift with ${coopHas()?coopMates().map(q=>q.name).join(', '):'your friends'}`,taunt:deliveries>=10?'Dream team 💙':'Better together. One more?'};
  if(rush){const r=best.rush||{cleared:0,time:null},better=rush.cleared>r.cleared||(rush.won&&(r.time==null||rush.time<r.time));
   rage.line=rush.won?`💀 ALL ${ZONES.length} BOSSES DOWN in ${rush.time.toFixed(1)}s! 🏆`:`💀 ${rush.cleared}/${ZONES.length} bosses defeated`;
   rage.taunt=better&&(r.cleared||r.time)?'NEW BOSS RUSH RECORD! 🔥':rush.won?'Can you do it faster?':rush.cleared?`Next up was ${ZONES[Math.min(ZONES.length-1,rush.cleared)].icon} ${BOSSES[ZONES[Math.min(ZONES.length-1,rush.cleared)].id].name}…`:'The Monster Truck says hi 🚚';
@@ -1411,8 +1411,8 @@ function crash(sx,sy,by='car'){
   rings.push({x:player.x,y:player.y,t:.4,max:.4,r0:18,r1:50,color:'#9fd0ff'});
   floats.push({x:player.x,y:player.y-30,text:'🛡️ SHIELD',color:'#9fd0ff',t:1,max:1,size:20});return}
  if(coopGuest()){coopGuestCrash(sx,sy,by);return} // the host applies the time penalty for the team
- if(coopHost())coopSend({k:'fx',e:'hc',x:Math.round(player.x),y:Math.round(player.y)});
- const mine=!coopRun()||order.holder!=='guest';
+ if(coopHost())coopSend({k:'fx',e:'pc',id:coop.id,x:Math.round(player.x),y:Math.round(player.y)});
+ const mine=!coopRun()||order.holder===coop.id;
  // repeated crashes on the same order hurt more: -3s, -4s, -5s, -6s
  crashCauses[by]=(crashCauses[by]||0)+1;
  const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;lastCrashBy=by;cleanStreak=0;
@@ -1824,7 +1824,7 @@ function update(dt){
   else if(!hit){P.hTouch=false;if(P.dash<=0)P.jumped=null}}
 
  if(coopGuest())coopGuestAct(P);
- else if(order.stolen||rush&&rush.breakT>0||order.carrying&&coopRun()&&order.holder==='guest'){} // no delivering (or picking up) while a monkey has the package, or during a boss-rush breather
+ else if(order.stolen||rush&&rush.breakT>0||order.carrying&&coopRun()&&order.holder!==coop.id){} // no delivering (or picking up) while a monkey has the package, or during a boss-rush breather
  else if(order.carrying){ // any remaining door counts; the path follows the nearest one
   let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
   if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
@@ -2253,7 +2253,7 @@ function drawMinimap(){
  for(const tr of trains)if(tr.state!=='idle'){ctx.fillStyle=tr.state==='warn'?'rgba(255,60,80,.6)':'#ff3048';ctx.fillRect(mx,my+(tr.row*T+T/2)*k-1.5,mw,3)}
  for(const m of meteors){const q=Q(m);ctx.fillStyle='#ff4d5e';ctx.beginPath();ctx.arc(q.x,q.y,2.5,0,7);ctx.fill()}
  if(order){const q=Q(order.carrying?order.drop:order.pickup);ctx.fillStyle=order.carrying?'#45e6a5':'#ffd34d';ctx.beginPath();ctx.arc(q.x,q.y,3.5+Math.sin(runT*8),0,7);ctx.fill()}
- if(coopMateOn()){const q=Q(coop.mate);ctx.fillStyle='#8fe3ff';ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,7);ctx.fill()}
+ if(coopRun())for(const M of coopMates())if(coopMateOn(M)){const q=Q(M);ctx.fillStyle=coopColor(M);ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,7);ctx.fill()}
  if(player){const q=Q(player);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y,3.6,0,7);ctx.fill();ctx.fillStyle=BRAND.bright;ctx.beginPath();ctx.arc(q.x,q.y,2.3,0,7);ctx.fill()}
  const vw=Math.min(W,SW/cam.z),vh=ROWS*T/cam.z;ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1;ctx.strokeRect(mx+(cam.x-vw/2)*k,my+(cam.y-HUD-vh/2)*k,vw*k,vh*k);
  ctx.restore();
@@ -2262,7 +2262,7 @@ const hudCv=document.createElement('canvas'),hudCtx=hudCv.getContext('2d');let h
 function hudKey(){
  const cd=player?player.dashCd/dashCooldown():0,o=order,low=shiftTime<10,
   ord=o&&o.carrying?(o.type==='urgent'?'u'+Math.max(0,o.deadline-o.clock).toFixed(1)+(Math.max(0,o.deadline-o.clock)<3&&Math.sin(runT*14)>0):o.clock.toFixed(1)+'/'+o.par.toFixed(1)):'g';
- return [SW,RSU,touchUI,daily,dailyNo,runKind,o&&o.holder,coop&&coop.mate&&coop.mate.name,chRun&&chRun.name,zone.id,loop,deliveries,o&&o.type,Math.round(clamp(dispShift/Math.max(60,dispShift),0,1)*296),shiftTime.toFixed(1),
+ return [SW,RSU,touchUI,daily,dailyNo,runKind,o&&o.holder,coop&&coop.mates.size,chRun&&chRun.name,zone.id,loop,deliveries,o&&o.type,Math.round(clamp(dispShift/Math.max(60,dispShift),0,1)*296),shiftTime.toFixed(1),
   low&&Math.sin(runT*12)>0,shiftTime<25,ord,chRun?Math.round(score-chRun.score):hudPace(),Math.round(dispScore),Math.round(scorePulse*15),combo,Math.round(comboPulse*15),Math.round(cd*24),upg.shield,Math.round(hudPulseShield*10),camClose,muted].join('|');
 }
 const hudPace=()=>{const d=paceDelta();return d==null?'':Math.round(d/10)*10}; // shown to the nearest 10 so the HUD isn't redrawn every frame
@@ -2289,7 +2289,7 @@ function drawHUDRaw(){
  if(ratio>0){rr(ctx,bx,13,Math.max(22,bw*ratio),22,11);ctx.fill();ctx.fillStyle='rgba(255,255,255,.18)';rr(ctx,bx+4,15,Math.max(14,bw*ratio-8),6,3);ctx.fill()}
  outlined('SHIFT '+shiftTime.toFixed(1)+'s',bx+bw/2,24.5,Math.round(15*F),'#fff');
  // this order
- {const ot=order&&ORDER_TYPES[order.type],who=coopRun()&&order&&order.carrying?(order.holder===coop.role?' · 📦 YOU':' · 🤝 '+(coop.mate?coop.mate.name:'FRIEND')):'';text((ot&&ot.label?ot.icon+' '+ot.label:'THIS ORDER')+who,596,14,L,ot&&ot.label?ot.color:'#7d8bab','left',ot&&ot.label?900:800)}
+ {const ot=order&&ORDER_TYPES[order.type],who=coopRun()&&order&&order.carrying?(order.holder===coop.id?' · 📦 YOU':' · 🤝 '+coopWho(order.holder)):'';text((ot&&ot.label?ot.icon+' '+ot.label:'THIS ORDER')+who,596,14,L,ot&&ot.label?ot.color:'#7d8bab','left',ot&&ot.label?900:800)}
  if(order&&order.carrying&&order.type==='urgent'){const left=Math.max(0,order.deadline-order.clock),hot=left<3&&Math.sin(runT*14)>0;
   text('⏱ '+left.toFixed(1)+'s left',596,33,Math.round(18*F),hot?'#ff4d5e':'#ff8a2a','left',900)}
  else if(order&&order.carrying){const under=order.clock<=order.par,s1=order.clock.toFixed(1)+'s';text(s1,596,33,Math.round(20*F),under?'#45e6a5':'#ffb347','left',900);
@@ -2560,7 +2560,7 @@ function drawMenu(){
  button(`🎨 SKINS   🪙 ${fmt(meta.coins)}`,16,16,230,40,openShop,false);
  if(touchUI)button(ctrlMode==='dpad'?'🎮  CONTROLS: D-PAD':'🕹️  CONTROLS: JOYSTICK',16,H-58,260,42,toggleCtrl,false);
  if(CH&&!chPrompt)button(`⚔️ VS ${CH.name.toUpperCase()} · ${fmt(CH.score)}`,258,16,280,40,()=>{chPrompt=true},false);
- button(coop&&coop.mate?'🤝 CO-OP · '+coop.mate.name:'🤝 CO-OP  (2 PLAYERS)',16,112,230,40,()=>{mode='coop'},false);
+ button(coopHas()?'🤝 CO-OP · '+coopN()+' IN ROOM':'🤝 CO-OP  (2-4 PLAYERS)',16,112,230,40,()=>{mode='coop'},false);
  if(!coop){const p=.5+.5*Math.sin(runT*4);ctx.strokeStyle=`rgba(143,227,255,${.3+.5*p})`;ctx.lineWidth=2;rr(ctx,16,112,230,40,20);ctx.stroke()}
  {const n=missionsDone();button(`📋 MISSIONS  ${n}/3`,16,64,230,40,()=>{mode='missions'},false);
   if(n<3){const p=.6+.4*Math.sin(runT*5);ctx.fillStyle=`rgba(255,211,77,${p})`;ctx.beginPath();ctx.arc(240,68,6,0,7);ctx.fill()}}
@@ -2618,8 +2618,8 @@ function drawOver(){
  {const rb=best.rush||{cleared:0,time:null},pb=rush?`BOSS RUSH BEST  ${rb.cleared}/${ZONES.length} bosses${rb.time!=null?`   ·   FULL CLEAR ${rb.time.toFixed(1)}s`:''}`:daily?`DAILY BEST  ${fmt(dailyRec().best)}   ·   ALL-TIME BEST  ${fmt(best.score)}`:`PERSONAL BEST  ${fmt(best.score)}   ·   FASTEST ${best.time==null?'—':best.time.toFixed(2)+'s'}   ·   COMBO x${best.combo}`;
   text(pb,W/2,396,12,'#aab8d5','center',800)}
  if(overDelay<=0){
-  if(runKind==='coop'){if(coop&&coop.role==='host'&&coop.mate)button('🤝 PLAY AGAIN TOGETHER',W/2-170,416,340,58,()=>startRun('coop'));
-   else text(coop&&coop.mate?`Waiting for ${coop.mate.name} to start the next shift…`:'Your friend left the room',W/2,445,17,'#8fe3ff','center',900)}
+  if(runKind==='coop'){if(coop&&coop.role==='host'&&coopHas())button('🤝 PLAY AGAIN TOGETHER',W/2-170,416,340,58,()=>startRun('coop'));
+   else text(coop&&coop.hostId&&coop.mates.get(coop.hostId)?`Waiting for ${coop.mates.get(coop.hostId).name} to start the next shift…`:'The host left the room',W/2,445,17,'#8fe3ff','center',900)}
   else if(runKind==='normal'||runKind==='retry'){button('RUN AGAIN',W/2-212,416,204,58,()=>startRun('normal'));
    button('👻  RACE YOUR GHOST',W/2+8,416,204,58,()=>startRun('retry'),false);
    const p=.5+.5*Math.sin(runT*4);ctx.strokeStyle=`rgba(216,230,255,${.3+.5*p})`;ctx.lineWidth=2;rr(ctx,W/2+8,416,204,58,29);ctx.stroke()}
@@ -2946,14 +2946,13 @@ function draw(){
  drawAchPop();
 }
 
-// ---------- 🤝 CO-OP: two Dilis, one city, one shared shift, online through a Supabase Realtime broadcast room ----------
+// ---------- 🤝 CO-OP: 2-4 Dilis, one city, one shared shift, online through a Supabase Realtime broadcast room ----------
 // The host's game is the truth for orders, time, score, zone, bosses, events and traffic (cars are streamed).
 // Each player moves their own Dili locally (no input lag) and streams its position; hazards like trains, meteors,
 // animals and boss strikes run on each screen for that player. Touch your friend to pass the package:
 // a passed package scores x1.5 as a TEAM DELIVERY. Nothing is written to the database.
 const coopRun=()=>!!(coop&&runKind==='coop'),coopGuest=()=>coopRun()&&coop.role==='guest',coopHost=()=>coopRun()&&coop.role==='host';
-const iCarry=()=>!!(order&&order.carrying&&(!coopRun()||order.holder===coop.role));
-const coopMateOn=()=>!!(coopRun()&&coop.mate&&coop.mate.on);
+const iCarry=()=>!!(order&&order.carrying&&(!coopRun()||order.holder===coop.id));
 const coopName=n=>(n||'FRIEND').toUpperCase().slice(0,10);
 const coopSkin=()=>({c:meta.equip.color,h:meta.equip.hat});
 const coopLink=()=>location.origin+location.pathname+'?coop='+(coop?coop.code:'');
@@ -2976,14 +2975,34 @@ function coopNet(code,onMsg,onState){
  return{send,close:()=>{closed=true;clearInterval(hb);try{ws&&ws.close()}catch(e){}}};
 }
 function coopSend(m){if(coop&&coop.net){m.f=coop.id;coop.net.send(m)}}
+const COOP_MAX=4;
+const coopMates=()=>coop?[...coop.mates.values()]:[];
+const coopN=()=>coop?1+coop.mates.size:1;
+const coopHas=()=>!!(coop&&coop.mates.size);
+const coopMateOn=M=>!!(coopRun()&&M&&M.inRun&&performance.now()-M.heard<6000&&M.z===zoneIdx*100+loop);
+const coopWho=id=>coop&&id===coop.id?'YOU':(coop&&coop.mates.get(id)||{}).name||'FRIEND';
+const coopAwayM=M=>!!(M.away||M.md==='paused'||M.md==='upgrade'||M.md==='settings');
+function coopMateAdd(id,name,skin,isHost){
+ let M=coop.mates.get(id);
+ if(!M){M={id,name:'FRIEND',skin:{},x:0,y:0,tx:null,ty:null,vx:0,vy:0,fs:1,step:0,heard:performance.now(),inRun:0,gs:0,gt:0};coop.mates.set(id,M)}
+ if(name)M.name=coopName(name);if(skin)M.skin=skin;if(isHost!=null)M.isHost=!!isHost;return M}
+const coopRoster=()=>coopMates().map(q=>[q.id,q.name,q.skin]);
+function coopSyncRoster(ro){
+ for(const[id,name,skin]of ro)if(id!==coop.id&&!coop.mates.has(id))coopMateAdd(id,name,skin,false);
+ for(const q of coopMates())if(!q.isHost&&!ro.some(r=>r[0]===q.id))coop.mates.delete(q.id);
+}
+// position updates come 5-10 times a second: remember the velocity and coast a little between them
+function coopPos(M,x,y){const t=performance.now();
+ if(M.rt&&M.tx0!=null){const d=(t-M.rt)/1000;if(d>.02&&d<1){M.vx=clamp((x-M.tx0)/d,-420,420);M.vy=clamp((y-M.ty0)/d,-420,420)}}
+ M.tx0=M.tx=x;M.ty0=M.ty=y;M.rt=t}
 function coopOpen(join){
  coopClose();
  const code=join||Array.from({length:4},()=>'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
- coop={role:join?'guest':'host',code,id:Math.random().toString(36).slice(2,10),mate:null,status:'connecting',msg:null,helloT:0,hbT:0,sendT:0,
-  ov:0,ordKey:'',csKey:'',stN:0,gs:0,gt:0,sS:0,sT:0,lastS:0,lastT:60,actT:0,passArm:false,zoneOffT:0,bossOffT:0,copied:0};
+ coop={role:join?'guest':'host',code,id:Math.random().toString(36).slice(2,10),mates:new Map(),hostId:null,status:'connecting',msg:null,helloT:0,hbT:0,sendT:0,
+  ov:0,ordKey:'',csKey:'',stN:0,sS:0,sT:0,lastS:0,lastT:60,actT:0,arm:{},zoneOffT:0,bossOffT:0,copied:0};
  coop.net=coopNet(code,coopRecv,s=>{if(!coop)return;coop.status=s==='open'?'waiting':s;if(s==='open'){coop.helloT=0;coop.hbT=0}});
  // heartbeat on a timer, not the frame loop: it keeps going while the tab is in the background (switching apps to send the link)
- coop.hbTimer=setInterval(()=>{if(coop&&coop.status==='waiting')coopSend({k:'hb',h:coop.role==='host'?1:0,away:document.hidden||mode==='paused'?1:0,n:playerName,skin:coopSkin()})},2000);
+ coop.hbTimer=setInterval(()=>{if(coop&&coop.status==='waiting'){const h=coop.role==='host';coopSend({k:'hb',h:h?1:0,away:document.hidden||mode==='paused'?1:0,n:playerName,skin:coopSkin(),ro:h?coopRoster():undefined})}},2000);
  coop.promoteAt=performance.now()+3500+Math.random()*1500; // nobody hosting this room after that: host it yourself
  coopUrl(code);mode='coop';joy=null;ensureAudio();
 }
@@ -3000,48 +3019,64 @@ function coopInvite(){
  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(done,()=>{try{prompt('Copy this link for your friend:',url)}catch(e){}});
  else try{prompt('Copy this link for your friend:',url)}catch(e){}
 }
-function coopStartRun(){if(coop&&coop.role==='host'&&coop.mate&&coop.status==='waiting')startRun('coop')}
-// host: a run just started, tell the guest which city to build
+function coopStartRun(){if(coop&&coop.role==='host'&&coopHas()&&coop.status==='waiting')startRun('coop')}
+// a run just started (host: tell everyone which city to build)
 function coopOnStart(){
- coop.ov=0;coop.ordKey='';coop.csKey='';coop.stN=0;coop.gs=0;coop.gt=0;coop.sS=0;coop.sT=0;coop.lastS=0;coop.lastT=shiftTime;coop.passArm=false;coop.actT=0;coop.zoneOffT=0;coop.bossOffT=0;
- if(coop.mate){coop.mate.tx=null;coop.mate.on=false}
- if(coop.role==='host')coopSend({k:'start',seed:runSeed,name:playerName,skin:coopSkin()});
+ Object.assign(coop,{ov:0,ordKey:'',csKey:'',stN:0,sS:0,sT:0,lastS:0,lastT:shiftTime,arm:{},actT:0,zoneOffT:0,bossOffT:0});
+ for(const M of coopMates()){M.tx=null;M.seen=false;M.gs=0;M.gt=0;M.inRun=0}
+ if(coop.role==='host')coopSend({k:'start',seed:runSeed,name:playerName,skin:coopSkin(),ro:coopRoster()});
 }
+function coopStepDown(){coop.role='guest';coop.hostId=null;coop.mates.clear();coop.helloT=0;coop.promoteAt=Infinity;coop.promoted=false}
+function coopTakeOver(){if(coop.hostId)coop.mates.delete(coop.hostId);coop.hostId=null;coop.role='host';coop.promoted=true;coop.msg=null;if(coop.status==='full')coop.status='waiting';for(const q of coopMates())q.isHost=false}
 function coopRecv(m){
- if(!coop||!m||m.f===coop.id)return;const host=coop.role==='host',M=coop.mate,fromMate=M&&m.f===M.id,now=performance.now();
- if(fromMate){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin;if(m.k==='hb')M.away=!!m.away;else if(m.k==='st'||m.k==='me')M.away=false}
+ if(!coop||!m||m.f===coop.id)return;
+ if(m.to&&m.to!==coop.id)return;
+ const host=coop.role==='host',now=performance.now();let M=coop.mates.get(m.f);
+ if(M){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin;if(m.k==='hb')M.away=!!m.away;else if(m.k==='st'||m.k==='me')M.away=false}
  if(host){
-  // another host in this room (both reloaded / both took over at once): the higher id steps down and becomes the guest
-  if(m.k==='hb'&&m.h){if(!coopRun()&&m.f<coop.id){coop.role='guest';if(M&&M.id!==m.f)coop.mate=null;coop.helloT=0;coop.promoteAt=Infinity;coop.promoted=false}return}
+  // another host in this room (reloads / take-overs at the same moment): the higher id steps down and joins as a guest
+  if(m.k==='hb'&&m.h){if(!coopRun()&&m.f<coop.id)coopStepDown();return}
   if(m.k==='hi'){
-   if(M&&M.id!==m.f&&now-M.heard<6000){coopSend({k:'full',to:m.f});return}
-   if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};
-    if(mode==='coop')SFX.up();else floats.push({x:player?player.x:W/2,y:player?player.y-40:H/2,text:'🤝 '+coopName(m.name)+' is in the lobby',color:'#8fe3ff',t:2,max:2,size:16})}
-   coopSend({k:'welcome',to:m.f,name:playerName,skin:coopSkin(),run:runKind==='coop'&&mode!=='over'?1:0});return}
-  if(!fromMate)return;
-  if(m.k==='bye'){coopMateLost(true);return}
-  if(m.k==='me'){M.tx=m.x;M.ty=m.y;M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z;M.inRun=m.r;M.md=m.md;
-   if(coopRun()&&m.r){if(m.gs>coop.gs){score+=m.gs-coop.gs;coop.gs=m.gs}if(m.gt!==coop.gt){shiftTime=clamp(shiftTime+m.gt-coop.gt,0,99);coop.gt=m.gt}}return}
+   if(!M){for(const q of coopMates())if(now-q.heard>=6000)coop.mates.delete(q.id);
+    if(coop.mates.size>=COOP_MAX-1){coopSend({k:'full',to:m.f});return}
+    M=coopMateAdd(m.f,m.name,m.skin,false);M.heard=now;
+    if(mode==='coop')SFX.up();else if(player)floats.push({x:player.x,y:player.y-40,text:'🤝 '+M.name+' is in the lobby',color:'#8fe3ff',t:2,max:2,size:16})}
+   coopSend({k:'welcome',to:m.f,name:playerName,skin:coopSkin(),run:runKind==='coop'&&mode!=='over'?1:0,ro:coopRoster()});return}
+  if(!M)return;
+  if(m.k==='bye'){coopDrop(m.f,true);return}
+  if(m.k==='me'){coopPos(M,m.x,m.y);M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z;M.inRun=m.r;M.md=m.md;
+   if(coopRun()&&m.r){if(m.gs>M.gs){score+=m.gs-M.gs;M.gs=m.gs}if(m.gt!==M.gt){shiftTime=clamp(shiftTime+m.gt-M.gt,0,99);M.gt=m.gt}}return}
+  if(m.k==='left'){coopLeftRun(M);return}
   if(!coopRun()||mode==='over')return;
   if(m.k==='act'&&m.ov===coop.ov&&order){
-   if(m.a==='pick'&&!order.carrying&&!(order.pickup.lockUntil>runT))doPickup('guest');
-   else if(m.a==='drop'&&order.carrying&&order.holder==='guest'&&order.drops[m.di])doDeliver(m.di,'guest');return}
-  if(m.k==='crash'){coopMateCrash(m);return}
-  if(m.k==='left'){coopMateLeftRun();return}
+   if(m.a==='pick'&&!order.carrying&&!(order.pickup.lockUntil>runT))doPickup(m.f);
+   else if(m.a==='drop'&&order.carrying&&order.holder===m.f&&order.drops[m.di])doDeliver(m.di,m.f);return}
+  if(m.k==='crash')coopMateCrash(M,m);
   return}
  // guest
- // someone knocks and our host has gone quiet (reloaded / closed): take over the room and let them in
- if(m.k==='hi'&&!coopRun()&&mode==='coop'&&(!M||now-M.heard>5000)){coop.mate=null;coop.role='host';coop.promoted=true;coop.msg=null;if(coop.status==='full')coop.status='waiting';coopRecv(m);return}
- if(m.k==='full'&&m.to===coop.id&&!M){coop.status='full';return}
- if(m.k==='welcome'&&m.to===coop.id){if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};if(mode==='coop')SFX.up()}
-  coop.msg=m.run?'Your friend is mid-shift. You join the next one!':null;return}
- if(!fromMate&&m.k!=='start')return;
- if(m.k==='start'){if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0}}
+ const H=coop.hostId&&coop.mates.get(coop.hostId),hostQuiet=!H||now-H.heard>5000;
+ // someone knocks and there is no (live) host: take over the room and let them in
+ if(m.k==='hi'&&!coopRun()&&mode==='coop'&&hostQuiet){coopTakeOver();coopRecv(m);return}
+ if(m.k==='hb'){if(m.h&&m.f!==coop.hostId&&hostQuiet){coop.hostId=null;coop.helloT=0}
+  else if(!m.h&&m.f===coop.hostId){coop.hostId=null;coop.helloT=0} // our host stepped down
+  else if(m.h&&m.f===coop.hostId&&m.ro)coopSyncRoster(m.ro);
+  return}
+ if(m.k==='full'){if(!coop.hostId)coop.status='full';return}
+ if(m.k==='welcome'){coop.hostId=m.f;M=coopMateAdd(m.f,m.name,m.skin,true);M.heard=now;if(m.ro)coopSyncRoster(m.ro);
+  if(mode==='coop')SFX.up();coop.msg=m.run?'The others are mid-shift. You join the next one!':null;if(coop.status==='full')coop.status='waiting';return}
+ if(m.k==='start'){if(coop.hostId&&m.f!==coop.hostId&&!hostQuiet)return;
+  coop.hostId=m.f;M=coopMateAdd(m.f,m.name,m.skin,true);M.heard=now;if(m.ro)coopSyncRoster(m.ro);
   coop.seed=m.seed;coop.msg=null;coop.go=true;startRun('coop');coop.go=false;return}
- if(m.k==='bye'){coopMateLost(true);return}
+ // other guests talk to everyone too: their position, their goodbyes
+ if(m.f!==coop.hostId){
+  if(m.k==='me'){if(!M){M=coopMateAdd(m.f,null,null,false);M.heard=now}coopPos(M,m.x,m.y);M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z;M.inRun=m.r;M.md=m.md}
+  else if(m.k==='bye')coopDrop(m.f,true);
+  else if(m.k==='left'&&M)M.inRun=0;
+  return}
+ if(m.k==='bye'){coopDrop(m.f,true);return}
  if(!coopRun())return;
- if(m.k==='left'){coopMateLeftRun();return}
- if(m.k==='st'){coopApplyState(m);return}
+ if(m.k==='left'){coopLeftRun(M);return}
+ if(m.k==='st'){coopApplyState(m,M);return}
  if(m.k==='over'){if(mode==='over')return;score=m.sc;deliveries=m.dl;runBestCombo=m.cb;crashes=m.cr;crashLost=m.cl;endRun();return}
  if(m.k==='stage'){coopGuestStage(m);return}
  if(m.k==='boss'){if(!boss&&mode==='play')startBoss();return}
@@ -3049,20 +3084,22 @@ function coopRecv(m){
  if(m.k==='eve'){if(event)endEvent(!!m.s);return}
  if(m.k==='fx')coopFx(m);
 }
-// the friend quit the shift but is still in the room
-function coopMateLeftRun(){
- const M=coop.mate;if(!M)return;M.inRun=0;
- if(coop.role==='host'){if(coopRun()&&mode!=='over'){if(order&&order.carrying&&order.holder==='guest'){order.holder='host';order.heldSince=runT;pathTimer=0}
-  hype={text:'👋 '+M.name+' LEFT THE SHIFT',sub:'Keep delivering solo!',t:2.4,max:2.4}}}
- else if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false);coop.msg='The host ended the shift.'}
+// someone quit the shift but is still in the room
+function coopLeftRun(M){
+ if(!M)return;M.inRun=0;
+ if(coop.role==='host'){if(coopRun()&&mode!=='over'){coopHandBack(M.id);hype={text:'👋 '+M.name+' LEFT THE SHIFT',sub:coopHas()&&coopMates().some(q=>q.inRun)?'Keep going!':'Keep delivering solo!',t:2.4,max:2.4}}}
+ else if(M.id===coop.hostId&&coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false);coop.msg='The host ended the shift.'}
 }
-function coopMateLost(bye){
- const M=coop&&coop.mate;if(!M)return;
- if(coop.role==='host'){
-  coop.mate=null;
-  if(coopRun()&&mode!=='over'){if(order&&order.carrying&&order.holder==='guest'){order.holder='host';order.heldSince=runT;pathTimer=0}
-   hype={text:'👋 '+M.name+' LEFT',sub:'Keep delivering solo!',t:2.4,max:2.4}}}
- else{coop.mate=null;coop.promoteAt=performance.now()+3500+Math.random()*1500;if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false)}coop.msg=bye?'The host closed the room.':'Lost the connection to the host.';coop.helloT=0}
+// the package goes back to the host if its holder vanished
+function coopHandBack(id){if(order&&order.carrying&&order.holder===id){order.holder=coop.id;order.heldSince=runT;pathTimer=0}}
+// someone left the room (bye) or went silent
+function coopDrop(id,bye){
+ const M=coop&&coop.mates.get(id);if(!M)return;coop.mates.delete(id);
+ if(coop.role==='host'){if(coopRun()&&mode!=='over'){coopHandBack(id);hype={text:'👋 '+M.name+' LEFT',sub:coopHas()?'Keep going!':'Keep delivering solo!',t:2.4,max:2.4}}return}
+ if(id!==coop.hostId)return;
+ coop.hostId=null;coop.promoteAt=performance.now()+3500+Math.random()*1500;coop.helloT=0;
+ if(coopRun()){runKind='normal';mode='coop';joy=null;keepAwake(false)}
+ coop.msg=bye?'The host closed the room.':'Lost the connection to the host.';
 }
 // ---- host side ----
 function coopOrd(){const o=order;if(!o)return null;
@@ -3071,7 +3108,8 @@ function coopOrd(){const o=order;if(!o)return null;
 function coopSendState(){
  const P=player;coop.stN++;
  const ids=cars.map(k=>k.id).join(','),m={k:'st',x:Math.round(P.x),y:Math.round(P.y),fc:P.face,mv:P.moving?1:0,ds:P.dash>0?1:0,dz:P.dizzy>0?1:0,
-  sc:Math.round(score),tm:+shiftTime.toFixed(2),cb:combo,dl:deliveries,z:zoneIdx,lp:loop,ld:lastDrop,md:mode,gs:coop.gs,gt:coop.gt,
+  sc:Math.round(score),tm:+shiftTime.toFixed(2),cb:combo,dl:deliveries,z:zoneIdx,lp:loop,ld:lastDrop,md:mode,
+  ga:Object.fromEntries(coopMates().map(q=>[q.id,[q.gs,q.gt]])),
   bh:boss?[boss.hp,boss.max,boss.phase]:0,oc:order?+order.clock.toFixed(2):0,ov:coop.ov,
   cd:cars.flatMap(k=>[k.id,Math.round(k.pos),Math.round(k.v),(k.angry?1:0)|(k.rage?2:0)])};
  const o=coopOrd(),ok=JSON.stringify(o);if(ok!==coop.ordKey){coop.ordKey=ok;coop.ov++;m.ov=coop.ov}
@@ -3079,34 +3117,40 @@ function coopSendState(){
  if(ids!==coop.csKey||coop.stN%30===0){coop.csKey=ids;m.cs=cars.map(k=>[k.id,lines.indexOf(k.l),k.len,k.wid,k.sc?1:0,k.model||'',k.color])}
  coopSend(m);
 }
-// touch your friend while one of you has the package: it changes hands (walk apart before the next pass)
+// touch a teammate while you (or they) hold the package: it changes hands. Walk apart before the next pass to the same
+// person; never hand it to someone who is paused / picking an upgrade, but taking it from them is fine.
 function coopPass(P,hostAway){
- const M=coop.mate;if(!M||!M.on||M.tx==null||M.z!==zoneIdx*100+loop||!order||!order.carrying||order.stolen)return;
- // never hand the package to someone who is paused / picking an upgrade; taking it from them is fine
- const mateAway=M.away||M.md==='paused'||M.md==='upgrade'||M.md==='settings';if(order.holder==='host'?mateAway:hostAway)return;
- const d=Math.hypot(P.x-M.x,P.y-M.y);
- if(d>70){coop.passArm=true;return}
- if(d<36&&coop.passArm&&runT-(order.heldSince||0)>.5){
-  coop.passArm=false;order.holder=order.holder==='host'?'guest':'host';order.passed=true;order.heldSince=runT;pathTimer=0;
-  const x=(P.x+M.x)/2,y=(P.y+M.y)/2,pts=50*(evOn('happy')?2:1);score+=pts;coopPassFx(x,y,pts);coopSend({k:'fx',e:'pass',x:Math.round(x),y:Math.round(y),p:pts})}
+ if(!order||!order.carrying||order.stolen)return;
+ const list=[{id:coop.id,x:P.x,y:P.y,away:hostAway}];
+ for(const M of coopMates())if(coopMateOn(M)&&M.tx!=null)list.push({id:M.id,x:M.x,y:M.y,away:coopAwayM(M)});
+ const h=list.find(q=>q.id===order.holder);if(!h)return;
+ let to=null,td=36;
+ for(const q of list){if(q===h)continue;const d=Math.hypot(h.x-q.x,h.y-q.y);
+  if(d>70){coop.arm[q.id]=true;continue}
+  if(d<td&&coop.arm[q.id]&&!q.away&&runT-(order.heldSince||0)>.5){to=q;td=d}} // the closest teammate gets it
+ {const q=to;if(q){
+   coop.arm={};order.holder=q.id;order.passed=true;order.heldSince=runT;pathTimer=0;
+   const x=(h.x+q.x)/2,y=(h.y+q.y)/2,pts=50*(evOn('happy')?2:1);score+=pts;coopPassFx(x,y,pts);coopSend({k:'fx',e:'pass',x:Math.round(x),y:Math.round(y),p:pts})}}
 }
 function coopPassFx(x,y,pts){
  floats.push({x,y:y-34,text:`🤝 PASS! +${pts}`,color:'#8fe3ff',t:1.1,max:1.1,size:20});rings.push({x,y,t:.45,max:.45,r0:8,r1:56,color:'#8fe3ff'});
  burst(x,y,16,['#8fe3ff','#ffffff','#ffd34d']);SFX.pickup();SFX.close();buzz(20);
 }
-function coopMateCrash(m){
- const M=coop.mate;crashCauses[m.by]=(crashCauses[m.by]||0)+1;
+function coopMateCrash(M,m){
+ crashCauses[m.by]=(crashCauses[m.by]||0)+1;
  const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;cleanStreak=0;combo=0;if(order)order.clean=false;shiftTime=Math.max(0,shiftTime-pen);
  floats.push({x:M.x,y:M.y-30,text:had>=2?`COMBO x${had} BROKEN`:'💥 '+M.name+' CRASHED',color:'#ff6473',t:1.1,max:1.1,size:18});
  floats.push({x:M.x,y:M.y-8,text:`-${pen}s`,color:'#ffb3bb',t:.9,max:.9,size:16});burst(M.x,M.y,18,['#ff6473','#ffd34d','#fff']);sfxAt(M,SFX.crash);
- if(order&&order.carrying&&order.holder==='guest'){if(order.type==='fragile'){failOrder('🥚 BROKEN!');return}dropPackage(m.sx,m.sy)}
+ coopSend({k:'fx',e:'pc',id:M.id,x:Math.round(M.x),y:Math.round(M.y)});
+ if(order&&order.carrying&&order.holder===M.id){if(order.type==='fragile'){failOrder('🥚 BROKEN!');return}dropPackage(m.sx,m.sy)}
 }
 // ---- guest side ----
-function coopApplyState(m){
- const M=coop.mate;M.tx=m.x;M.ty=m.y;M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z*100+m.lp;M.md=m.md;M.inRun=1;
+function coopApplyState(m,H){
+ coopPos(H,m.x,m.y);H.fc=m.fc;H.mv=m.mv;H.ds=m.ds;H.dz=m.dz;H.z=m.z*100+m.lp;H.md=m.md;H.inRun=1;
  // whatever changed score / clock here since the last update (jumps, coins, power-ups, close calls) goes to the host
  const dS=score-coop.lastS,dT=shiftTime-coop.lastT;if(Math.abs(dS)>=.5)coop.sS+=dS;if(Math.abs(dT)>.001)coop.sT+=dT;
- score=m.sc+(coop.sS-m.gs);shiftTime=clamp(m.tm+(coop.sT-m.gt),0,99);coop.lastS=score;coop.lastT=shiftTime;
+ const a=m.ga&&m.ga[coop.id]||[0,0];
+ score=m.sc+(coop.sS-a[0]);shiftTime=clamp(m.tm+(coop.sT-a[1]),0,99);coop.lastS=score;coop.lastT=shiftTime;
  combo=m.cb;deliveries=m.dl;
  if(m.ord&&m.ov!==coop.ov){coop.ov=m.ov;coopApplyOrd(m.ord)}else if(m.ord&&!order)coopApplyOrd(m.ord);
  if(order&&order.carrying)order.clock=m.oc;
@@ -3123,8 +3167,8 @@ function coopApplyOrd(o){
  const prev=order,same=prev&&prev.uid===o.uid;
  order=Object.assign({},o,{clock:same?prev.clock:0,dist:0,born:same?prev.born:runT});
  order.pickup=Object.assign({},o.pickup);order.pickup.lockUntil=o.pickup.lk?runT+o.pickup.lk:0;order.drop=order.drops[o.di]||order.drops[0];pathTimer=0;
- if(same&&!prev.carrying&&o.carrying){const mine=o.holder==='guest';
-  floats.push({x:o.pickup.x,y:o.pickup.y-26,text:mine?'+ PACKAGE':'🤝 '+coop.mate.name+' GOT IT',color:mine?'#ffd34d':'#8fe3ff',t:1,max:1,size:18});
+ if(same&&!prev.carrying&&o.carrying){const mine=o.holder===coop.id;
+  floats.push({x:o.pickup.x,y:o.pickup.y-26,text:mine?'+ PACKAGE':'🤝 '+coopWho(o.holder)+' GOT IT',color:mine?'#ffd34d':'#8fe3ff',t:1,max:1,size:18});
   rings.push({x:o.pickup.x,y:o.pickup.y,t:.45,max:.45,r0:10,r1:60,color:'#ffd34d'});burst(o.pickup.x,o.pickup.y,16,CONFETTI);SFX.pickup();if(mine)player.pop=.35}
  if(same&&prev.carrying&&!o.carrying&&o.pickup.dropped){floats.push({x:o.pickup.x,y:o.pickup.y-30,text:'📦 DROPPED!',color:'#ffd34d',t:1.3,max:1.3,size:20});SFX.drop()}
 }
@@ -3143,7 +3187,7 @@ function coopCars(dt){
 }
 function coopGuestAct(P){
  if(!order||runT<coop.actT)return;
- if(order.carrying){if(order.holder!=='guest')return;let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
+ if(order.carrying){if(order.holder!==coop.id)return;let bi=0,bd=1e9;order.drops.forEach((d,i)=>{const v=Math.hypot(P.x-d.x,P.y-d.y);if(v<bd){bd=v;bi=i}});
   if(order.drop!==order.drops[bi]){order.drop=order.drops[bi];pathTimer=0}
   if(bd<pickRadius()){coopSend({k:'act',a:'drop',di:bi,ov:coop.ov});coop.actT=runT+.4}}
  else if(Math.hypot(P.x-order.pickup.x,P.y-order.pickup.y)<pickRadius()&&!(order.pickup.lockUntil>runT)){coopSend({k:'act',a:'pick',ov:coop.ov});coop.actT=runT+.4}
@@ -3176,7 +3220,7 @@ function coopFx(m){
  else if(m.e==='pass')coopPassFx(m.x,m.y,m.p);
  else if(m.e==='upg'){if(mode==='stage')pendingUpgrade=true;else if(mode==='play')openUpgrade()}
  else if(m.e==='fail'){floats.push({x:player.x,y:player.y-40,text:m.msg,color:'#ff6473',t:1.4,max:1.4,size:22});SFX.drop();flash=.3;flashColor='#ff4d5e'}
- else if(m.e==='hc'){burst(m.x,m.y,18,['#ff6473','#ffd34d','#fff']);sfxAt(m,SFX.crash);floats.push({x:m.x,y:m.y-30,text:'💥 '+coop.mate.name+' CRASHED',color:'#ff6473',t:1,max:1,size:16})}
+ else if(m.e==='pc'&&m.id!==coop.id){burst(m.x,m.y,18,['#ff6473','#ffd34d','#fff']);sfxAt(m,SFX.crash);floats.push({x:m.x,y:m.y-30,text:'💥 '+coopWho(m.id)+' CRASHED',color:'#ff6473',t:1,max:1,size:16})}
  else if(m.e==='bhit'&&boss){boss.hp=m.hp;boss.max=m.max;boss.phase=m.ph;boss.hitT=.6;
   hype={text:`💥 BOSS HIT! ${m.max-m.hp}/${m.max}`,sub:m.hp===1?`LAST HIT! ${boss.icon} ${boss.name} is ENRAGED 😡`:`${boss.icon} ${boss.name} is getting angrier…`,t:1.8,max:1.8};
   flash=.35;flashColor='#ff3048';shake=Math.max(shake,.3);burst(m.x,m.y,30,['#ff3048','#ffd34d','#ffffff'],true);SFX.bossHit();addCoins(3)}
@@ -3185,70 +3229,81 @@ function coopFx(m){
 }
 // ---- both ----
 function coopTick(dt){
- if(!coop)return;const now=performance.now(),M=coop.mate,host=coop.role==='host';
+ if(!coop)return;const now=performance.now(),host=coop.role==='host';
  if(coop.copied>0)coop.copied-=dt;
- if(!host&&!M&&mode==='coop'&&!coopRun()&&coop.status==='waiting'&&now>coop.promoteAt){coop.role='host';coop.promoted=true;coop.msg=null}
+ if(!host&&!coop.hostId&&mode==='coop'&&!coopRun()&&coop.status==='waiting'&&now>coop.promoteAt)coopTakeOver();
  if(coop.status==='waiting'||coop.status==='reconnecting'){
-  if(!host&&!M&&now>=coop.helloT){coop.helloT=now+1000;coopSend({k:'hi',name:playerName,skin:coopSkin()})}
-  if(now>=coop.hbT&&!host&&coopRun()&&mode==='over'){coop.hbT=now+2000;coopSend({k:'me',x:0,y:0,r:0,gs:coop.sS,gt:coop.sT})}}
- if(M){if(now-M.heard>20000){coopMateLost(false);return}
-  M.on=coopRun()&&M.inRun&&now-M.heard<6000&&M.z===zoneIdx*100+loop;
-  if(M.tx!=null){const d=Math.hypot(M.tx-M.x,M.ty-M.y);if(d>160||!M.seen){M.x=M.tx;M.y=M.ty;M.seen=true}else{const k=Math.min(1,dt*10);M.x+=(M.tx-M.x)*k;M.y+=(M.ty-M.y)*k}
-   M.step+=d*.05;M.fs+=((M.fc||1)-M.fs)*Math.min(1,dt*14)}}
+  if(coop.role==='guest'&&!coop.hostId&&now>=coop.helloT){coop.helloT=now+1000;coopSend({k:'hi',name:playerName,skin:coopSkin()})}
+  if(now>=coop.hbT&&coop.role==='guest'&&coopRun()&&mode==='over'){coop.hbT=now+2000;coopSend({k:'me',x:0,y:0,r:0,gs:coop.sS,gt:coop.sT})}}
+ for(const M of coopMates()){
+  if(now-M.heard>20000){coopDrop(M.id,false);continue}
+  M.on=coopMateOn(M);
+  if(M.tx0!=null){const age=Math.min(.2,(now-M.rt)/1000);M.tx=M.tx0+M.vx*age;M.ty=M.ty0+M.vy*age;
+   const d=Math.hypot(M.tx-M.x,M.ty-M.y);if(d>160||!M.seen){M.x=M.tx;M.y=M.ty;M.seen=true}else{const k=Math.min(1,dt*12);M.x+=(M.tx-M.x)*k;M.y+=(M.ty-M.y)*k}
+   M.step+=Math.hypot(M.vx,M.vy)*dt*.11;M.fs+=((M.fc||1)-M.fs)*Math.min(1,dt*14)}}
  if(!coopRun()||!player)return;
  const live=mode==='play'||mode==='paused'||mode==='stage'||mode==='upgrade'||mode==='settings';
- if(live&&now>=coop.sendT){coop.sendT=now+(host?140:100); // ~7 + 10 messages a second per pair: the free Realtime quota is shared by every room
+ // the more players, the less often each one sends: every message reaches everyone in the room, and the free
+ // Realtime quota (~100/s) is shared by every room. 2 players ~17/s, 3 ~40/s, 4 ~60/s in total.
+ const n=Math.min(COOP_MAX,coopN())-2;
+ if(live&&now>=coop.sendT){coop.sendT=now+(host?[140,170,200]:[100,140,200])[Math.max(0,n)];
   if(host)coopSendState();
   else{const P=player;coopSend({k:'me',x:Math.round(P.x),y:Math.round(P.y),fc:P.face,mv:P.moving?1:0,ds:P.dash>0?1:0,dz:P.dizzy>0?1:0,z:zoneIdx*100+loop,r:1,md:mode,gs:Math.round(coop.sS),gt:+coop.sT.toFixed(2)})}}
 }
+const COOP_COLORS=['#8fe3ff','#ffb3e6','#b7ff8f','#ffd38f'];
+const coopColor=M=>COOP_COLORS[[...coop.mates.keys()].indexOf(M.id)%COOP_COLORS.length]||'#8fe3ff';
 function drawMate(){
- if(!coopMateOn())return;const M=coop.mate,skin={color:skinItem(M.skin.c)||SKINS.color[0],hat:M.skin.h||'h_none'};
- const carrying=!!(order&&order.carrying&&order.holder&&order.holder!==coop.role);
- drawDili(M.x,M.y,1,M.fs,{skin,moving:!!M.mv,carrying,dizzy:!!M.dz,step:M.step});
- ctx.font=font(10,900);const lb='🤝 '+M.name,w=mt(lb)+12;ctx.fillStyle='rgba(8,12,28,.72)';rr(ctx,M.x-w/2,M.y-48,w,16,8);ctx.fill();text(lb,M.x,M.y-39.5,10,'#8fe3ff','center',900);
+ if(!coopRun())return;
+ for(const M of coopMates()){if(!coopMateOn(M))continue;const skin={color:skinItem(M.skin.c)||SKINS.color[0],hat:M.skin.h||'h_none'};
+  drawDili(M.x,M.y,1,M.fs,{skin,moving:!!M.mv,carrying:!!(order&&order.carrying&&order.holder===M.id),dizzy:!!M.dz,step:M.step});
+  ctx.font=font(10,900);const lb='🤝 '+M.name,w=mt(lb)+12;ctx.fillStyle='rgba(8,12,28,.72)';rr(ctx,M.x-w/2,M.y-48,w,16,8);ctx.fill();text(lb,M.x,M.y-39.5,10,coopColor(M),'center',900)}
 }
 function drawCoopPill(){
- if(!coopRun()||mode!=='play')return;const M=coop.mate;let t=null;
- if(!M)t='👋 Playing solo now';else if(M.away||M.md==='paused'||M.md==='upgrade')t='⏸ '+M.name+(M.md==='upgrade'?' is picking an upgrade':' is away');else if(performance.now()-M.heard>2500)t='📡 Waiting for '+M.name+'…';
+ if(!coopRun()||mode!=='play')return;const ms=coopMates();let t=null;
+ if(!ms.length)t='👋 Playing solo now';
+ else{const H=coop.role==='guest'&&coop.mates.get(coop.hostId),aw=ms.find(M=>M.inRun&&coopAwayM(M));
+  if(H&&performance.now()-H.heard>2500)t='📡 Waiting for '+H.name+'…';else if(aw)t='⏸ '+aw.name+(aw.md==='upgrade'?' is picking an upgrade':' is away')}
  if(!t)return;ctx.font=font(13,900);const w=mt(t)+28,x=W/2-w/2,y=H-44;ctx.fillStyle='rgba(8,12,28,.82)';rr(ctx,x,y,w,28,14);ctx.fill();text(t,W/2,y+14,13,'#ffd34d','center',900);
 }
 function drawCoop(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#1f8a9a');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
  for(const s of menuStars){ctx.globalAlpha=.25+.4*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;
  outlined('🤝 CO-OP DELIVERY',W/2,70,46,'#fff');
- text('Two Dilis · one city · one shared clock. Touch your friend to pass the 📦',W/2,114,16,'#dfe5f0','center',800);
+ text('2 to 4 Dilis · one city · one shared clock. Touch a teammate to pass the 📦',W/2,114,16,'#dfe5f0','center',800);
  text('A passed package scores x1.5 as a TEAM DELIVERY 🤝',W/2,138,14,'#8fe3ff','center',800);
  button('← BACK',16,16,120,40,coopBack,false);
- const M=coop&&coop.mate,bob=Math.sin(runT*3)*5;
- // the two couriers
- drawDili(W/2-150,300+bob,3.2,1,{carrying:true});text(playerName?coopName(playerName)+' (you)':'YOU',W/2-150,372,14,'#fff','center',900);
- if(M){drawDili(W/2+150,300-bob,3.2,-1,{skin:{color:skinItem(M.skin.c)||SKINS.color[0],hat:M.skin.h||'h_none'}});text(M.name,W/2+150,372,14,'#8fe3ff','center',900);
-  text('🤝',W/2,300,40,'#fff','center')}
- else{ctx.save();ctx.globalAlpha=.25+.15*Math.sin(runT*4);drawDili(W/2+150,300,3.2,-1,{skin:GHOST_SKIN});ctx.restore();text('?',W/2+150,300,40,'#fff','center',900)}
+ // the couriers: you first, then the host, then the others; empty seats are ghosts
+ const ms=coop?coopMates().sort((a,b)=>(b.isHost?1:0)-(a.isHost?1:0)):[],seats=[{me:true},...ms];
+ for(let i=0;i<COOP_MAX;i++){const x=W/2+(i-1.5)*200,bob=Math.sin(runT*3+i)*5,s=seats[i];
+  if(!s){ctx.save();ctx.globalAlpha=.22+.12*Math.sin(runT*4+i);drawDili(x,290,2.6,i<2?1:-1,{skin:GHOST_SKIN});ctx.restore();text('?',x,290,34,'#fff','center',900);continue}
+  if(s.me){drawDili(x,290+bob,2.6,1,{carrying:true});text(playerName?coopName(playerName)+' (you)':'YOU',x,350,13,'#fff','center',900)}
+  else{drawDili(x,290+bob,2.6,-1,{skin:{color:skinItem(s.skin.c)||SKINS.color[0],hat:s.skin.h||'h_none'}});text((s.isHost?'👑 ':'')+s.name,x,350,13,coopColor(s),'center',900)}}
  if(!coop){
   button('CREATE ROOM',W/2-250,420,240,58,()=>coopOpen());
   button('🔑  JOIN WITH CODE',W/2+10,420,240,58,coopJoinPrompt,false,true);
-  text('Create a room and send the link to a friend. They tap it and you are in the same city.',W/2,510,13,'#aab8d5','center',700);
+  text('Create a room and send the link to up to 3 friends. They tap it and you are all in the same city.',W/2,510,13,'#aab8d5','center',700);
   text('Works across phones and computers · needs an internet connection',W/2,532,12,'#7d8bab','center',700);
   return}
- const st=coop.status,host=coop.role==='host';
- text(host?'ROOM CODE':'ROOM',W/2,400,12,'#8f9cbc','center',900);outlined(coop.code,W/2,438,40,'#ffd34d');
- if(st==='connecting'||st==='reconnecting')text('📡 Connecting…',W/2,480,15,'#aab8d5','center',800);
- else if(st==='error')text('⚠️ Could not reach the co-op server. Check your connection and try again.',W/2,480,14,'#ff8a95','center',800);
- else if(st==='full')text('This room already has two players. Ask for a new link!',W/2,480,14,'#ff8a95','center',800);
+ const st=coop.status,host=coop.role==='host',n=coopN();
+ text((host?'ROOM CODE':'ROOM')+'  ·  '+n+'/'+COOP_MAX+' PLAYERS',W/2,392,12,'#8f9cbc','center',900);outlined(coop.code,W/2,430,40,'#ffd34d');
+ if(st==='connecting'||st==='reconnecting')text('📡 Connecting…',W/2,474,15,'#aab8d5','center',800);
+ else if(st==='error')text('⚠️ Could not reach the co-op server. Check your connection and try again.',W/2,474,14,'#ff8a95','center',800);
+ else if(st==='full'){text(`This room is full (${COOP_MAX} players). Ask for a new link!`,W/2,474,14,'#ff8a95','center',800);button('🔑  JOIN ANOTHER ROOM',W/2-120,500,240,38,coopJoinPrompt,false,true)}
  else if(host){
-  if(M){text(`${M.name} joined! Ready when you are.`,W/2,476,15,'#45e6a5','center',900);button('START CO-OP SHIFT',W/2-160,496,320,58,coopStartRun)}
-  else{text(coop.promoted?'No host was in this room, so you host it now. Send your friend the link!':'Waiting for a friend to join'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,coop.promoted?'#ffd34d':'#aab8d5','center',800);
-   button('🔑  JOIN ANOTHER ROOM',W/2-120,562,240,38,coopJoinPrompt,false,true);
-   button(coop.copied>0?'✓ LINK COPIED':touchUI&&navigator.share?'📤  SEND INVITE LINK':'📋  COPY INVITE LINK',W/2-160,496,320,52,coopInvite,true,true)}}
+  const inv=coop.copied>0?'✓ LINK COPIED':touchUI&&navigator.share?'📤  SEND INVITE LINK':'📋  COPY INVITE LINK';
+  if(ms.length){text(n<COOP_MAX?'Ready when you are · more friends can still join':'Full team! Ready when you are.',W/2,470,15,'#45e6a5','center',900);
+   button('START CO-OP SHIFT',W/2-(n<COOP_MAX?330:160),490,320,58,coopStartRun);if(n<COOP_MAX)button(inv,W/2+10,490,320,58,coopInvite,false,true)}
+  else{text(coop.promoted?'No host was in this room, so you host it now. Send your friends the link!':'Waiting for friends to join'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,470,15,coop.promoted?'#ffd34d':'#aab8d5','center',800);
+   button(inv,W/2-160,490,320,52,coopInvite,true,true);
+   button('🔑  JOIN ANOTHER ROOM',W/2-120,556,240,38,coopJoinPrompt,false,true)}}
  else{
-  if(M)text(coop.msg||`Joined ${M.name}'s room. Waiting for the host to start…`,W/2,476,15,coop.msg?'#ffd34d':'#45e6a5','center',800);
-  else{text(coop.msg||'Looking for the host'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,476,15,coop.msg?'#ff8a95':'#aab8d5','center',800);
-   button('🔑  JOIN ANOTHER ROOM',W/2-120,500,240,38,coopJoinPrompt,false,true)}}
+  const Hm=coop.hostId&&coop.mates.get(coop.hostId);
+  if(Hm)text(coop.msg||`In ${Hm.name}'s room. Waiting for the host to start…`,W/2,470,15,coop.msg?'#ffd34d':'#45e6a5','center',800);
+  else{text(coop.msg||'Looking for the host'+'.'.repeat(1+Math.floor(runT*2)%3),W/2,470,15,coop.msg?'#ff8a95':'#aab8d5','center',800);
+   button('🔑  JOIN ANOTHER ROOM',W/2-120,494,240,38,coopJoinPrompt,false,true)}}
  text('Each of you moves your own Dili · traffic, orders, score and the clock are shared',W/2,H-60,12,'#7d8bab','center',700);
- text(touchUI?'':'Esc: back'+(host&&M?'  ·  Enter: start':''),W/2,H-36,11,'#56627f','center',800);
+ text(touchUI?'':'Esc: back'+(host&&ms.length?'  ·  Enter: start':''),W/2,H-36,11,'#56627f','center',800);
 }
-
 // ---------- installable app (PWA): offline play via sw.js, install button where the browser supports it ----------
 let installEvt=null,installed=false;
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))
