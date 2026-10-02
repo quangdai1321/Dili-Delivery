@@ -2979,9 +2979,11 @@ function coopOpen(join){
  coop={role:join?'guest':'host',code,id:Math.random().toString(36).slice(2,10),mate:null,status:'connecting',msg:null,helloT:0,hbT:0,sendT:0,
   ov:0,ordKey:'',csKey:'',stN:0,gs:0,gt:0,sS:0,sT:0,lastS:0,lastT:60,actT:0,passArm:false,zoneOffT:0,bossOffT:0,copied:0};
  coop.net=coopNet(code,coopRecv,s=>{if(!coop)return;coop.status=s==='open'?'waiting':s;if(s==='open'){coop.helloT=0;coop.hbT=0}});
+ // heartbeat on a timer, not the frame loop: it keeps going while the tab is in the background (switching apps to send the link)
+ coop.hbTimer=setInterval(()=>{if(coop&&coop.status==='waiting')coopSend({k:'hb',away:document.hidden||mode==='paused'?1:0,n:playerName,skin:coopSkin()})},2000);
  mode='coop';joy=null;ensureAudio();
 }
-function coopClose(){if(!coop)return;coopSend({k:'bye'});const n=coop.net;coop=null;setTimeout(()=>n&&n.close(),150);if(runKind==='coop')runKind='normal'}
+function coopClose(){if(!coop)return;clearInterval(coop.hbTimer);coopSend({k:'bye'});const n=coop.net;coop=null;setTimeout(()=>n&&n.close(),150);if(runKind==='coop')runKind='normal'}
 function coopBack(){coopClose();mode='menu'}
 function coopJoinPrompt(){
  let c=null;try{c=prompt('Enter the 4-letter room code from your friend:')}catch(e){}
@@ -3002,7 +3004,7 @@ function coopOnStart(){
 }
 function coopRecv(m){
  if(!coop||!m||m.f===coop.id)return;const host=coop.role==='host',M=coop.mate,fromMate=M&&m.f===M.id,now=performance.now();
- if(fromMate){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin}
+ if(fromMate){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin;if(m.k==='hb')M.away=!!m.away;else if(m.k==='st'||m.k==='me')M.away=false}
  if(host){
   if(m.k==='hi'){
    if(M&&M.id!==m.f&&now-M.heard<6000){coopSend({k:'full',to:m.f});return}
@@ -3176,9 +3178,9 @@ function coopTick(dt){
  if(coop.copied>0)coop.copied-=dt;
  if(coop.status==='waiting'||coop.status==='reconnecting'){
   if(!host&&!M&&now>=coop.helloT){coop.helloT=now+1000;coopSend({k:'hi',name:playerName,skin:coopSkin()})}
-  if(now>=coop.hbT){coop.hbT=now+2000;if(!coopRun()||mode==='over')coopSend({k:host?'hb':'me',x:0,y:0,r:0,gs:coop.sS,gt:coop.sT,n:playerName,skin:coopSkin()})}}
- if(M){if(now-M.heard>12000){coopMateLost(false);return}
-  M.on=coopRun()&&M.inRun&&now-M.heard<4000&&M.z===zoneIdx*100+loop;
+  if(now>=coop.hbT&&!host&&coopRun()&&mode==='over'){coop.hbT=now+2000;coopSend({k:'me',x:0,y:0,r:0,gs:coop.sS,gt:coop.sT})}}
+ if(M){if(now-M.heard>20000){coopMateLost(false);return}
+  M.on=coopRun()&&M.inRun&&now-M.heard<6000&&M.z===zoneIdx*100+loop;
   if(M.tx!=null){const d=Math.hypot(M.tx-M.x,M.ty-M.y);if(d>160||!M.seen){M.x=M.tx;M.y=M.ty;M.seen=true}else{const k=Math.min(1,dt*10);M.x+=(M.tx-M.x)*k;M.y+=(M.ty-M.y)*k}
    M.step+=d*.05;M.fs+=((M.fc||1)-M.fs)*Math.min(1,dt*14)}}
  if(!coopRun()||!player)return;
@@ -3195,7 +3197,7 @@ function drawMate(){
 }
 function drawCoopPill(){
  if(!coopRun()||mode!=='play')return;const M=coop.mate;let t=null;
- if(!M)t='👋 Playing solo now';else if(coop.role==='guest'&&M.md==='paused')t='⏸ '+M.name+' paused the shift';else if(performance.now()-M.heard>2500)t='📡 Waiting for '+M.name+'…';
+ if(!M)t='👋 Playing solo now';else if(M.away||coop.role==='guest'&&M.md==='paused')t='⏸ '+M.name+(coop.role==='guest'?' paused the shift':' is away');else if(performance.now()-M.heard>2500)t='📡 Waiting for '+M.name+'…';
  if(!t)return;ctx.font=font(13,900);const w=mt(t)+28,x=W/2-w/2,y=H-44;ctx.fillStyle='rgba(8,12,28,.82)';rr(ctx,x,y,w,28,14);ctx.fill();text(t,W/2,y+14,13,'#ffd34d','center',900);
 }
 function drawCoop(){
