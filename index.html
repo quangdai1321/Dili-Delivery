@@ -3011,7 +3011,8 @@ function coopRecv(m){
  if(!coop||!m||m.f===coop.id)return;const host=coop.role==='host',M=coop.mate,fromMate=M&&m.f===M.id,now=performance.now();
  if(fromMate){M.heard=now;if(m.n)M.name=coopName(m.n);if(m.skin)M.skin=m.skin;if(m.k==='hb')M.away=!!m.away;else if(m.k==='st'||m.k==='me')M.away=false}
  if(host){
-  if(m.k==='hb'&&m.h&&!fromMate){if(!M&&!coopRun()&&m.f<coop.id){coop.role='guest';coop.helloT=0;coop.promoteAt=Infinity;coop.promoted=false}return}
+  // another host in this room (both reloaded / both took over at once): the higher id steps down and becomes the guest
+  if(m.k==='hb'&&m.h){if(!coopRun()&&m.f<coop.id){coop.role='guest';if(M&&M.id!==m.f)coop.mate=null;coop.helloT=0;coop.promoteAt=Infinity;coop.promoted=false}return}
   if(m.k==='hi'){
    if(M&&M.id!==m.f&&now-M.heard<6000){coopSend({k:'full',to:m.f});return}
    if(!M||M.id!==m.f){coop.mate={id:m.f,name:coopName(m.name),skin:m.skin||{},heard:now,on:false,x:0,y:0,tx:null,fs:1,step:0};
