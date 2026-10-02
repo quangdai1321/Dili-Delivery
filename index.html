@@ -562,15 +562,20 @@ function mKick(t){const o=actx.createOscillator(),g=actx.createGain();o.frequenc
  g.gain.setValueAtTime(.55,t);g.gain.exponentialRampToValueAtTime(.0001,t+.16);o.connect(g).connect(music.gain);o.start(t);o.stop(t+.18)}
 function mNoise(t,d,v,freq,type){const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();s.buffer=getNoise();f.type=type;f.frequency.value=freq;
  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(f).connect(g).connect(music.gain);s.start(t,Math.random()*.3);s.stop(t+d+.02)}
-// CHILL: same chords, no drums, soft pads, a lazy sine arpeggio that skips notes, brushed hats
+// soft e-piano: a sine with a quiet octave on top, slow attack, long release
+function mKeys(t,m,d,v){mNote(t,m,d,'sine',v);mNote(t+.004,m+12,d*.6,'sine',v*.22)}
+// CHILL: calm lo-fi. Same chords, warm e-piano, a slow sine arpeggio that skips notes, a soft heartbeat kick, no hats or cymbals
 function playChill(tr,step,t,spb){
  const s=step%16,ch=tr.prog[Math.floor(step/16)%tr.prog.length],root=ch[0];
- if(s===0){ch.forEach(m=>mNote(t,m+12,spb*16,'sine',.03));mNote(t,root-12,spb*7,'sine',.11)}
- if(s===8)mNote(t,ch[2]-12,spb*6,'sine',.08);
- if(s%2===0&&Math.random()>.28){const i=[0,2,1,3,2,1,3,0][s/2];mNote(t+(s%4===2?spb*.12:0),ch[i]+24,spb*3,'sine',.032)}
- if(s%4===2)mNoise(t,.05,.022,7500,'highpass');
- if(s===4||s===12)mNoise(t,.07,.035,2400,'bandpass');
+ if(s===0){ch.forEach(m=>mNote(t,m+12,spb*16,'sine',.026));mNote(t,root-12,spb*7,'sine',.1)}
+ if(s===8)mNote(t,ch[2]-12,spb*6,'sine',.075);
+ // lazy, slightly late e-piano chord stabs
+ if(s===0||s===6||s===10)ch.slice(1).forEach((m,i)=>mKeys(t+spb*.06+i*.012,m+12,spb*(s===6?3:5),.022));
+ if(s%2===0&&Math.random()>.35){const i=[0,2,1,3,2,1,3,0][s/2];mNote(t+(s%4===2?spb*.12:0),ch[i]+24,spb*3,'sine',.026)}
+ if(s===0||s===10)mSoftKick(t);
 }
+function mSoftKick(t){const o=actx.createOscillator(),g=actx.createGain();o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(45,t+.15);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+.25);o.connect(g).connect(music.gain);o.start(t);o.stop(t+.27)}
 // each track gets two 16-step melodic phrases built from its own seed; notes are chord tones of the current bar,
 // so the tune follows the harmony. Phrase A plays twice, then B twice (AABB), which keeps a 4-bar loop from feeling flat.
 const melCache={};
@@ -601,18 +606,18 @@ function playStep(tr,step,t,spb){
  if(s%every===0){const i=(s/every)%4;mNote(t,ch[i]+(tr.oct||12)+(inten>=2&&s%4===2?12:0),spb*(tr.arp==='sine'?2:.9),tr.arp,{triangle:.045,sine:.05}[tr.arp]||.022)}
  if(tr.drums){
   if(s===0||s===8||(tr.drums===2&&(s===4||s===12))||(inten>=2&&s===10))mKick(t);
-  if(s===4||s===12)mNoise(t,.14,.2,1800,'bandpass');
+  if(s===4||s===12)mNoise(t,.12,.14,1500,'bandpass');
   const bar=Math.floor(step/16)%4;
-  if(bar===0&&s===0)mNoise(t,.9,.09,6500,'highpass'); // crash cymbal on each phrase
-  if(bar===3&&s>=12&&(tr.drums===2||inten>=1))mNoise(t,.08,.14+(s-12)*.03,2200,'bandpass'); // snare fill into the next phrase
-  if(s%4===2||((inten>=2||tr.drums===2)&&s%2===1))mNoise(t,.04,.06,7000,'highpass');
+  if(bar===0&&s===0)mNoise(t,.6,.03,4200,'bandpass'); // soft crash on each phrase
+  if(bar===3&&s>=12&&(tr.drums===2||inten>=1))mNoise(t,.08,.09+(s-12)*.02,1800,'bandpass'); // snare fill into the next phrase
+  if(s%4===2||((inten>=2||tr.drums===2)&&s%2===1))mNoise(t,.025,.022,4800,'bandpass'); // closed hat: short, soft, not a hiss
  }
 }
 // ambience: looping filtered-noise beds and a drone, shaped per zone, with little one-shot details
 const amb={bus:null,L:[],drone:null,eng:null,next:0};
 function ambInit(){
  const len=actx.sampleRate*3,b=actx.createBuffer(1,len,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1; // 3s: no audible loop
- amb.bus=actx.createGain();amb.bus.gain.value=0;amb.bus.connect(master);if(verbIn){const v=actx.createGain();v.gain.value=.35;amb.bus.connect(v).connect(verbIn)}
+ amb.bus=actx.createGain();amb.bus.gain.value=0;amb.tame=actx.createBiquadFilter();amb.tame.type='lowpass';amb.tame.frequency.value=3800;amb.tame.Q.value=.5;amb.bus.connect(amb.tame).connect(master);if(verbIn){const v=actx.createGain();v.gain.value=.35;amb.bus.connect(v).connect(verbIn)}
  for(let i=0;i<2;i++){const src=actx.createBufferSource();src.buffer=b;src.loop=true;const f=actx.createBiquadFilter(),g=actx.createGain();g.gain.value=0;
   src.connect(f).connect(g).connect(amb.bus);src.start(0,i*1.3);amb.L.push({f,g})}
  const o=actx.createOscillator(),og=actx.createGain();o.type='sine';o.frequency.value=55;og.gain.value=0;o.connect(og).connect(amb.bus);o.start();amb.drone={o,g:og};
@@ -622,8 +627,8 @@ function ambInit(){
 }
 // [lowType,lowFreq,lowGain, highType,highFreq,highGain, drone, details]
 // levels balanced with an analyser on the master bus: every bed sits around -40 dBFS under the music
-const AMB={9:['lowpass',480,.19,'bandpass',1400,.03,0,'beach'],10:['lowpass',260,.12,'highpass',4200,.03,0,'jungle'],8:['lowpass',320,.15,'bandpass',2200,.035,0,'farm'],0:['lowpass',300,.17,'bandpass',1800,.04,0,'birds'],1:['lowpass',220,.16,'highpass',5200,.022,0,'crickets'],6:['bandpass',520,.14,'highpass',3200,.028,0,'wind'],
- 2:['lowpass',200,.08,'highpass',1800,.045,0,'rain'],3:['lowpass',480,.17,'bandpass',1200,.028,0,'harbor'],7:['bandpass',700,.15,'bandpass',2400,.035,0,'market'],
+const AMB={9:['lowpass',480,.19,'bandpass',1400,.022,0,'beach'],10:['lowpass',260,.12,'bandpass',2600,.016,0,'jungle'],8:['lowpass',320,.15,'bandpass',1800,.022,0,'farm'],0:['lowpass',300,.17,'bandpass',1300,.026,0,'birds'],1:['lowpass',220,.16,'bandpass',2800,.01,0,'crickets'],6:['bandpass',520,.14,'bandpass',2200,.02,0,'wind'],
+ 2:['lowpass',200,.1,'bandpass',1200,.03,0,'rain'],3:['lowpass',480,.17,'bandpass',1200,.028,0,'harbor'],7:['bandpass',700,.15,'bandpass',2400,.035,0,'market'],
  4:['highpass',900,.07,'lowpass',160,.07,0,'chimes'],5:['lowpass',120,.09,'bandpass',3000,.012,.03,'space']};
 const PENTA=[0,2,4,7,9];
 function ambDetail(kind,t){
@@ -655,7 +660,8 @@ function ambTick(now){
  if(det==='harbor'||det==='beach')lowG*=.5+.5*(.5+.5*Math.sin(t*.8)); // waves swell
  if(det==='market')lowG*=.75+.25*Math.sin(t*3.1)*Math.sin(t*1.7);
  if(det==='chimes')lowG*=.6+.4*Math.sin(t*.5);
- if(evOn('rain')&&det!=='rain'){highG+=.05;}
+ if(evOn('rain')&&det!=='rain'){highG+=.03;}
+ if(settings.chill)highG*=.5; // CHILL: quieter, darker beds
  const [a,b]=amb.L;a.f.type=lt;b.f.type=ht;
  a.f.frequency.setTargetAtTime(lowF,now,.3);a.g.gain.setTargetAtTime(lowG,now,.5);b.f.frequency.setTargetAtTime(highF,now,.3);b.g.gain.setTargetAtTime(highG,now,.5);
  amb.drone.g.gain.setTargetAtTime(dg+(boss?.03:0),now,.8);amb.drone.o.frequency.setTargetAtTime(boss?41:55,now,1);
@@ -674,14 +680,14 @@ function musicTick(){
  const want=mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'||(mode==='settings'&&settingsFrom==='menu')?'menu':String(zone.id);
  while(music.next<now+.12){
   if(music.step%4===0&&music.track!==want){music.track=want;music.step=0}
-  const tr=TRACKS[music.track],spb=60/(tr.bpm*(settings.chill?.72:mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
+  const tr=TRACKS[music.track],spb=60/(tr.bpm*(settings.chill?.66:mode==='play'?1+Math.min(.12,combo*.01)+loop*.03+(boss?.08:0):1))/4;
   if(!muted&&settings.music)playStep(tr,music.step,music.next,spb);
   music.next+=spb;music.step++;
  }
  const vol=muted?0:mode==='play'||mode==='stage'?.32:mode==='menu'||mode==='splash'||mode==='board'||mode==='shop'||mode==='missions'?.3:mode==='over'?.12:.14;
  if(vol!==music.vol){music.vol=vol;music.gain.gain.setTargetAtTime(vol,now,.2)}
  // the mix "opens up" as the combo grows, goes muffled (underwater) when paused
- const cut=mode==='paused'||mode==='upgrade'||(mode==='settings'&&settingsFrom==='paused')?650:mode==='over'?1100:mode==='play'?(settings.chill?2400:boss?16000:2600+Math.min(combo,10)*1100):settings.chill?5000:16000;
+ const cut=mode==='paused'||mode==='upgrade'||(mode==='settings'&&settingsFrom==='paused')?650:mode==='over'?1100:mode==='play'?(settings.chill?1700:boss?9000:2600+Math.min(combo,10)*640):settings.chill?2600:9000;
  if(cut!==music.cut){music.cut=cut;music.filt.frequency.setTargetAtTime(cut,now,.25)}
  ambTick(now);
 }
@@ -2640,7 +2646,7 @@ function drawSettings(){
   ['🖼️','Graphics',{auto:'AUTO',high:'HIGH',saver:'BATTERY SAVER'}[settings.gfx],cyc('gfx',['auto','high','saver']),{auto:'Adjusts resolution to keep it smooth',high:'Always sharp (needs a strong device)',saver:'Lower resolution, fewer effects'}[settings.gfx]],
   ['🌀','Screen effects',settings.motion==='full'?'FULL':'REDUCED',cyc('motion',['full','reduced']),settings.motion==='full'?'Shake, zoom kicks and flashes':'No shake, zoom kicks or big flashes'],
   ['🎵','Music',!settings.music?'OFF':settings.chill?'CHILL 🌿':'ARCADE',()=>{if(!settings.music){settings.music=true;settings.chill=false}else if(!settings.chill)settings.chill=true;else settings.music=false;
-   saveSettings();ensureAudio();music.step=0;SFX.pickup()},!settings.music?'No music':settings.chill?'Slow lo-fi beats to relax':'Upbeat, speeds up with your combo'],
+   saveSettings();ensureAudio();music.step=0;SFX.pickup()},!settings.music?'No music':settings.chill?'Calm lo-fi: soft keys, no drums or hats':'Upbeat, speeds up with your combo'],
   ['🔊','Sound effects',settings.sfx?'ON':'OFF',tog('sfx')],
   ['👣','Footsteps',settings.steps?'ON':'OFF',tog('steps')],
   touchUI&&['🎮','Controls',ctrlMode==='dpad'?'D-PAD':'JOYSTICK',()=>{toggleCtrl();store.set('diliDelivery.ctrlChosen',true)}],
