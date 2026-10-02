@@ -1622,9 +1622,9 @@ addEventListener('keydown',e=>{
  }
 });
 addEventListener('keyup',e=>keys.delete(e.code));
-addEventListener('blur',()=>{keys.clear();joy=null;if(mode==='play')mode='paused'});
+addEventListener('blur',()=>{keys.clear();joy=null;if(mode==='play'&&!coopRun())mode='paused'});
 addEventListener('pagehide',()=>{if(mode==='play'||mode==='paused'||mode==='upgrade'||mode==='stage')sendRunStats('abandon')});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')mode='paused';
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play'&&!coopRun())mode='paused';
  if(!document.hidden&&['play','paused','upgrade','stage'].includes(mode))keepAwake(true)}); // the OS drops the wake lock when hidden
 function toCanvas(e){const r=canvas.getBoundingClientRect();
  if(rotated){const u=cssW/2+(e.clientY-(r.top+r.height/2)),v=cssH/2-(e.clientX-(r.left+r.width/2));return{x:u*SW/cssW-UX,y:v*H/cssH}} // undo the 90deg turn
@@ -1707,8 +1707,10 @@ function update(dt){
  if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings'||mode==='coop')return;
  if(mode==='stage'){stageT+=dt;
   if(pendingZone&&stageT>=.5){const pz=pendingZone;pendingZone=null;enterZone(pz.i,false,pz.loop);newOrder(rush?'boss':null,tileOf(player))}
-  if(stageT>=3.2){mode=document.hidden?'paused':'play';if(rush&&!boss)rush.breakT=RUSH_BREAK;if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
- if(mode!=='play')return;
+  if(stageT>=3.2){mode=document.hidden&&!coopRun()?'paused':'play';if(rush&&!boss)rush.breakT=RUSH_BREAK;if(pendingUpgrade){pendingUpgrade=false;openUpgrade()}}return}
+ // co-op is online: pausing (or picking an upgrade) only parks your own Dili, the shared shift keeps running
+ const coopHold=coopRun()&&(mode==='paused'||mode==='upgrade'||mode==='settings'&&settingsFrom==='paused');
+ if(mode!=='play'&&!coopHold)return;
  if(hitStop>0){hitStop-=dt;return}
  if(slowmo>0){slowmo-=dt;dt*=.45} // brief slow-motion on a close call
  runClock+=dt;if(runClock>=paceLog.length*5)paceLog.push(score);
@@ -1726,7 +1728,7 @@ function update(dt){
 
  const P=player;P.inv=Math.max(0,P.inv-dt);P.dash=Math.max(0,P.dash-dt);P.dashCd=Math.max(0,P.dashCd-dt);P.pop=Math.max(0,P.pop-dt);P.dizzy=Math.max(0,P.dizzy-dt);
  const pt0=tileOf(P),onSand=sandTiles.has(key(pt0.c,pt0.r));if(onSand&&order)order.sandTouched=true;
- const inp=steer(P,inputVec()),spd=playerSpeed()*(onSand?.55:1);
+ const inp=coopHold?{x:0,y:0}:steer(P,inputVec()),spd=playerSpeed()*(onSand?.55:1);
  if(P.dash>0){P.vx=P.dashDir.x*spd*2.3;P.vy=P.dashDir.y*spd*2.3;P.trail.push({x:P.x,y:P.y,t:.22});dashFx(P)}
  else{const k=Math.min(1,dt*(zone.ice?2.4:evOn('rain')?3.4:zone.lowgrav?4.5:12));P.vx+=(inp.x*spd-P.vx)*k;P.vy+=(inp.y*spd-P.vy)*k}
  // desert sandstorm: every so often visibility drops and the wind shoves Dili sideways
@@ -1750,7 +1752,7 @@ function update(dt){
  if(order.carrying&&!coopGuest()){order.clock+=dt;order.dist+=moved;
   if(order.type==='urgent'&&order.clock>order.deadline){failOrder('⏰ TOO LATE!');return}}
 
- if(coopGuest())coopCars(dt);else updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return;
+ if(coopGuest())coopCars(dt);else updateCars(dt);updatePeds(dt);updatePet(dt);updateEvent(dt,P);updateBoss(dt,P);updatePowerups(dt,P);if(mode!=='play')return; // (co-op hold: your own collisions and deliveries wait until you are back)
  // night market: bumping into people knocks Dili back (no time penalty, but it costs momentum)
  bumpCd=Math.max(0,bumpCd-dt);
  if(bumpCd<=0&&P.dash<=0)for(const p of peds){const dx=P.x-p.x,dy=P.y-p.y,d=Math.hypot(dx,dy);
@@ -2909,6 +2911,7 @@ function quitToMenu(){sendRunStats('quit');if(coopRun()){coopSend({k:'left'});ru
 function drawPaused(){
  ctx.fillStyle='rgba(6,10,24,.78)';ctx.fillRect(-UX,0,SW,H);
  outlined('PAUSED',W/2,H/2-150,56,'#fff');
+ if(coopRun())text('🤝 Co-op: the shift keeps running while you are paused!',W/2,H/2+(fsOK&&!standalone?172:120),15,'#ffd34d','center',900);
  text(`${zone.icon} ${zone.name}${loop?' '+ROMAN[Math.min(loop,9)]:''}   ·   SCORE ${fmt(score)}   ·   SHIFT ${shiftTime.toFixed(1)}s`,W/2,H/2-104,15,'#aab8d5','center',800);
  button('▶  RESUME',W/2-140,H/2-76,280,60,()=>{mode='play'});
  button('↻  RESTART',W/2-140,H/2,135,44,()=>startRun(),false);
@@ -3013,7 +3016,7 @@ function coopRecv(m){
    coopSend({k:'welcome',to:m.f,name:playerName,skin:coopSkin(),run:runKind==='coop'&&mode!=='over'?1:0});return}
   if(!fromMate)return;
   if(m.k==='bye'){coopMateLost(true);return}
-  if(m.k==='me'){M.tx=m.x;M.ty=m.y;M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z;M.inRun=m.r;
+  if(m.k==='me'){M.tx=m.x;M.ty=m.y;M.fc=m.fc;M.mv=m.mv;M.ds=m.ds;M.dz=m.dz;M.z=m.z;M.inRun=m.r;M.md=m.md;
    if(coopRun()&&m.r){if(m.gs>coop.gs){score+=m.gs-coop.gs;coop.gs=m.gs}if(m.gt!==coop.gt){shiftTime=clamp(shiftTime+m.gt-coop.gt,0,99);coop.gt=m.gt}}return}
   if(!coopRun()||mode==='over')return;
   if(m.k==='act'&&m.ov===coop.ov&&order){
@@ -3187,7 +3190,7 @@ function coopTick(dt){
  const live=mode==='play'||mode==='paused'||mode==='stage'||mode==='upgrade'||mode==='settings';
  if(live&&now>=coop.sendT){coop.sendT=now+(host?140:100); // ~7 + 10 messages a second per pair: the free Realtime quota is shared by every room
   if(host)coopSendState();
-  else{const P=player;coopSend({k:'me',x:Math.round(P.x),y:Math.round(P.y),fc:P.face,mv:P.moving?1:0,ds:P.dash>0?1:0,dz:P.dizzy>0?1:0,z:zoneIdx*100+loop,r:1,gs:Math.round(coop.sS),gt:+coop.sT.toFixed(2)})}}
+  else{const P=player;coopSend({k:'me',x:Math.round(P.x),y:Math.round(P.y),fc:P.face,mv:P.moving?1:0,ds:P.dash>0?1:0,dz:P.dizzy>0?1:0,z:zoneIdx*100+loop,r:1,md:mode,gs:Math.round(coop.sS),gt:+coop.sT.toFixed(2)})}}
 }
 function drawMate(){
  if(!coopMateOn())return;const M=coop.mate,skin={color:skinItem(M.skin.c)||SKINS.color[0],hat:M.skin.h||'h_none'};
@@ -3197,7 +3200,7 @@ function drawMate(){
 }
 function drawCoopPill(){
  if(!coopRun()||mode!=='play')return;const M=coop.mate;let t=null;
- if(!M)t='👋 Playing solo now';else if(M.away||coop.role==='guest'&&M.md==='paused')t='⏸ '+M.name+(coop.role==='guest'?' paused the shift':' is away');else if(performance.now()-M.heard>2500)t='📡 Waiting for '+M.name+'…';
+ if(!M)t='👋 Playing solo now';else if(M.away||M.md==='paused'||M.md==='upgrade')t='⏸ '+M.name+(M.md==='upgrade'?' is picking an upgrade':' is away');else if(performance.now()-M.heard>2500)t='📡 Waiting for '+M.name+'…';
  if(!t)return;ctx.font=font(13,900);const w=mt(t)+28,x=W/2-w/2,y=H-44;ctx.fillStyle='rgba(8,12,28,.82)';rr(ctx,x,y,w,28,14);ctx.fill();text(t,W/2,y+14,13,'#ffd34d','center',900);
 }
 function drawCoop(){
