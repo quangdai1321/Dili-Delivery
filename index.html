@@ -503,6 +503,7 @@ const SFX={
  dash(){tone(240,.16,'triangle',.09,3);noise(.18,.08,2500,0,'highpass')},
  shield(){tone(900,.22,'sine',.12,.5)},
  tick(){tone(1250,.04,'square',.045)},
+ ui(){tone(1500,.035,'sine',.035,1.25);tone(2250,.025,'sine',.012,1,.012)}, // soft tap on a button
  up(){[392,523,659,784].forEach((f,i)=>tone(f,.16,'triangle',.11,1,i*.05))},
  riser(){tone(220,.5,'sawtooth',.05,4);noise(.5,.08,1200,0,'bandpass')},
  hype(){duck(.3,.5);[523,659,784,1047,1319].forEach((f,i)=>tone(f,.12,'square',.07,1,i*.045));tone(1568,.35,'triangle',.08,1,.24)},
@@ -1634,7 +1635,7 @@ canvas.addEventListener('pointerdown',e=>{
  e.preventDefault();ensureAudio();const p=toCanvas(e);if(e.pointerType==='touch')touchUI=true;
  if(mode==='splash'){mode='menu';return}
  if(e.pointerType==='touch'&&autoFS&&(mode==='menu'||mode==='over'))goFullscreen();
- const b=buttons.find(b=>hit(p,b));if(b){if(b.up)pressedBtn=b;else b.act();return}
+ const b=buttons.find(b=>hit(p,b));if(b){uiPress={x:b.x,y:b.y,w:b.w,h:b.h,t:.35};SFX.ui();buzz(6);if(b.up)pressedBtn=b;else b.act();return}
  if(mode==='board'||mode==='shop'||mode==='missions'||mode==='settings'||mode==='coop')return;
  if(mode==='menu')return; // only the buttons start a run; tapping empty space does nothing
  if(mode==='over')return; // same as the menu: only RUN AGAIN / SHARE / MENU react to taps
@@ -2514,8 +2515,12 @@ function drawTouch(){
  ctx.strokeStyle=ready?'#6fd3ff':'rgba(255,255,255,.25)';ctx.lineWidth=6;ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-cd));ctx.stroke();
  text('⚡',cx,cy-8*CS,34*CS,'#fff','center');text('DASH',cx,cy+26*CS,15*CS,'#fff','center',900);
 }
+const btnHov={}; // eased hover per button label: no more 1-frame jumps
+let uiPress=null; // ripple on the button that was just pressed
 function button(label,x,y,w,h,act,primary=true,up=false){
- const hov=hit(mouse,{x,y,w,h}),s=1+(primary?Math.sin(runT*4)*.02:0)+(hov?.03:0);
+ const hov=hit(mouse,{x,y,w,h}),hk=label+'|'+x+'|'+y;if(!(hk in btnHov)&&Object.keys(btnHov).length>300)for(const k in btnHov)delete btnHov[k];let hv=btnHov[hk]||0;hv+=((hov?1:0)-hv)*.25;btnHov[hk]=hv;
+ const pr=uiPress&&uiPress.x===x&&uiPress.y===y?Math.max(0,uiPress.t/.35):0;
+ const s=1+(primary?Math.sin(runT*4)*.02:0)+hv*.035-(pr>.6?(pr-.6)*.12:0);
  ctx.save();ctx.translate(x+w/2,y+h/2);ctx.scale(s,s);
  if(primary){const g=ctx.createLinearGradient(-w/2,0,w/2,0);g.addColorStop(0,BRAND.blue);g.addColorStop(1,BRAND.bright);ctx.fillStyle=g;ctx.shadowColor=BRAND.bright;ctx.shadowBlur=hov?30:18}
  else ctx.fillStyle='rgba(255,255,255,.1)';
@@ -3321,8 +3326,19 @@ function installApp(){const e=installEvt;if(!e)return;installEvt=null;e.prompt()
 resize();genMap({c:12,r:6});spawnCars();
 {const c=(new URLSearchParams(location.search).get('coop')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(c.length>=4)coopOpen(c)}
 let last=performance.now(),perfAcc=0,perfN=0,goodT=0,badN=0,lastScale=0,fpsVal=60,inMenuHQ=false,playRes=null;
+// smooth screen changes: the last frame of the old screen fades out over the new one
+const transCv=document.createElement('canvas'),transCtx=transCv.getContext('2d');let transT=0,lastMode=null;
+const TRANS=.25,noTrans=(a,b)=>a==='splash'||(a==='play'&&b==='stage')||(a==='stage'&&b==='play');
+// snapshot the old screen when the mode changes: at the top of the frame (input changed it, before any resize
+// wipes the canvas) and again right before drawing (the game changed it during update)
+function checkTrans(){if(mode===lastMode)return;if(lastMode&&!noTrans(lastMode,mode)&&canvas.width){transCv.width=canvas.width;transCv.height=canvas.height;transCtx.drawImage(canvas,0,0);transT=TRANS}lastMode=mode}
+function drawUiFx(dt){
+ if(uiPress){uiPress.t-=dt;if(uiPress.t<=0)uiPress=null;else{const u=1-uiPress.t/.35,g=u*10;ctx.save();ctx.setTransform(RSU,0,0,RSU,RSU*UX,0);
+  ctx.strokeStyle=`rgba(191,224,255,${(1-u)*.7})`;ctx.lineWidth=2.5;rr(ctx,uiPress.x-g,uiPress.y-g,uiPress.w+g*2,uiPress.h+g*2,(uiPress.h+g*2)/2);ctx.stroke();ctx.restore()}}
+ if(transT>0){transT-=dt;const a=Math.max(0,transT/TRANS);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=a*a;ctx.drawImage(transCv,0,0,canvas.width,canvas.height);ctx.restore()}
+}
 function frame(now){
- const dt=Math.min(.1,(now-last)/1000);last=now;
+ const dt=Math.min(.1,(now-last)/1000);last=now;checkTrans();
  // adaptive resolution: every 1.5s look at the average frame time; below ~50fps render fewer pixels,
  // after 6s of solid 60fps try a little more. Phones heat up and slow down over a session, so this keeps adjusting.
  fpsVal+=(1/Math.max(dt,1e-3)-fpsVal)*.05;
@@ -3342,7 +3358,7 @@ function frame(now){
  // sub-step long frames so game speed stays real-time on slow devices
  if(mode==='play'&&!document.hidden){frameHist[Math.min(100,Math.round(dt*1000))]++;frameN++;frameSum+=dt}
  const n=Math.ceil(dt/.033);for(let i=0;i<n;i++)update(dt/n);
- coopTick(dt);draw();if(momentPend&&(mode==='play'||mode==='stage')&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
+ checkTrans();coopTick(dt);draw();drawUiFx(dt);if(momentPend&&(mode==='play'||mode==='stage')&&(momentPend.t-=dt)<=0)captureMoment();requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script>

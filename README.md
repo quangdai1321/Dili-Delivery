@@ -171,6 +171,9 @@ Personal Best (score, fastest delivery, best combo, furthest zone, best-run pace
 ### Difficulty
 Traffic, trains and meteors speed up within each zone as you deliver (up to +45% by the 10th delivery of a zone, more on later loops). After your first run everything starts 8% faster (player feedback: "make levels a little more difficult"); the very first run keeps the gentler pace.
 
+### UI feel
+Screens no longer cut: switching between menu, wardrobe, settings, lobby, pause, upgrade and game over crossfades the last frame of the old screen over the new one (0.25s; the snapshot is taken before a resolution switch can wipe the canvas). Buttons ease in and out of their hover size instead of jumping, and a press sends a soft ring out of the button with a light tap sound (and a short buzz on phones).
+
 ## Settings
 **⚙️** on the menu (top-right) or **Settings** in Pause:
 - **Menus are always sharp**: the menu, ranking, skins, missions and settings render at full device resolution (up to 3x on phones), even after a laggy run lowered the in-game resolution. The next run picks up the resolution it had settled on. The menu hero image is drawn with high-quality smoothing. Stars stay out of the buttons and stats column, the stat boxes are solid, the orbiting packages pass behind Dili, and the hint lines sit on a dark panel.
