@@ -336,7 +336,7 @@ function updatePet(dt){
 }
 // mobile niceties (all best-effort)
 // ---------- player settings ----------
-const settings=Object.assign({gfx:'high',motion:'full',music:true,chill:false,steps:true,sfx:true,vibe:true,fps:false,stats:true},store.get('diliDelivery.settings',{}));
+const settings=Object.assign({gfx:'high',motion:'full',music:true,chill:false,steps:true,sfx:true,vibe:true,fps:false,stats:true,touchVis:'clear'},store.get('diliDelivery.settings',{}));
 const saveSettings=()=>store.set('diliDelivery.settings',settings);
 if(!store.get('diliDelivery.gfxHigh',false)){if(settings.gfx==='auto')settings.gfx='high';store.set('diliDelivery.gfxHigh',true)} // HIGH is the default now; AUTO / SAVER stay one tap away
 const LOWFX=()=>settings.gfx==='saver'||settings.gfx==='auto'&&uiLow; // auto: lighter effects once resolution alone could not keep up     // battery saver: fewer particles / ambient effects
@@ -2492,26 +2492,29 @@ function drawPauseBtn(){ // visible on every platform, not only touch
  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#fff';ctx.fillRect(px-7,HUD+27,5,18);ctx.fillRect(px+2,HUD+27,5,18);
 }
 function drawTouch(){
- if(!touchUI||mode!=='play')return;
+ if(!touchUI||mode!=='play'||settings.touchVis==='hidden')return; // hidden: the controls still work, they are just not drawn
+ const VIS=settings.touchVis==='faded'?.35:1;ctx.save();ctx.globalAlpha=VIS;drawTouchPad();ctx.restore()}
+function drawTouchPad(){
  if(ctrlMode==='dpad'){ // fixed D-pad bottom-left: the thumb never covers Dili
-  const c=dpadC(),R=DPAD.r,d=dpad&&dpad.dir,live=!!dpad;ctx.save();ctx.globalAlpha=live?1:.55; // see-through until touched so tiles stay visible
+  const c=dpadC(),R=DPAD.r,d=dpad&&dpad.dir,live=!!dpad;ctx.save();ctx.globalAlpha*=live?1:.85;
   if(live){ctx.fillStyle='rgba(8,12,28,.3)';ctx.beginPath();ctx.arc(c.x,c.y,R+8,0,7);ctx.fill()}
   for(const[dx,dy,a]of[[0,-1,-Math.PI/2],[0,1,Math.PI/2],[-1,0,Math.PI],[1,0,0]]){const on=d&&((dx&&d.x===dx)||(dy&&d.y===dy)),bx=c.x+dx*R*.62,by=c.y+dy*R*.62;
-   ctx.fillStyle=on?'rgba(111,211,255,.55)':'rgba(8,12,28,.28)';ctx.beginPath();ctx.arc(bx,by,DPAD.b,0,7);ctx.fill();
-   ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=2.5;ctx.stroke();
+   ctx.fillStyle=on?'rgba(111,211,255,.55)':'rgba(8,12,28,.5)';ctx.beginPath();ctx.arc(bx,by,DPAD.b,0,7);ctx.fill();
+   ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.7)';ctx.lineWidth=2.5;ctx.stroke();
    ctx.save();ctx.translate(bx,by);ctx.rotate(a);ctx.scale(CS,CS);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,-10);ctx.lineTo(-6,10);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();
  }
  if(ctrlMode==='stick'&&(!joy||joy.fixed)){const c=dpadC(),BR=DPAD.r*.8,on=!!joy; // visible thumbstick
-  ctx.save();ctx.globalAlpha=on?1:.55;if(on){ctx.fillStyle='rgba(8,12,28,.3)';ctx.beginPath();ctx.arc(c.x,c.y,BR+10,0,7);ctx.fill()}
-  ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.35)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(c.x,c.y,BR,0,7);ctx.stroke();
+  ctx.save();ctx.globalAlpha*=on?1:.85;if(on){ctx.fillStyle='rgba(8,12,28,.3)';ctx.beginPath();ctx.arc(c.x,c.y,BR+10,0,7);ctx.fill()}
+  if(!on){ctx.fillStyle='rgba(8,12,28,.35)';ctx.beginPath();ctx.arc(c.x,c.y,BR,0,7);ctx.fill()}
+  ctx.strokeStyle=on?'#6fd3ff':'rgba(255,255,255,.7)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(c.x,c.y,BR,0,7);ctx.stroke();
   let kx=c.x,ky=c.y;if(joy){const dx=joy.x-c.x,dy=joy.y-c.y,l=Math.hypot(dx,dy),m=Math.min(l,BR*.72)/(l||1);kx=c.x+dx*m;ky=c.y+dy*m}
-  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(kx,ky,30*CS,0,7);ctx.fill();
+  ctx.fillStyle=on?'rgba(111,211,255,.85)':'rgba(255,255,255,.75)';ctx.beginPath();ctx.arc(kx,ky,30*CS,0,7);ctx.fill();
   ctx.strokeStyle='rgba(10,14,30,.5)';ctx.lineWidth=2;ctx.stroke();ctx.restore()}
  else if(joy){ctx.globalAlpha=.25;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(joy.ox,joy.oy,JOY_R,0,7);ctx.fill();ctx.globalAlpha=.6;
   const dx=joy.x-joy.ox,dy=joy.y-joy.oy,l=Math.hypot(dx,dy),m=Math.min(l,JOY_R)/(l||1);ctx.beginPath();ctx.arc(joy.ox+dx*m,joy.oy+dy*m,24,0,7);ctx.fill();ctx.globalAlpha=1}
  const R=66*CS,cx=W+UX-R-26,cy=H-R-26,cd=player.dashCd/dashCooldown(),ready=cd<=0;
- ctx.fillStyle=ready?'rgba(111,211,255,.22)':'rgba(255,255,255,.1)';ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();
+ ctx.fillStyle=ready?'rgba(30,80,150,.55)':'rgba(8,12,28,.5)';ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();
  ctx.strokeStyle=ready?'#6fd3ff':'rgba(255,255,255,.25)';ctx.lineWidth=6;ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-cd));ctx.stroke();
  text('⚡',cx,cy-8*CS,34*CS,'#fff','center');text('DASH',cx,cy+26*CS,15*CS,'#fff','center',900);
 }
@@ -2683,6 +2686,7 @@ function drawSettings(){
   ['🔊','Sound effects',settings.sfx?'ON':'OFF',tog('sfx')],
   ['👣','Footsteps',settings.steps?'ON':'OFF',tog('steps')],
   touchUI&&['🎮','Controls',ctrlMode==='dpad'?'D-PAD':'JOYSTICK',()=>{toggleCtrl();store.set('diliDelivery.ctrlChosen',true)}],
+  touchUI&&['👆','Touch buttons',{clear:'VISIBLE',faded:'FADED',hidden:'HIDDEN'}[settings.touchVis]||'VISIBLE',cyc('touchVis',['clear','faded','hidden']),{clear:'Joystick / D-pad and DASH always shown',faded:'See-through, the map shows behind them',hidden:'Not drawn, they still work where they are'}[settings.touchVis]],
   touchUI&&['📳','Vibration',settings.vibe?'ON':'OFF',tog('vibe')],
   ['🗺️','Minimap',showMini?'ON':'OFF',()=>{showMini=!showMini;store.set('diliDelivery.mini',showMini)}],
   settingsFrom==='menu'&&['🎓','Tutorial','REPLAY',()=>{forceTut=true;SFX.pickup();mode='menu';startRun(false)},'Learn the controls again in 30 seconds'],
@@ -2947,7 +2951,9 @@ function draw(){
  if(split)ctx.drawImage(wcv,0,Math.round(HUD*RS),wcv.width,Math.round(ROWS*T*RS),-UX,HUD,SW,ROWS*T);
  drawFloatsUI();if(mode==='play'&&!(rush&&rush.breakT>0))drawBubbles();drawRushBreak();drawCoopPill();
  drawPointer();drawMinimap();
- drawVignette();if(mode==="play"||mode==="stage"||mode==="over"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill();drawGoalPill()} // hidden behind pause / settings / upgrade overlaysdrawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
+ // pills and pop-ups are hidden behind pause / settings / upgrade overlays
+ drawVignette();if(mode==="play"||mode==="stage"||mode==="over"){drawResultCard();drawBanner();drawHype();drawEventPill();drawBossPill();drawGoalPill()}
+ drawTutorial();drawTouch();drawPauseBtn();drawCoinPill();
  drawScreenFx();drawHUD();drawCoins();
  if(settings.fps){ctx.font=font(11,900);const t=`${Math.round(fpsVal)} FPS · ${(RS*SW/W).toFixed(2)}x`,w=mt(t)+14;ctx.fillStyle='rgba(8,12,28,.75)';const fy=showMini&&cam.z>=1.08?HUD+96:HUD+10;rr(ctx,W+UX-w-10,fy,w,18,9);ctx.fill();text(t,W+UX-10-w/2,fy+9,11,fpsVal<45?'#ff8a95':'#45e6a5','center',900)}
  if(flash>0){ctx.globalAlpha=Math.min(CALM()?.12:.45,flash);ctx.fillStyle=flashColor;ctx.fillRect(-UX,HUD,SW,ROWS*T);ctx.globalAlpha=1}
