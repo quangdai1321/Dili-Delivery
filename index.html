@@ -239,7 +239,8 @@ const SKINS={
   {id:'t_fire',name:'FIRE',ach:'combo15'},{id:'t_rainbow',name:'RAINBOW',ach:'challenge'}],
  // pets follow Dili around and each has a small perk
  pet:[{id:'p_none',name:'NO PET',cost:0},{id:'p_dog',name:'PUPPY',icon:'🐶',cost:300,perk:'Starts every run with +1 🛡️'},
-  {id:'p_cat',name:'KITTY',icon:'🐱',cost:450,perk:'+1 🪙 on every delivery'},{id:'p_parrot',name:'PARROT',icon:'🦜',cost:600,perk:'+15% pickup & drop range'}],
+  {id:'p_cat',name:'KITTY',icon:'🐱',cost:450,perk:'+1 🪙 on every delivery'},{id:'p_parrot',name:'PARROT',icon:'🦜',cost:600,perk:'+15% pickup & drop range'},
+  {id:'p_bunny',name:'BUNNY',icon:'🐰',ach:'missions10',perk:'DASH recharges 20% faster'}],
 };
 const skinItem=id=>{for(const k in SKINS){const s=SKINS[k].find(x=>x.id===id);if(s)return s}return null};
 const ACHS=[
@@ -259,6 +260,7 @@ const ACHS=[
  {id:'boss1',icon:'💀',name:'Boss Slayer',desc:'Defeat your first zone boss',coins:60},
  {id:'goals',icon:'🎯',name:'Goal Getter',desc:'Complete the goal of all 11 zones',coins:150},
  {id:'bosses',icon:'👹',name:'Boss Hunter',desc:'Defeat all 11 zone bosses',coins:200,item:'h_horns'},
+ {id:'missions10',icon:'📋',name:'Mission Pro',desc:'Complete 10 daily missions',coins:50,item:'p_bunny'},
 ];
 const meta=Object.assign({coins:0,crashes:0,bosses:{},owned:['c_blue','h_none','t_ghost'],equip:{color:'c_blue',hat:'h_none',trail:'t_ghost'},ach:{}},store.get('diliDelivery.meta',{}));
 const saveMeta=()=>store.set('diliDelivery.meta',meta);
@@ -281,6 +283,10 @@ const MISSIONS=[
  {id:'jump',icon:'🚧',text:'Jump 5 barriers with DASH',n:5,coins:40,metric:'jump'},
  {id:'power',icon:'🚀',text:'Grab 4 power-ups',n:4,coins:40,metric:'power'},
  {id:'dailyplay',icon:'📅',text:"Play today's Daily Challenge",n:1,coins:30,metric:'dailyplay'},
+ {id:'blitz',icon:'⏱️',text:'5 deliveries in your first 3 minutes, no crash',n:5,coins:70,metric:'blitz',max:true},
+ {id:'b_truck',icon:'🚚',text:'Defeat the Monster Truck (Downtown)',n:1,coins:60,metric:'bossz',zone:0},
+ {id:'b_herd',icon:'🐎',text:'Defeat the Stampede (Country Village)',n:1,coins:70,metric:'bossz',zone:8},
+ {id:'b_dark',icon:'🌑',text:'Defeat the Blackout (Night District)',n:1,coins:80,metric:'bossz',zone:1},
 ];
 const MISSION_BONUS=50;
 function missionState(){
@@ -291,8 +297,9 @@ function missionState(){
 function missionTrack(metric,v=1){
  const m=missionState();let changed=false;
  for(const id of m.ids){const d=MISSIONS.find(x=>x.id===id);if(!d||d.metric!==metric||m.done[id])continue;
-  const nv=d.max?Math.max(m.prog[id]||0,v):(m.prog[id]||0)+v;if(nv===m.prog[id])continue;m.prog[id]=nv;changed=true;
-  if(nv>=d.n){m.done[id]=true;meta.coins+=d.coins;runCoins+=d.coins;saveMeta();achPops.push({a:{icon:d.icon,name:d.text,coins:d.coins,head:'📋 MISSION COMPLETE'},t:3.2,max:3.2});try{SFX.up()}catch(e){}}}
+  if(d.zone!=null&&v!==d.zone)continue; // zone missions: only that zone's boss counts
+  const nv=d.max?Math.max(m.prog[id]||0,v):(m.prog[id]||0)+(d.zone!=null?1:v);if(nv===m.prog[id])continue;m.prog[id]=nv;changed=true;
+  if(nv>=d.n){m.done[id]=true;meta.missionsDone=(meta.missionsDone||0)+1;if(meta.missionsDone>=10)setTimeout(()=>unlockAch('missions10'),400);meta.coins+=d.coins;runCoins+=d.coins;saveMeta();achPops.push({a:{icon:d.icon,name:d.text,coins:d.coins,head:'📋 MISSION COMPLETE'},t:3.2,max:3.2});try{SFX.up()}catch(e){}}}
  if(changed&&!m.bonus&&m.ids.every(id=>m.done[id])){m.bonus=true;meta.coins+=MISSION_BONUS;runCoins+=MISSION_BONUS;saveMeta();
   achPops.push({a:{icon:'🎉',name:'All 3 daily missions done!',coins:MISSION_BONUS,head:'📋 DAILY BONUS'},t:3.4,max:3.4})}
  if(changed)store.set('diliDelivery.missions',m);
@@ -520,7 +527,8 @@ const SFX={
  passby(){noise(.35,.07,900,0,'bandpass');noise(.25,.04,2400,.05,'bandpass')},
  pet(id){if(id==='p_dog'){tone(520,.07,'square',.05,.6);noise(.05,.05,1200,0,'bandpass');tone(560,.08,'square',.05,.6,.13);noise(.05,.05,1200,.13,'bandpass')}
   else if(id==='p_cat'){tone(700,.32,'sawtooth',.03,1.35);tone(950,.25,'sine',.02,.8,.12)}
-  else if(id==='p_parrot'){for(let i=0;i<3;i++)tone(1700+i*250,.06,'square',.03,1.3,i*.07)}},
+  else if(id==='p_parrot'){for(let i=0;i<3;i++)tone(1700+i*250,.06,'square',.03,1.3,i*.07)}
+  else if(id==='p_bunny'){tone(1400,.05,'sine',.03,1.4);tone(1900,.05,'sine',.025,1.3,.09)}},
  honk(){tone(415,.12,'square',.06);tone(349,.18,'square',.06,1,.14)},
  close(){noise(.22,.12,3000,0,'bandpass');tone(1200,.08,'triangle',.06,1.5)},
  jump(){tone(520,.12,'square',.07,1.8);tone(880,.1,'triangle',.06,1.4,.06)},
@@ -768,7 +776,7 @@ const isRoad=(c,r)=>inb(c,r)&&grid[r][c]>0;
 const walkable=(c,r)=>isRoad(c,r)&&!barriers.has(key(c,r));
 const playerSpeed=()=>185*(1+.12*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1);
 const diff=()=>(best.runs>0?1.08:1)+.15*loop+.045*Math.min(zoneDeliveries,10); // a bit harder after your first run (player feedback)
-const dashCooldown=()=>2*Math.pow(.85,upg.dash);
+const dashCooldown=()=>2*Math.pow(.85,upg.dash)*(meta.equip.pet==='p_bunny'?.8:1);
 const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1)*(meta.equip.pet==='p_parrot'?1.15:1);
 
 // ---------- map generation ----------
@@ -1171,7 +1179,7 @@ function endBoss(){
 function bossDefeated(){
  const b=boss;if(!b)return;endBoss();if(coopHost())coopSend({k:'fx',e:'bdown'});
  const bonus=800*(1+loop);score+=bonus;shiftTime=Math.min(99,shiftTime+6);addCoins(30);
- meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();missionTrack('boss');unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
+ meta.bosses=meta.bosses||{};meta.bosses[zone.id]=1;saveMeta();missionTrack('boss');missionTrack('bossz',zone.id);unlockAch('boss1');if(Object.keys(BOSSES).every(id=>meta.bosses[id]))unlockAch('bosses');
  queueMoment(5,`💀 Defeated ${b.icon} ${b.name}`,.5);hype={text:'💀 BOSS DEFEATED!',sub:`${b.icon} ${b.name}  ·  +${fmt(bonus)}  ·  +30 🪙  ·  +6s`,t:2.6,max:2.6};SFX.victory();
  flash=.4;flashColor='#ffd34d';shake=Math.max(shake,.3);camPunch=.18;for(let i=0;i<4;i++)burst(player.x+rand(-60,60),player.y+rand(-50,30),40,CONFETTI,true);
 }
@@ -1244,7 +1252,7 @@ function doDeliver(di=0,by='host'){
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip'){unlockAch('vip');queueMoment(1,'👑 VIP delivery')}if(ot==='fragile')unlockAch('fragile');
  if(clean)goalTrack('clean');if(fast)goalTrack('fast');if(!order.sandTouched)goalTrack('nosand');if(!order.bumped)goalTrack('nobump');
- missionTrack('deliveries');if(ot==='vip')missionTrack('vip');if(ot==='urgent'||ot==='fragile')missionTrack('special');missionTrack('combo',combo);missionTrack('clean',cleanStreak);
+ missionTrack('deliveries');if(crashes===0&&runClock<=180)missionTrack('blitz',deliveries);if(ot==='vip')missionTrack('vip');if(ot==='urgent'||ot==='fragile')missionTrack('special');missionTrack('combo',combo);missionTrack('clean',cleanStreak);
  if(om.label)floats.push({x:dx,y:dy-54,text:`${om.icon} ${om.label} x${om.mult>1?om.mult:''}`.replace(/ x$/,' ✓'),color:om.color,t:1.2,max:1.2,size:17});
  if(happy>1)floats.push({x:dx,y:dy-4,text:'⭐ HAPPY HOUR x2',color:'#ffd34d',t:1,max:1,size:14});
  const stars=1+(fast?1:0)+(clean?1:0)+(t<=order.par*.7?1:0)+(combo>=5?1:0);
@@ -2737,11 +2745,12 @@ function drawShop(){
  tabs.forEach(([id,l],i)=>button(l,tx+i*140,40,132,40,()=>{shop.tab=id},shop.tab===id));
  if(shop.tab==='ach'){
   const done=ACHS.filter(a=>meta.ach[a.id]).length;text(`${done} / ${ACHS.length} unlocked`,tx+340,104,13,'#aab8d5','center',800);
-  ACHS.forEach((a,i)=>{const col=i%2,row=Math.floor(i/2),x=tx+col*344,y=122+row*62,got=!!meta.ach[a.id],it=a.item&&skinItem(a.item);
-   ctx.fillStyle=got?'rgba(69,230,165,.12)':'rgba(255,255,255,.05)';rr(ctx,x,y,334,54,14);ctx.fill();ctx.strokeStyle=got?'rgba(69,230,165,.5)':'rgba(255,255,255,.1)';ctx.lineWidth=1.5;ctx.stroke();
-   ctx.globalAlpha=got?1:.45;text(a.icon,x+28,y+27,22,'#fff','center');ctx.globalAlpha=1;
-   text(a.name,x+54,y+18,14,got?'#fff':'#aab8d5','left',900);text(a.desc,x+54,y+36,11,'#8f9cbc','left',700);
-   text(got?'✓':`+${a.coins} 🪙`+(it?' 🎁':''),x+322,y+27,got?18:11,got?'#45e6a5':'#ffd34d','right',900)});
+  const AR=Math.min(62,Math.floor((H-136)/Math.ceil(ACHS.length/2))),AS=(AR-8)/54; // rows shrink to fit as awards are added
+  ACHS.forEach((a,i)=>{const col=i%2,row=Math.floor(i/2),x=tx+col*344,y=122+row*AR,got=!!meta.ach[a.id],it=a.item&&skinItem(a.item);
+   ctx.fillStyle=got?'rgba(69,230,165,.12)':'rgba(255,255,255,.05)';rr(ctx,x,y,334,54*AS,14*AS);ctx.fill();ctx.strokeStyle=got?'rgba(69,230,165,.5)':'rgba(255,255,255,.1)';ctx.lineWidth=1.5;ctx.stroke();
+   ctx.globalAlpha=got?1:.45;text(a.icon,x+28,y+27*AS,22*AS,'#fff','center');ctx.globalAlpha=1;
+   text(a.name,x+54,y+18*AS,14,got?'#fff':'#aab8d5','left',900);text(a.desc,x+54,y+36*AS,11,'#8f9cbc','left',700);
+   text(got?'✓':`+${a.coins} 🪙`+(it?' 🎁':''),x+322,y+27*AS,got?18:11,got?'#45e6a5':'#ffd34d','right',900)});
  }else{
   const items=SKINS[shop.tab],cols=items.length>6?4:3,gap=14,cw=cols===4?160:214,ch=176;
   items.forEach((it,i)=>{const x=tx+(i%cols)*(cw+gap),y=110+Math.floor(i/cols)*(ch+gap),own=meta.owned.includes(it.id),on=meta.equip[shop.tab]===it.id,hov=hit(mouse,{x,y,w:cw,h:ch});
@@ -3231,7 +3240,7 @@ function coopFx(m){
   {const q=toScreen({x:dx,y:dy});for(let i=0;i<9;i++)coins.push({sx:q.x,sy:q.y,cx:q.x+rand(-120,120),cy:q.y-rand(80,200),t:-i*.045,dur:.65,i})}
   if(m.rc){resultCard=Object.assign({},m.rc,{t:2.8,max:2.8})}addCoins(m.cg);if(petId())setTimeout(()=>SFX.pet(petId()),180);
   SFX.deliver(m.cb);SFX.stars(m.st);sfxAt({x:dx,y:dy},()=>SFX.doorbell());say(dx,dy,m.ot==='vip'?cpick(MSG_VIP):cpick(MSG_OK));
-  missionTrack('deliveries');
+  missionTrack('deliveries');if(crashes===0&&runClock<=180)missionTrack('blitz',m.dl||deliveries);
   if(COMBO_HYPE.includes(m.cb)||(m.cb>30&&m.cb%10===0)){hype={text:`COMBO x${m.cb}!`,sub:m.cb>=10?'ON FIRE 🔥':m.cb>=5?'UNSTOPPABLE':'NICE CHAIN',t:1.5,max:1.5};
    flash=.3;flashColor=zone.accent;SFX.hype();comboGlow=.8;glowColor=m.cb>=10?'#ffb347':zone.accent}}
  else if(m.e==='pass')coopPassFx(m.x,m.y,m.p);
@@ -3242,7 +3251,7 @@ function coopFx(m){
   hype={text:`💥 BOSS HIT! ${m.max-m.hp}/${m.max}`,sub:m.hp===1?`LAST HIT! ${boss.icon} ${boss.name} is ENRAGED 😡`:`${boss.icon} ${boss.name} is getting angrier…`,t:1.8,max:1.8};
   flash=.35;flashColor='#ff3048';shake=Math.max(shake,.3);burst(m.x,m.y,30,['#ff3048','#ffd34d','#ffffff'],true);SFX.bossHit();addCoins(3)}
  else if(m.e==='bdown'){const b=boss;endBoss();addCoins(30);SFX.victory();flash=.4;flashColor='#ffd34d';
-  hype={text:'💀 BOSS DEFEATED!',sub:b?`${b.icon} ${b.name}  ·  +30 🪙`:'+30 🪙',t:2.6,max:2.6};missionTrack('boss');unlockAch('boss1')}
+  hype={text:'💀 BOSS DEFEATED!',sub:b?`${b.icon} ${b.name}  ·  +30 🪙`:'+30 🪙',t:2.6,max:2.6};missionTrack('boss');missionTrack('bossz',zone.id);unlockAch('boss1')}
 }
 // ---- both ----
 function coopTick(dt){

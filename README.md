@@ -146,12 +146,13 @@ Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend
 - **Colors**: Classic blue, Sunny, Mint, and 😠 Grumpy Rose (frowns; unlocked by crashing 25 times)
 - **Hats**: Delivery cap, Headphones, Party hat, 👑 Crown (reach Moon Base), 😇 Halo (10 clean deliveries in a row)
 - **Dash trails**: Sparkles, Coin rain, 🔥 Fire (combo x15), 🌈 Rainbow (beat a friend's challenge)
-- **🐾 Pets** trot behind Dili in every run, sit next to Dili on the menu, and cheer (bark, meow, squawk) on each delivery. Each has a small perk: 🐶 **Puppy** (300 🪙) starts every run with +1 🛡️ shield · 🐱 **Kitty** (450 🪙) +1 🪙 per delivery · 🦜 **Parrot** (600 🪙) +15% pickup and drop range
+- **🐾 Pets** trot behind Dili in every run, sit next to Dili on the menu, and cheer (bark, meow, squawk) on each delivery. Each has a small perk: 🐶 **Puppy** (300 🪙) starts every run with +1 🛡️ shield · 🐱 **Kitty** (450 🪙) +1 🪙 per delivery · 🦜 **Parrot** (600 🪙) +15% pickup and drop range · 🐰 **Bunny** (complete 10 daily missions) DASH recharges 20% faster
 
 13 achievements give coins and unlock the rare items. The equipped colour shows next to your name on the leaderboard.
 
 ### 📋 Daily missions
 Three missions a day, the same for every player (picked from 12 by the date): deliveries, VIP orders, a boss, close calls, combos, coin showers, reaching Desert Dunes, clean streaks, escaping the police, special orders, dashes or the Daily Challenge. Progress adds up across runs; each mission pays 30–60 🪙 and finishing all three adds a +50 🪙 bonus. Open them from **📋 Missions** on the menu.
+New missions (idea from @Masum4990): ⏱️ **Blitz** (5 deliveries in your first 3 minutes of a run without a crash) and **zone bosses** (defeat the Monster Truck in Downtown, the Stampede in Country Village or the Blackout in Night District; only that zone's boss counts). Completing 10 daily missions in total unlocks the 📋 **Mission Pro** award and a missions-only pet: 🐰 **Bunny** (DASH recharges 20% faster).
 
 ### 👻 Race your ghost
 After a normal run, **👻 Race your ghost** (or press **G**) replays the **same city, orders and events** while a see-through Dili retraces your best run on that map. Beat it and your new run becomes the ghost. In the Daily Challenge, your best attempt of the day is the ghost automatically. Each order starts from the previous door, so a seed always produces the same chain of orders whatever route you take.
