@@ -34,7 +34,7 @@ A new player's first shift walks through 4 hands-on steps in a card at the botto
 From the Night District on, some cars are **road ragers** (red roof stripe). They honk, flash their lights and speed up when Dili is in their lane ahead of them.
 
 ### 🤝 Co-op (online, 2-4 players)
-**🤝 CO-OP** on the menu (idea from @NaikwadiRe49999). Create a room, send the invite link (or the 4-letter code) to up to 3 friends, and deliver together in the same city (a 5th player is told the room is full):
+**🤝 CO-OP** on the menu (idea from @NaikwadiRe49999). Team scores have their own **🤝 CO-OP** tab in the ranking: the host submits the shift when it ends (best shift per team, names like ANN + BEN + CAT, your teams highlighted); this needs `supabase/leaderboard_v5_coop.sql`, and until it is run the tab just says it is not set up yet. Create a room, send the invite link (or the 4-letter code) to up to 3 friends, and deliver together in the same city (a 5th player is told the room is full):
 - 2 to 4 Dilis, one shared shift clock, score, combo and order. Each player moves their own Dili locally, so controls feel exactly like solo.
 - **Pass the package**: whoever carries it walks apart from a teammate and then touches them to hand it over (+50); with several teammates close by, the nearest one gets it. A package that was passed scores **x1.5 as a TEAM DELIVERY**. Either of you can pick up and deliver.
 - Traffic, orders, zones, bosses, random events and upgrades follow the room's host; trains, meteors, animals and boss strikes hit each player on their own screen. A crash by either player costs the team time, and drops the package if that player held it.
@@ -149,6 +149,9 @@ Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend
 - **🐾 Pets** trot behind Dili in every run, sit next to Dili on the menu, and cheer (bark, meow, squawk) on each delivery. Each has a small perk: 🐶 **Puppy** (300 🪙) starts every run with +1 🛡️ shield · 🐱 **Kitty** (450 🪙) +1 🪙 per delivery · 🦜 **Parrot** (600 🪙) +15% pickup and drop range · 🐰 **Bunny** (complete 10 daily missions) DASH recharges 20% faster
 
 13 achievements give coins and unlock the rare items. The equipped colour shows next to your name on the leaderboard.
+
+### 🎯 Weekly challenge
+Under the daily missions there is one bigger goal for the whole week, the same for every player (e.g. deliver 150 packages, defeat 8 zone bosses, 50 close calls, combo x20 in one run). Progress adds up across all your runs from Monday 00:00 UTC. The reward is a rare skin that can only be won this way, rotating week by week: 🌌 **Galaxy** (colour), 🧙 **Wizard Hat**, ✨ **Golden** (colour). If you already own that week's skin you get 300 🪙 instead. In the wardrobe the current week's item says 🎯 THIS WEEK.
 
 ### 📋 Daily missions
 Three missions a day, the same for every player (picked from 12 by the date): deliveries, VIP orders, a boss, close calls, combos, coin showers, reaching Desert Dunes, clean streaks, escaping the police, special orders, dashes or the Daily Challenge. Progress adds up across runs; each mission pays 30–60 🪙 and finishing all three adds a +50 🪙 bonus. Open them from **📋 Missions** on the menu.

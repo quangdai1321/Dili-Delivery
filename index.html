@@ -232,9 +232,9 @@ const challengeLink=(seed,sc,name)=>GAME_URL+'?c='+(seed>>>0).toString(36)+'-'+M
 // Dili colours from the brand art: classic blue, sunny yellow, mint, and grumpy rose (frowns)
 const SKINS={
  color:[{id:'c_blue',name:'CLASSIC',body:'#4f86ee',cost:0},{id:'c_sunny',name:'SUNNY',body:'#ffb21e',cost:150},
-  {id:'c_mint',name:'MINT',body:'#16dcbf',cost:300},{id:'c_rose',name:'GRUMPY ROSE',body:'#ff3d8b',frown:true,ach:'grumpy'}],
+  {id:'c_mint',name:'MINT',body:'#16dcbf',cost:300},{id:'c_galaxy',name:'GALAXY',body:'#7b5cff',weeklyCh:true},{id:'c_gold',name:'GOLDEN',body:'#e8b830',weeklyCh:true},{id:'c_rose',name:'GRUMPY ROSE',body:'#ff3d8b',frown:true,ach:'grumpy'}],
  hat:[{id:'h_none',name:'NO HAT',cost:0},{id:'h_cap',name:'DELIVERY CAP',cost:120},{id:'h_phones',name:'HEADPHONES',cost:250},
-  {id:'h_party',name:'PARTY HAT',cost:350},{id:'h_crown',name:'CROWN',ach:'moon'},{id:'h_halo',name:'HALO',ach:'clean10'},{id:'h_horns',name:'BOSS HORNS',ach:'bosses'},{id:'h_trophy',name:'CHAMPION TROPHY',weekly:true}],
+  {id:'h_party',name:'PARTY HAT',cost:350},{id:'h_crown',name:'CROWN',ach:'moon'},{id:'h_halo',name:'HALO',ach:'clean10'},{id:'h_horns',name:'BOSS HORNS',ach:'bosses'},{id:'h_trophy',name:'CHAMPION TROPHY',weekly:true},{id:'h_wizard',name:'WIZARD HAT',weeklyCh:true}],
  trail:[{id:'t_ghost',name:'CLASSIC DASH',cost:0},{id:'t_spark',name:'SPARKLES',cost:200},{id:'t_coin',name:'COIN RAIN',cost:600},
   {id:'t_fire',name:'FIRE',ach:'combo15'},{id:'t_rainbow',name:'RAINBOW',ach:'challenge'}],
  // pets follow Dili around and each has a small perk
@@ -289,12 +289,37 @@ const MISSIONS=[
  {id:'b_dark',icon:'🌑',text:'Defeat the Blackout (Night District)',n:1,coins:80,metric:'bossz',zone:1},
 ];
 const MISSION_BONUS=50;
+// ---------- weekly challenge: one bigger goal for the whole week (same for everyone), rewarded with a rare skin ----------
+const WEEKLY=[
+ {id:'w_deliver',icon:'📦',text:'Deliver 150 packages this week',n:150,metric:'deliveries'},
+ {id:'w_boss',icon:'💀',text:'Defeat 8 zone bosses this week',n:8,metric:'boss'},
+ {id:'w_near',icon:'😎',text:'Get 50 close calls this week',n:50,metric:'near'},
+ {id:'w_combo',icon:'🔥',text:'Reach combo x20 in one run',n:20,metric:'combo',max:true},
+ {id:'w_jump',icon:'🚧',text:'Jump 30 barriers with DASH this week',n:30,metric:'jump'},
+ {id:'w_power',icon:'🚀',text:'Grab 25 power-ups this week',n:25,metric:'power'},
+];
+const WEEKLY_REWARDS=['c_galaxy','h_wizard','c_gold']; // rotate week by week; only the weekly challenge gives them
+const weekNo=()=>Math.floor((Math.floor(Date.now()/864e5)+3)/7); // weeks start Monday 00:00 UTC
+function weeklyState(){
+ const w=weekNo();let s=store.get('diliDelivery.weekly',null);
+ if(!s||s.week!==w){s={week:w,prog:0,done:false};store.set('diliDelivery.weekly',s)}
+ s.ch=WEEKLY[hashSeed(w*7919+13)%WEEKLY.length];s.reward=WEEKLY_REWARDS[w%WEEKLY_REWARDS.length];return s;
+}
+function weeklyTrack(metric,v=1){
+ const s=weeklyState(),d=s.ch;if(s.done||d.metric!==metric)return;
+ const nv=d.max?Math.max(s.prog,v):s.prog+v;if(nv===s.prog)return;s.prog=Math.min(nv,d.n);
+ if(nv>=d.n){s.done=true;const it=skinItem(s.reward),had=meta.owned.includes(s.reward);
+  if(!had)meta.owned.push(s.reward);const c=had?300:100;meta.coins+=c;runCoins+=c;saveMeta();
+  achPops.push({a:{icon:'🎯',name:had?`Weekly challenge done! (${it.name} already yours)`:`Weekly challenge done! ${it.name} unlocked`,coins:c,head:'🎯 WEEKLY CHALLENGE'},t:3.8,max:3.8});try{SFX.victory()}catch(e){}}
+ store.set('diliDelivery.weekly',{week:s.week,prog:s.prog,done:s.done});
+}
 function missionState(){
  const t=today();let m=store.get('diliDelivery.missions',null);
  if(!m||m.key!==t.key){const ids=seeded(hashSeed(t.key*31+7),()=>shuffle(MISSIONS.map(x=>x.id))).slice(0,3);m={key:t.key,ids,prog:{},done:{},bonus:false};store.set('diliDelivery.missions',m)}
  return m;
 }
 function missionTrack(metric,v=1){
+ weeklyTrack(metric,v);
  const m=missionState();let changed=false;
  for(const id of m.ids){const d=MISSIONS.find(x=>x.id===id);if(!d||d.metric!==metric||m.done[id])continue;
   if(d.zone!=null&&v!==d.zone)continue; // zone missions: only that zone's boss counts
@@ -366,7 +391,16 @@ async function sb(path,body,prefer){
  const r=await fetch(SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/'+path,{method:'POST',headers:h,body:JSON.stringify(body)});
  const t=await r.text();if(!r.ok){let m=t;try{m=JSON.parse(t).message||t}catch(e){}throw new Error(m.slice(0,80))}return t?JSON.parse(t):null;
 }
-let lastRun=null,lbSubmit=null,board=null;
+let lastRun=null,lbSubmit=null,board=null,coopLb=null;
+// co-op board (supabase/leaderboard_v5_coop.sql): the host submits one row per team shift; everyone remembers the run id
+function coopRemember(rid){meta.coopRuns=(meta.coopRuns||[]).concat(rid).slice(-40);saveMeta();coopLb={state:'done'}}
+async function coopSubmitScore(rid){
+ if(!LB_ON||!coop||deliveries<1||score<1)return;
+ const team=[playerName||'DILI',...coopMates().filter(q=>q.inRun||q.gs||q.seen).map(q=>q.name)].map(n=>coopName(n)).sort();
+ if(team.length<2)return;coopLb={state:'sending'};coopRemember(rid);coopLb={state:'sending'};
+ try{await sb('coop_scores',{run_id:rid,names:team.join(' + ').slice(0,80),players:team.length,score:Math.round(score),deliveries,combo:runBestCombo,zone:zone.id,loop},'return=minimal');coopLb={state:'done'}}
+ catch(e){coopLb={state:/coop_scores|relation|schema cache|not find/i.test(e.message)?'nosetup':'error'}}
+}
 // ---------- anonymous run stats (Settings > Share anonymous stats); needs supabase/telemetry.sql, silently skipped otherwise ----------
 const VERSION='2026.09.25';
 let frameHist=new Uint16Array(101),frameN=0,frameSum=0,crashCauses={},statsSent=false;
@@ -406,6 +440,9 @@ function openBoard(tab,from){board={tab,from,rows:null,me:null,error:null};mode=
 async function loadBoard(){
  const b=board;if(!b||!LB_ON)return;b.rows=null;b.me=null;b.error=null;
  const day=b.tab==='daily'?today().key:null;
+ if(b.tab==='coop'){try{const rows=await sb('rpc/get_coop_board',{p_mode:'all',p_limit:10}),mine=new Set(meta.coopRuns||[]);
+   if(board===b){b.rows=(rows||[]).map(r=>Object.assign({},r,{name:r.names,is_me:mine.has(r.run_id)}));b.me=null}}
+  catch(e){if(board===b)b.error=/get_coop_board|not find|schema cache/i.test(e.message)?'The co-op board is not set up yet (supabase/leaderboard_v5_coop.sql)':e.message}return}
  try{const [rows,me]=await Promise.all([sb('rpc/get_leaderboard',{p_mode:b.tab,p_day:day,p_limit:30,p_device:deviceId}),sb('rpc/get_my_rank',{p_mode:b.tab,p_day:day,p_device:deviceId})]);
   if(board===b){b.rows=dedupeBoard(rows||[]).slice(0,10);b.me=me&&me[0]||null}}
  catch(e){if(board===b)b.error=e.message}
@@ -1342,7 +1379,8 @@ function startRun(kind=runKind){
 }
 function endRun(){
  sendRunStats('time');
- if(coopHost())coopSend({k:'over',sc:Math.round(score),dl:deliveries,cb:runBestCombo,cr:crashes,cl:crashLost});
+ let coopRid=null;if(coopHost()){coopRid=crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+  coopSend({k:'over',sc:Math.round(score),dl:deliveries,cb:runBestCombo,cr:crashes,cl:crashLost,rid:coopRid})}
  mode='over';overDelay=.6;joy=null;resultCard=null;banner=null;hype=null;dispScore=score;keepAwake(false);
  paceLog.push(score);endEvent(true);
  if(score>=10000)unlockAch('score10k');
@@ -1368,7 +1406,8 @@ function endRun(){
  if(newBest)for(let i=0;i<5;i++)setTimeout(()=>burst(rand(W*.3,W*.7),rand(150,300),40,CONFETTI,true),i*220);
  makeShareCard();
  lastRun={mode:daily?'daily':'all',day:daily?today().key:null,score:Math.round(score),deliveries,combo:runBestCombo,zone:zone.id,loop,skin:meta.equip.color};lbSubmit=null;
- if(rush||runKind==='coop')lastRun=null; // boss rush and co-op stay off the leaderboard
+ if(rush||runKind==='coop')lastRun=null; // boss rush and co-op stay off the solo leaderboard
+ if(coopRid)coopSubmitScore(coopRid);
  else if(LB_ON&&deliveries>0&&score>0){if(playerName)submitScore();else lbSubmit={state:'needName'}}
 }
 // ---------- rage: the game over screen tells you exactly how close you were ----------
@@ -1615,7 +1654,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyC'){toggleCam();return}
  if(e.code==='KeyF'){toggleFullscreen();return}
  if(mode==='splash'){mode='menu';return}
- if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab({all:'week',week:'daily',daily:'all'}[board.tab])}return}
+ if(mode==='board'){if(e.code==='Escape'||e.code==='Backspace')boardBack();else if(e.code==='ArrowLeft'||e.code==='ArrowRight'||e.code==='Tab'){e.preventDefault();boardTab({all:'week',week:'daily',daily:'coop',coop:'all'}[board.tab])}return}
  if(mode==='shop'||mode==='missions'){if(e.code==='Escape'||e.code==='Backspace')mode='menu';return}
  if(mode==='settings'){if(e.code==='Escape'||e.code==='Backspace')mode=settingsFrom;return}
  if(mode==='coop'){if(e.code==='Escape'||e.code==='Backspace')coopBack();else if(go)coopStartRun();return}
@@ -2141,6 +2180,10 @@ function drawHat(id,hx,hy,t){
   ctx.strokeStyle='#ffd34d';ctx.lineWidth=2;ctx.beginPath();ctx.arc(hx-10,hy-25,3.5,Math.PI*.5,Math.PI*1.5);ctx.stroke();ctx.beginPath();ctx.arc(hx+10,hy-25,3.5,-Math.PI*.5,Math.PI*.5);ctx.stroke();
   ctx.lineWidth=1.3;ctx.strokeStyle=BRAND.ink;ctx.fillStyle='#e0a800';ctx.fillRect(hx-2,hy-17,4,3);ctx.fillStyle='#ffd34d';rr(ctx,hx-6,hy-14.5,12,3,1.5);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff';ctx.globalAlpha=.7;ctx.fillRect(hx-5,hy-28,2,7);ctx.globalAlpha=1}
+ else if(id==='h_wizard'){ // weekly challenge reward
+  ctx.fillStyle='#5b3fd0';ctx.beginPath();ctx.moveTo(hx-11,hy-13);ctx.quadraticCurveTo(hx-2,hy-24,hx+7,hy-39);ctx.quadraticCurveTo(hx+5,hy-24,hx+11,hy-13);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle='#7b5cff';ctx.beginPath();ctx.ellipse(hx,hy-13,14,3.6,0,0,7);ctx.fill();ctx.stroke();
+  drawStar(hx+1,hy-24,3.4,'#ffd34d');drawStar(hx-4,hy-17,2,'#fff3b0');drawStar(hx+7,hy-38,2.4,'#ffd34d')}
  else if(id==='h_horns'){ctx.fillStyle='#ff3048';for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(hx+s*5,hy-13);ctx.quadraticCurveTo(hx+s*13,hy-18,hx+s*12,hy-30);
   ctx.quadraticCurveTo(hx+s*9,hy-20,hx+s*1,hy-14);ctx.closePath();ctx.fill();ctx.stroke()}}
  else if(id==='h_halo'){ctx.save();ctx.shadowColor='#fff3a0';ctx.shadowBlur=10;ctx.strokeStyle='#ffe98a';ctx.lineWidth=2.6;ctx.beginPath();ctx.ellipse(hx,hy-22+Math.sin(t*3)*1.2,10,3.4,0,0,7);ctx.stroke();ctx.restore()}
@@ -2648,7 +2691,7 @@ function drawOver(){
   const bw=LB_ON?150:190,bx=LB_ON?W/2-235:W/2-165;
   button(!shareFile?'…':daily||rush?'📤  SHARE':'⚔️ CHALLENGE',bx,488,bw,42,shareRun,false,true);
   if(shareFile){ctx.strokeStyle='rgba(255,211,77,.7)';ctx.lineWidth=2;rr(ctx,bx,488,bw,42,21);ctx.stroke()}
-  if(LB_ON)button('🏆 RANKING',W/2-75,488,150,42,()=>openBoard(lastRun?lastRun.mode:'all','over'),false);
+  if(LB_ON)button('🏆 RANKING',W/2-75,488,150,42,()=>openBoard(runKind==='coop'?'coop':lastRun?lastRun.mode:'all','over'),false);
   button(runKind==='coop'&&coop?'🤝 LOBBY':'MENU',LB_ON?W/2+85:W/2+35,488,LB_ON?150:130,42,()=>{mode=runKind==='coop'&&coop?'coop':'menu'},false);
   // leaderboard status under the buttons
   const s=lbSubmit;
@@ -2656,6 +2699,7 @@ function drawOver(){
    const p=.5+.5*Math.sin(runT*5);ctx.strokeStyle=`rgba(255,211,77,${p})`;ctx.lineWidth=2;rr(ctx,W/2-200,542,400,36,18);ctx.stroke()}
   else if(s&&s.state==='sending')text('🏆 Submitting score…',W/2,560,14,'#aab8d5','center',800);
   else if(s&&s.state==='done'&&s.rank)button(`🏆  RANK #${s.rank} OF ${s.total}  ·  ${lastRun.mode==='daily'?'DAILY #'+dailyNo:'ALL-TIME'}`,W/2-200,542,400,36,()=>openBoard(lastRun.mode,'over'),false);
+  else if(runKind==='coop'&&LB_ON){const c=coopLb;button(c&&c.state==='sending'?'🤝 Saving team score…':c&&c.state==='nosetup'?'🤝 CO-OP RANKING (coming soon)':c&&c.state==='error'?'⚠️ Team score not saved · see CO-OP RANKING':'🤝 TEAM SCORE SAVED · CO-OP RANKING',W/2-200,542,400,36,()=>openBoard('coop','over'),false)}
   else if(s&&s.state==='error')button('⚠️  Leaderboard offline — tap to retry',W/2-200,542,400,36,submitScore,false);
  }
  if(toast){const a=Math.min(1,toast.t);ctx.globalAlpha=a;ctx.font=font(13,800);const tw=mt(toast.text)+30;
@@ -2673,6 +2717,7 @@ function openShop(){shop.tab='color';shop.msg=null;mode='shop';joy=null}
 function canBuySomething(){for(const k in SKINS)for(const it of SKINS[k])if(!meta.owned.includes(it.id)&&it.cost!=null&&it.cost<=meta.coins)return true;return false}
 function shopPick(it,kind){
  if(meta.owned.includes(it.id)){meta.equip[kind]=it.id;saveMeta();SFX.pickup();return}
+ if(it.weeklyCh){const w=weeklyState();shop.msg={text:w.reward===it.id?`🎯 This week's challenge reward: ${w.ch.text} (📋 MISSIONS)`:'🎯 A weekly challenge reward. It comes back in a future week!',t:3.4,bad:true};SFX.nope();return}
  if(it.weekly){shop.msg={text:'🏆 Finish a week in the leaderboard top 3 to win it',t:3.2,bad:true};SFX.nope();return}
  if(it.ach){const a=ACHS.find(x=>x.id===it.ach);shop.msg={text:`🔒 Unlock with ${a.icon} ${a.name}: ${a.desc}`,t:3.2,bad:true};SFX.nope();return}
  if(meta.coins>=it.cost){meta.coins-=it.cost;meta.owned.push(it.id);meta.equip[kind]=it.id;saveMeta();SFX.buy();shop.msg={text:`✨ ${it.name} unlocked!`,t:2.5};
@@ -2712,20 +2757,36 @@ function drawSettings(){
   button(val,x+w-218,y+4,210,rh-14,act,false)});
  button('← BACK',W/2-90,Math.min(H-56,y0+rows.length*rh+10),180,44,()=>{mode=settingsFrom},false);
 }
+function drawWeekly(cx,y){
+ const s=weeklyState(),d=s.ch,it=skinItem(s.reward),w=640,x=cx-w/2,h=130,pr=Math.min(d.n,s.prog);
+ const now=Date.now(),end=(weekNo()+1)*7*864e5-3*864e5,left=Math.max(0,end-now),dd=Math.floor(left/864e5),hh=Math.floor(left%864e5/36e5);
+ const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,s.done?'rgba(69,230,165,.2)':'rgba(123,92,255,.3)');g.addColorStop(1,'rgba(255,211,77,.14)');
+ ctx.fillStyle=g;rr(ctx,x,y,w,h,18);ctx.fill();ctx.strokeStyle=s.done?'#45e6a5':'rgba(201,167,255,.8)';ctx.lineWidth=2;ctx.stroke();
+ text('🎯 WEEKLY CHALLENGE',x+22,y+22,13,'#c9a7ff','left',900);text(s.done?'✓ COMPLETED':`ends in ${dd}d ${hh}h`,x+w-22,y+22,12,s.done?'#45e6a5':'#aab8d5','right',800);
+ text(d.icon,x+44,y+68,32,'#fff','center');text(d.text,x+86,y+56,18,s.done?'#45e6a5':'#fff','left',900);
+ const bw=w-86-300;ctx.fillStyle='rgba(0,0,0,.35)';rr(ctx,x+86,y+78,bw,14,7);ctx.fill();ctx.fillStyle=s.done?'#45e6a5':'#c9a7ff';rr(ctx,x+86,y+78,Math.max(14,bw*pr/d.n),14,7);ctx.fill();
+ text(d.max?`best x${pr} / x${d.n}`:`${pr} / ${d.n}`,x+86+bw+12,y+85,13,'#dfe5f0','left',900);
+ text(s.done?'Reward collected!':'Same for every player · progress adds up all week',x+86,y+110,11,'#8f9cbc','left',700);
+ // the reward, worn by Dili
+ const rx=x+w-82,ry=y+72,cur=equipped();ctx.fillStyle='rgba(8,12,28,.45)';rr(ctx,rx-62,y+36,124,86,14);ctx.fill();
+ drawDili(rx,ry+Math.sin(runT*3)*3,1.6,-1,{skin:{color:it.body?it:cur.color,hat:it.body?cur.hat:it.id}});
+ text('🎁 '+it.name,rx,y+112,11,'#ffd34d','center',900);
+}
 function drawMissions(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
  for(const st of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+st.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(st.x,st.y,st.r,0,7);ctx.fill()}ctx.globalAlpha=1;
  const m=missionState(),cx=W/2,now=new Date(),mid=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1),left=Math.max(0,mid-now),hh=Math.floor(left/36e5),mm=Math.floor(left%36e5/6e4);
  outlined('📋 DAILY MISSIONS',cx,64,38,'#fff');text(`Same missions for every player today · new ones in ${hh}h ${mm}m`,cx,102,14,'#aab8d5','center',700);
- m.ids.forEach((id,i)=>{const d=MISSIONS.find(x=>x.id===id),done=!!m.done[id],pr=Math.min(d.n,m.prog[id]||0),y=132+i*112,w=640,x=cx-w/2;
-  ctx.fillStyle=done?'rgba(69,230,165,.13)':'rgba(255,255,255,.07)';rr(ctx,x,y,w,96,18);ctx.fill();ctx.strokeStyle=done?'#45e6a5':'rgba(255,255,255,.15)';ctx.lineWidth=2;ctx.stroke();
-  text(d.icon,x+44,y+48,34,'#fff','center');text(d.text,x+86,y+32,19,done?'#45e6a5':'#fff','left',900);
-  const bw=w-86-150;ctx.fillStyle='rgba(0,0,0,.35)';rr(ctx,x+86,y+56,bw,14,7);ctx.fill();ctx.fillStyle=done?'#45e6a5':'#ffd34d';rr(ctx,x+86,y+56,Math.max(14,bw*pr/d.n),14,7);ctx.fill();
-  text(d.max&&d.metric==='zone'?(done?'Reached':'Not yet'):`${pr} / ${d.n}`,x+86+bw+12,y+63,13,'#dfe5f0','left',900);
-  text(done?'✓ +'+d.coins+' 🪙':'+'+d.coins+' 🪙',x+w-20,y+32,16,done?'#45e6a5':'#ffd34d','right',900)});
- const all=m.ids.every(id=>m.done[id]);ctx.fillStyle=all?'rgba(255,211,77,.18)':'rgba(255,255,255,.05)';rr(ctx,cx-320,470,640,52,16);ctx.fill();
- text(all?`🎉 All done! +${MISSION_BONUS} 🪙 bonus collected`:`🎁 Complete all 3 for a +${MISSION_BONUS} 🪙 bonus`,cx,496,17,all?'#ffd34d':'#dfe5f0','center',900);
- button('← BACK',cx-240,548,150,44,()=>{mode='menu'},false);button('▶  PLAY',cx-70,548,310,44,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false)){mode='menu';ctrlPrompt=true}else startRun(false)});
+ m.ids.forEach((id,i)=>{const d=MISSIONS.find(x=>x.id===id),done=!!m.done[id],pr=Math.min(d.n,m.prog[id]||0),y=122+i*82,w=640,x=cx-w/2;
+  ctx.fillStyle=done?'rgba(69,230,165,.13)':'rgba(255,255,255,.07)';rr(ctx,x,y,w,72,18);ctx.fill();ctx.strokeStyle=done?'#45e6a5':'rgba(255,255,255,.15)';ctx.lineWidth=2;ctx.stroke();
+  text(d.icon,x+44,y+36,30,'#fff','center');text(d.text,x+86,y+24,17,done?'#45e6a5':'#fff','left',900);
+  const bw=w-86-150;ctx.fillStyle='rgba(0,0,0,.35)';rr(ctx,x+86,y+44,bw,12,6);ctx.fill();ctx.fillStyle=done?'#45e6a5':'#ffd34d';rr(ctx,x+86,y+44,Math.max(12,bw*pr/d.n),12,6);ctx.fill();
+  text(d.max&&d.metric==='zone'?(done?'Reached':'Not yet'):`${pr} / ${d.n}`,x+86+bw+12,y+50,13,'#dfe5f0','left',900);
+  text(done?'✓ +'+d.coins+' 🪙':'+'+d.coins+' 🪙',x+w-20,y+24,16,done?'#45e6a5':'#ffd34d','right',900)});
+ const all=m.ids.every(id=>m.done[id]);ctx.fillStyle=all?'rgba(255,211,77,.18)':'rgba(255,255,255,.05)';rr(ctx,cx-320,370,640,36,14);ctx.fill();
+ text(all?`🎉 All done! +${MISSION_BONUS} 🪙 bonus collected`:`🎁 Complete all 3 for a +${MISSION_BONUS} 🪙 bonus`,cx,388,15,all?'#ffd34d':'#dfe5f0','center',900);
+ drawWeekly(cx,420);
+ button('← BACK',cx-240,566,150,44,()=>{mode='menu'},false);button('▶  PLAY',cx-70,566,310,44,()=>{if(touchUI&&!store.get('diliDelivery.ctrlChosen',false)){mode='menu';ctrlPrompt=true}else startRun(false)});
 }
 function drawShop(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
@@ -2754,20 +2815,20 @@ function drawShop(){
    text(a.name,x+54,y+18*AS,14,got?'#fff':'#aab8d5','left',900);text(a.desc,x+54,y+36*AS,11,'#8f9cbc','left',700);
    text(got?'✓':`+${a.coins} 🪙`+(it?' 🎁':''),x+322,y+27*AS,got?18:11,got?'#45e6a5':'#ffd34d','right',900)});
  }else{
-  const items=SKINS[shop.tab],cols=items.length>6?4:3,gap=14,cw=cols===4?160:214,ch=176;
+  const items=SKINS[shop.tab],cols=items.length>6?4:3,gap=14,cw=cols===4?160:214,ch=Math.min(176,Math.floor((H-120)/Math.ceil(items.length/cols))-gap),k=ch/176;
   items.forEach((it,i)=>{const x=tx+(i%cols)*(cw+gap),y=110+Math.floor(i/cols)*(ch+gap),own=meta.owned.includes(it.id),on=meta.equip[shop.tab]===it.id,hov=hit(mouse,{x,y,w:cw,h:ch});
    ctx.fillStyle=on?'rgba(69,230,165,.14)':hov?'rgba(111,163,255,.16)':'rgba(255,255,255,.06)';rr(ctx,x,y,cw,ch,18);ctx.fill();
    ctx.strokeStyle=on?'#45e6a5':hov?BRAND.sky:'rgba(255,255,255,.12)';ctx.lineWidth=2;ctx.stroke();
    const cur=equipped(),prev={color:shop.tab==='color'?it:cur.color,hat:shop.tab==='hat'?it.id:cur.hat};
    ctx.save();if(!own)ctx.globalAlpha=.55;
    if(shop.tab==='trail'){const sv=meta.equip.trail;meta.equip.trail=it.id;const gc=trailColor();meta.equip.trail=sv;
-    for(let j=3;j>=1;j--){ctx.globalAlpha=(own?1:.55)*.2*(4-j);drawDili(x+cw/2-j*22,y+74,1.9,1,{ghost:true,ghostColor:gc})}ctx.globalAlpha=own?1:.55;
+    for(let j=3;j>=1;j--){ctx.globalAlpha=(own?1:.55)*.2*(4-j);drawDili(x+cw/2-j*22,y+74*k,1.9*k,1,{ghost:true,ghostColor:gc})}ctx.globalAlpha=own?1:.55;
     text({t_ghost:'💨',t_spark:'✨',t_coin:'🪙',t_fire:'🔥',t_rainbow:'🌈'}[it.id],x+cw-30,y+30,20,'#fff','center')}
-   if(shop.tab==='pet'){drawDili(x+cw/2-22,y+78+Math.sin(runT*3+i)*3,1.9,1,{skin:{color:cur.color,hat:cur.hat}});if(it.icon)ctx.drawImage(emojiSprite(it.icon,3),x+cw/2+18,y+70+Math.abs(Math.sin(runT*5+i))*-5,36,36)}
-   else drawDili(x+cw/2+(shop.tab==='trail'?14:0),y+78+Math.sin(runT*3+i)*3,2.2,1,{skin:prev});ctx.restore();
-   text(it.name,x+cw/2,y+(it.perk?126:134),14,'#fff','center',900);if(it.perk)text(it.perk,x+cw/2,y+143,10,'#bcd0ff','center',700);
+   if(shop.tab==='pet'){drawDili(x+cw/2-22,y+78*k+Math.sin(runT*3+i)*3,1.9*k,1,{skin:{color:cur.color,hat:cur.hat}});if(it.icon)ctx.drawImage(emojiSprite(it.icon,3),x+cw/2+18,y+70*k+Math.abs(Math.sin(runT*5+i))*-5,36*k,36*k)}
+   else drawDili(x+cw/2+(shop.tab==='trail'?14:0),y+78*k+Math.sin(runT*3+i)*3,2.2*k,1,{skin:prev});ctx.restore();
+   text(it.name,x+cw/2,y+(it.perk?126:134)*k,14,'#fff','center',900);if(it.perk)text(it.perk,x+cw/2,y+143*k,10,'#bcd0ff','center',700);
    const a=it.ach&&ACHS.find(q=>q.id===it.ach);
-   text(on?'✓ EQUIPPED':own?'TAP TO EQUIP':it.weekly?'🔒 🏆 Weekly top 3':a?`🔒 ${a.icon} ${a.name}`:`🪙 ${fmt(it.cost)}`,x+cw/2,y+156,12,on?'#45e6a5':own?'#aab8d5':a?'#ff8ad8':meta.coins>=it.cost?'#ffd34d':'#8f9cbc','center',900);
+   text(on?'✓ EQUIPPED':own?'TAP TO EQUIP':it.weekly?'🔒 🏆 Weekly top 3':it.weeklyCh?(weeklyState().reward===it.id?'🎯 THIS WEEK':'🔒 🎯 Weekly'):a?`🔒 ${a.icon} ${a.name}`:`🪙 ${fmt(it.cost)}`,x+cw/2,y+156*k,12,on?'#45e6a5':own?'#aab8d5':a?'#ff8ad8':meta.coins>=it.cost?'#ffd34d':'#8f9cbc','center',900);
    buttons.push({x,y,w:cw,h:ch,act:()=>shopPick(it,shop.tab)})});
  }
  button('← BACK',40,H-64,130,42,()=>{mode='menu'},false);
@@ -2808,27 +2869,29 @@ function drawBoard(){
  for(const s of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;
  const b=board,cx=W/2,lw=640,lx=cx-lw/2;
  outlined('🏆 LEADERBOARD',cx,54,40,'#ffd34d');
- const tabs=[['all','ALL-TIME'],['week','📆 THIS WEEK'],['daily',`📅 DAILY #${today().no}`]];
- tabs.forEach(([id,l],i)=>{const x=cx-300+i*202,on=b.tab===id;button(l,x,86,194,40,()=>boardTab(id),on);});
+ const tabs=[['all','ALL-TIME'],['week','📆 THIS WEEK'],['daily',`📅 DAILY #${today().no}`],['coop','🤝 CO-OP']];
+ tabs.forEach(([id,l],i)=>{const x=cx-318+i*160,on=b.tab===id;button(l,x,86,154,40,()=>boardTab(id),on);});
+ if(b.tab==='coop')text('Best shift of each team · 2-4 players · the host submits it when the shift ends',cx,134,12,'#8fe3ff','center',800);
  if(b.tab==='week'){const now=new Date(),d=(now.getUTCDay()+6)%7,next=Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-d+7),left=Math.max(0,next-now.getTime());
   text(`Resets Monday 00:00 UTC · ${Math.floor(left/864e5)}d ${Math.floor(left%864e5/36e5)}h left · Top 3 win the 🏆 Champion Trophy hat`,cx,134,12,'#ffd34d','center',800)}
  ctx.fillStyle='rgba(8,12,28,.6)';rr(ctx,lx,146,lw,402,16);ctx.fill();
- text('#',lx+30,164,11,'#8f9cbc','center',900);text('PLAYER',lx+70,164,11,'#8f9cbc','left',900);text('ZONE',lx+380,164,11,'#8f9cbc','center',900);
+ text('#',lx+30,164,11,'#8f9cbc','center',900);text(b.tab==='coop'?'TEAM':'PLAYER',lx+70,164,11,'#8f9cbc','left',900);text('ZONE',lx+380,164,11,'#8f9cbc','center',900);
  text('DELIV.',lx+460,164,11,'#8f9cbc','center',900);text('SCORE',lx+lw-24,164,11,'#8f9cbc','right',900);
  if(!LB_ON)text('Leaderboard is not configured yet',cx,340,16,'#aab8d5','center',800);
  else if(b.error){text('⚠️ Could not load the leaderboard',cx,320,16,'#ff6473','center',800);text(b.error,cx,346,12,'#8f9cbc','center',700);button('RETRY',cx-60,372,120,38,loadBoard,false)}
  else if(!b.rows)text('Loading'+'.'.repeat(1+Math.floor(runT*3)%3),cx,340,16,'#aab8d5','center',800);
- else if(!b.rows.length)text(b.tab==='daily'?'No scores today yet — be the first! 📦':b.tab==='week'?'No scores this week yet — be the first! 📦':'No scores yet — be the first! 📦',cx,340,16,'#aab8d5','center',800);
+ else if(!b.rows.length)text(b.tab==='coop'?'No team scores yet — start a 🤝 CO-OP shift with friends!':b.tab==='daily'?'No scores today yet — be the first! 📦':b.tab==='week'?'No scores this week yet — be the first! 📦':'No scores yet — be the first! 📦',cx,340,16,'#aab8d5','center',800);
  else b.rows.forEach((r,i)=>{const y=190+i*36,top=r.rank<=3;
   if(r.is_me){ctx.fillStyle='rgba(69,230,165,.16)';rr(ctx,lx+8,y-15,lw-16,30,10);ctx.fill()}
   else if(i%2===0){ctx.fillStyle='rgba(255,255,255,.03)';rr(ctx,lx+8,y-15,lw-16,30,10);ctx.fill()}
   text(top?['🥇','🥈','🥉'][r.rank-1]:String(r.rank),lx+30,y+1,top?18:15,'#fff','center',900);
-  text(String(r.name).slice(0,16)+(r.is_me?'  (you)':''),lx+70,y+1,16,r.is_me?'#45e6a5':'#fff','left',800);
+  if(b.tab==='coop'){const nm=String(r.name);text('🤝'+r.players+' '+(nm.length>34?nm.slice(0,33)+'…':nm)+(r.is_me?'  (you)':''),lx+50,y+1,13,r.is_me?'#45e6a5':'#fff','left',800)}
+  else text(String(r.name).slice(0,16)+(r.is_me?'  (you)':''),lx+70,y+1,16,r.is_me?'#45e6a5':'#fff','left',800);
   if(r.skin){const s=skinItem(r.skin);if(s&&s.body){ctx.fillStyle=s.body;ctx.beginPath();ctx.arc(lx+56,y+1,5,0,7);ctx.fill()}}
   const z=zoneById(r.zone|0);text(z.icon+(r.loop?' '+ROMAN[Math.min(r.loop,9)]:''),lx+380,y+1,15,'#fff','center',800);
   text(String(r.deliveries),lx+460,y+1,15,'#dfe5f0','center',800);text(fmt(r.score),lx+lw-24,y+1,17,top?'#ffd34d':'#fff','right',900)});
  if(b.me&&b.rows&&!b.rows.some(r=>r.is_me))text(`Your best: ${fmt(b.me.score)}  ·  Rank #${b.me.rank} of ${b.me.total}`,cx,530,14,'#45e6a5','center',900);
- else if(b.rows&&!b.me&&LB_ON)text(b.tab==='daily'?'Play today\'s Daily Challenge to get ranked':'Finish a run to get ranked',cx,530,13,'#8f9cbc','center',800);
+ else if(b.rows&&!b.me&&LB_ON&&b.tab!=='coop')text(b.tab==='daily'?'Play today\'s Daily Challenge to get ranked':'Finish a run to get ranked',cx,530,13,'#8f9cbc','center',800);
  button('← BACK',cx-205,572,130,42,boardBack,false);
  if(LB_ON)button(playerName?'✏️  '+playerName:'✏️  SET NAME',cx-65,572,270,42,()=>askName(()=>{if(lbSubmit&&lbSubmit.state==='needName')submitScore()}),false,true);
  text(touchUI?'':'← → switch board  ·  Esc back',cx,H-18,11,'#6b7aa0','center',800);
@@ -3105,7 +3168,7 @@ function coopRecv(m){
  if(!coopRun())return;
  if(m.k==='left'){coopLeftRun(M);return}
  if(m.k==='st'){coopApplyState(m,M);return}
- if(m.k==='over'){if(mode==='over')return;score=m.sc;deliveries=m.dl;runBestCombo=m.cb;crashes=m.cr;crashLost=m.cl;endRun();return}
+ if(m.k==='over'){if(mode==='over')return;score=m.sc;deliveries=m.dl;runBestCombo=m.cb;crashes=m.cr;crashLost=m.cl;endRun();if(m.rid)coopRemember(m.rid);return}
  if(m.k==='stage'){coopGuestStage(m);return}
  if(m.k==='boss'){if(!boss&&mode==='play')startBoss();return}
  if(m.k==='ev'){if(event)endEvent(true);startEvent(m.id);return}
