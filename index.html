@@ -481,8 +481,10 @@ let sfxPitch=1;
 function tone(f,d,type='square',v=.1,slide=1,delay=0){
  if(!actx||muted||!settings.sfx)return;f*=sfxPitch;if(SPAT)v*=SPAT.vol;const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
  o.type=type;o.frequency.setValueAtTime(f,t);if(slide!==1)o.frequency.exponentialRampToValueAtTime(f*slide,t+d);
- g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);
- o.connect(g);sfxOut(g);o.start(t);o.stop(t+d+.03);
+ const tail=Math.min(.12,d*.6);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(v*.35,t+d);g.gain.exponentialRampToValueAtTime(.0001,t+d+tail);
+ if(type==='square'||type==='sawtooth'){const lp=actx.createBiquadFilter();lp.type='lowpass';lp.Q.value=.6;const fc=clamp(f*Math.max(1,slide)*3.2,900,3800);
+  lp.frequency.setValueAtTime(fc,t);lp.frequency.exponentialRampToValueAtTime(Math.max(500,fc*.55),t+d+tail);o.connect(lp).connect(g)}else o.connect(g); // warm, not buzzy
+ sfxOut(g);o.start(t);o.stop(t+d+tail+.03);
 }
 function noise(d,v=.2,freq=900,delay=0,type='lowpass',dest){
  if(!actx||muted||!settings.sfx)return;freq*=sfxPitch;if(SPAT)v*=SPAT.vol;const t=actx.currentTime+delay,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
@@ -490,7 +492,7 @@ function noise(d,v=.2,freq=900,delay=0,type='lowpass',dest){
  s.connect(f).connect(g);if(dest)g.connect(dest);else sfxOut(g);s.start(t);s.stop(t+d+.02);
 }
 const SFX={
- animal:k=>{if(k==='crab'){tone(2100,.035,'square',.03,.6);tone(1700,.035,'square',.03,.6,.07);return}
+ animal:k=>{if(k==='crab'){tone(1500,.04,'triangle',.04,.6);tone(1200,.04,'triangle',.04,.6,.07);return}
   if(k==='monkey'){for(let i=0;i<3;i++)tone(600+i*160,.09,'square',.035,1.6,i*.09);return}
   if(k==='horse'){tone(620,.32,'sawtooth',.05,.55);tone(880,.18,'square',.02,.7,.04);noise(.12,.08,500,.2)}
   else if(k==='cow'){tone(150,.6,'sawtooth',.07,.8);tone(300,.5,'sine',.02,.8)}
@@ -499,17 +501,17 @@ const SFX={
   tone(660,.08,'square',.08);tone(990,.12,'square',.08,1,.07);tone(1320,.18,'sine',.06,1,.12);tone(165,.12,'sine',.12,.7)},
  deliver(c){duck(.35,.45);const b=1+Math.min(c,15)*.035;[523,659,784,1047].forEach((f,i)=>tone(f*b,.13,'triangle',.14,1,i*.06));
   [1568,2093,2637].forEach((f,i)=>tone(f*b,.1,'sine',.05,1,.26+i*.05));tone(110,.25,'sine',.22,.5);noise(.35,.08,3500,.02,'bandpass')},
- stars(n){for(let i=0;i<n;i++)tone(880+i*140,.07,'square',.05,1,.32+i*.09)},
+ stars(n){for(let i=0;i<n;i++){tone(880+i*140,.09,'triangle',.07,1,.32+i*.09);tone(1760+i*280,.06,'sine',.02,1,.32+i*.09)}},
  coin(i){tone(1760+i*70,.09,'sine',.05);tone(2637+i*70,.06,'sine',.025,1,.02)},
  // footsteps: the audible part is a mid-range tap/crunch (phone speakers drop everything under ~250Hz); the low thud is only a bonus on headphones
  step(k,alt=0){if(!settings.steps||!actx||muted||!settings.sfx)return;const b=stepBufs[k+alt];if(b){const src=actx.createBufferSource();src.buffer=b;sfxOut(src);src.start();return}
   bakeSteps();stepLive(k,alt)},
- crash(){duck(.5,.6);noise(.35,.35,700);tone(170,.35,'sawtooth',.1,.35);tone(62,.4,'sine',.3,.6);noise(.25,.12,6000,.03,'highpass');
-  for(let i=0;i<3;i++)tone(1800+i*700+Math.random()*300,.07,'square',.02,.7,.03+i*.04);noise(.4,.05,7500,.08,'highpass')}, // metal clank + glass tinkle
+ crash(){duck(.5,.6);noise(.35,.35,700);tone(170,.35,'sawtooth',.1,.35);tone(62,.4,'sine',.3,.6);noise(.25,.07,3500,.03,'bandpass');
+  for(let i=0;i<3;i++)tone(1800+i*700+Math.random()*300,.07,'square',.02,.7,.03+i*.04);noise(.3,.03,4500,.08,'bandpass')}, // metal clank + glass tinkle
  bump(){tone(140,.07,'square',.05,.7)},
- dash(){tone(240,.16,'triangle',.09,3);noise(.18,.08,2500,0,'highpass')},
+ dash(){tone(240,.16,'triangle',.09,3);tone(120,.14,'sine',.08,2);noise(.16,.07,1300,0,'bandpass')}, // a soft 'fwoop', not a hiss
  shield(){tone(900,.22,'sine',.12,.5)},
- tick(){tone(1250,.04,'square',.045)},
+ tick(){tone(1250,.05,'triangle',.06);tone(625,.04,'sine',.03)},
  ui(){tone(1500,.035,'sine',.035,1.25);tone(2250,.025,'sine',.012,1,.012)}, // soft tap on a button
  up(){[392,523,659,784].forEach((f,i)=>tone(f,.16,'triangle',.11,1,i*.05))},
  riser(){tone(220,.5,'sawtooth',.05,4);noise(.5,.08,1200,0,'bandpass')},
@@ -530,9 +532,9 @@ const SFX={
   else if(id==='p_parrot'){for(let i=0;i<3;i++)tone(1700+i*250,.06,'square',.03,1.3,i*.07)}
   else if(id==='p_bunny'){tone(1400,.05,'sine',.03,1.4);tone(1900,.05,'sine',.025,1.3,.09)}},
  honk(){tone(415,.12,'square',.06);tone(349,.18,'square',.06,1,.14)},
- close(){noise(.22,.12,3000,0,'bandpass');tone(1200,.08,'triangle',.06,1.5)},
+ close(){noise(.22,.08,1100,0,'bandpass');tone(1200,.08,'triangle',.06,1.5);tone(600,.1,'sine',.05,1.5)}, // whoosh past + a bright ding
  jump(){tone(520,.12,'square',.07,1.8);tone(880,.1,'triangle',.06,1.4,.06)},
- power(){[660,880,1175,1568].forEach((f,i)=>tone(f,.12,'triangle',.1,1,i*.05));noise(.3,.08,4000,.05,'highpass')},
+ power(){[660,880,1175,1568].forEach((f,i)=>tone(f,.12,'triangle',.1,1,i*.05));noise(.25,.04,2600,.05,'bandpass');tone(1320,.3,'sine',.04,1,.2)}, // sparkle tail
  drop(){tone(520,.1,'square',.07,.5);tone(260,.2,'triangle',.08,.6,.08)},
  event(){[659,784,988].forEach((f,i)=>tone(f,.12,'square',.06,1,i*.07));noise(.3,.08,2000,.1,'bandpass')},
  siren(hi){tone(hi?960:720,.4,'sawtooth',.025)},
@@ -541,7 +543,7 @@ const SFX={
  blast(){duck(.5,.6);noise(.6,.4,500);noise(.35,.2,2400,.02,'bandpass');tone(90,.5,'sine',.3,.4);tone(220,.25,'sawtooth',.08,.4,.02)},
  bossHit(){duck(.4,.5);tone(180,.3,'sawtooth',.13,.45);tone(90,.35,'sine',.25,.6);noise(.3,.22,600);tone(660,.12,'square',.05,1.3,.05)},
  boss(){duck(.6,1.2);tone(98,.9,'sawtooth',.12,.7);tone(147,.9,'sawtooth',.08,.7,.05);noise(1,.22,260);[392,370,349,330].forEach((f,i)=>tone(f,.18,'square',.05,1,.5+i*.14))},
- victory(){duck(.5,1.2);[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.2,'triangle',.12,1,i*.07));tone(2093,.5,'sine',.07,1,.42);noise(.6,.1,5000,.1,'highpass')},
+ victory(){duck(.5,1.2);[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.2,'triangle',.12,1,i*.07));tone(2093,.5,'sine',.07,1,.42);noise(.6,.05,3200,.1,'bandpass')},
 };
 // a tiny random pitch (+-3%) per sound, shared by all its notes: repeated sounds stop feeling robotic
 for(const k of Object.keys(SFX)){const fn=SFX[k];if(k==='step'||k==='tick'||k==='siren')continue;
