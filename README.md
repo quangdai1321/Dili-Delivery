@@ -143,7 +143,8 @@ The official account is one tap away (player feedback: highlight the official Dl
 
 ### Dili Style (wardrobe) and achievements
 Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend them in **🎨 Skins** on the menu (or press **K**):
-- **Colors**: Classic blue, Sunny, Mint, and 😠 Grumpy Rose (frowns; unlocked by crashing 25 times)
+- **Colors**: Classic blue, Sunny, Mint, Lime, Coral, Sky, Sakura, Midnight, and 😠 Grumpy Rose (frowns; unlocked by crashing 25 times)
+- **Patterns** (player feedback: more ways to make Dili your own): 🐯 Tiger stripes, 🐶 Dalmatian spots and 🌌 Starry Night, painted on the body, head and cape (600-800 🪙)
 - **Hats**: Delivery cap, Headphones, Party hat, 👑 Crown (reach Moon Base), 😇 Halo (10 clean deliveries in a row)
 - **Dash trails**: Sparkles, Coin rain, 🔥 Fire (combo x15), 🌈 Rainbow (beat a friend's challenge)
 - **🐾 Pets** trot behind Dili in every run, sit next to Dili on the menu, and cheer (bark, meow, squawk) on each delivery. Each has a small perk: 🐶 **Puppy** (300 🪙) starts every run with +1 🛡️ shield · 🐱 **Kitty** (450 🪙) +1 🪙 per delivery · 🦜 **Parrot** (600 🪙) +15% pickup and drop range · 🐰 **Bunny** (complete 10 daily missions) DASH recharges 20% faster
@@ -179,6 +180,9 @@ Traffic, trains and meteors speed up within each zone as you deliver (up to +45%
 
 ### UI feel
 Screens no longer cut: switching between menu, wardrobe, settings, lobby, pause, upgrade and game over crossfades the last frame of the old screen over the new one (0.25s; the snapshot is taken before a resolution switch can wipe the canvas). Buttons ease in and out of their hover size instead of jumping, and a press sends a soft ring out of the button with a light tap sound (and a short buzz on phones).
+
+### 🏆 Leaderboard
+A wide board (feedback: bigger, with more detail about each player): each row shows the rank (medals and tinted rows for the top 3), the player's Dili in their colour, name, the zone they reached (icon and name, with the loop), best combo, deliveries and score. The header counts how many players are ranked, and a card under the list shows your rank and best score even when you are outside the top 10. Tabs: All-time · This week · Daily · 🤝 Co-op.
 
 ## Settings
 **⚙️** on the menu (top-right) or **Settings** in Pause:

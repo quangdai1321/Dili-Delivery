@@ -232,7 +232,11 @@ const challengeLink=(seed,sc,name)=>GAME_URL+'?c='+(seed>>>0).toString(36)+'-'+M
 // Dili colours from the brand art: classic blue, sunny yellow, mint, and grumpy rose (frowns)
 const SKINS={
  color:[{id:'c_blue',name:'CLASSIC',body:'#4f86ee',cost:0},{id:'c_sunny',name:'SUNNY',body:'#ffb21e',cost:150},
-  {id:'c_mint',name:'MINT',body:'#16dcbf',cost:300},{id:'c_galaxy',name:'GALAXY',body:'#7b5cff',weeklyCh:true},{id:'c_gold',name:'GOLDEN',body:'#e8b830',weeklyCh:true},{id:'c_rose',name:'GRUMPY ROSE',body:'#ff3d8b',frown:true,ach:'grumpy'}],
+  {id:'c_mint',name:'MINT',body:'#16dcbf',cost:300},{id:'c_lime',name:'LIME',body:'#6fcf4a',cost:200},{id:'c_coral',name:'CORAL',body:'#ff7a59',cost:250},{id:'c_sky',name:'SKY',body:'#3fb6f0',cost:250},
+  {id:'c_sakura',name:'SAKURA',body:'#ff9ecf',cost:350},{id:'c_night',name:'MIDNIGHT',body:'#3b428f',cost:400},
+  {id:'c_tiger',name:'TIGER',body:'#ff9f1c',pat:'stripes',patCol:'#3a2410',cost:600},{id:'c_dalma',name:'DALMATIAN',body:'#eef0f6',pat:'spots',patCol:'#222838',cost:600},
+  {id:'c_starry',name:'STARRY NIGHT',body:'#27306e',pat:'stars',patCol:'#ffe066',cost:800},
+  {id:'c_galaxy',name:'GALAXY',body:'#7b5cff',weeklyCh:true},{id:'c_gold',name:'GOLDEN',body:'#e8b830',weeklyCh:true},{id:'c_rose',name:'GRUMPY ROSE',body:'#ff3d8b',frown:true,ach:'grumpy'}],
  hat:[{id:'h_none',name:'NO HAT',cost:0},{id:'h_cap',name:'DELIVERY CAP',cost:120},{id:'h_phones',name:'HEADPHONES',cost:250},
   {id:'h_party',name:'PARTY HAT',cost:350},{id:'h_crown',name:'CROWN',ach:'moon'},{id:'h_halo',name:'HALO',ach:'clean10'},{id:'h_horns',name:'BOSS HORNS',ach:'bosses'},{id:'h_trophy',name:'CHAMPION TROPHY',weekly:true},{id:'h_wizard',name:'WIZARD HAT',weeklyCh:true}],
  trail:[{id:'t_ghost',name:'CLASSIC DASH',cost:0},{id:'t_spark',name:'SPARKLES',cost:200},{id:'t_coin',name:'COIN RAIN',cost:600},
@@ -444,7 +448,7 @@ async function loadBoard(){
    if(board===b){b.rows=(rows||[]).map(r=>Object.assign({},r,{name:r.names,is_me:mine.has(r.run_id)}));b.me=null}}
   catch(e){if(board===b)b.error=/get_coop_board|not find|schema cache/i.test(e.message)?'The co-op board is not set up yet (supabase/leaderboard_v5_coop.sql)':e.message}return}
  try{const [rows,me]=await Promise.all([sb('rpc/get_leaderboard',{p_mode:b.tab,p_day:day,p_limit:30,p_device:deviceId}),sb('rpc/get_my_rank',{p_mode:b.tab,p_day:day,p_device:deviceId})]);
-  if(board===b){b.rows=dedupeBoard(rows||[]).slice(0,10);b.me=me&&me[0]||null}}
+  if(board===b){b.rows=dedupeBoard(rows||[]).slice(0,10);b.me=me&&me[0]||null;b.total=b.me?b.me.total:null}}
  catch(e){if(board===b)b.error=e.message}
 }
 // the same player on two devices (phone + PC) has two best scores: show each name once, with its best score
@@ -2115,6 +2119,12 @@ function drawMeteor(m){
  ctx.fillStyle='#8a7ca8';ctx.beginPath();ctx.arc(rx,ry,7+4*u,0,7);ctx.fill();ctx.fillStyle='#b3a6cf';ctx.beginPath();ctx.arc(rx-2,ry-2,3,0,7);ctx.fill();
 }
 // Dili: blue capsule head with diamond pixel eyes, glass bubble helmet, cape with "D", white boots
+function diliPattern(col,clipPath){
+ if(!col.pat)return;ctx.save();clipPath();ctx.clip();ctx.fillStyle=col.patCol;ctx.strokeStyle=col.patCol;
+ if(col.pat==='stripes'){ctx.lineWidth=2.2;for(let i=-24;i<=24;i+=6){ctx.beginPath();ctx.moveTo(i-4,-30);ctx.quadraticCurveTo(i+3,-5,i-2,22);ctx.stroke()}}
+ else if(col.pat==='spots'){for(const[a,b,r]of[[-6,1,2.4],[4,8,2],[6,-1,1.6],[-3,10,1.5],[9,5,1.3],[-1,-17,2],[8,-12,1.6],[-6,-11,1.3],[11,-17,1.2],[-12,6,1.6]]){ctx.beginPath();ctx.ellipse(a,b,r*1.2,r,0,0,7);ctx.fill()}}
+ else if(col.pat==='stars'){for(const[a,b,r]of[[-5,2,2.2],[5,9,1.6],[6,0,1.4],[-2,-16,1.8],[9,-10,1.4],[-7,-9,1.2],[-11,8,1.5],[2,13,1.1]])drawStar(a,b,r,col.patCol)}
+ ctx.restore();ctx.strokeStyle=BRAND.ink;ctx.lineWidth=1.6}
 function drawDili(x,y,s,face,o={}){
  const t=runT,moving=o.moving,pop=o.pop||0;
  ctx.save();ctx.translate(x,y);
@@ -2131,11 +2141,12 @@ function drawDili(x,y,s,face,o={}){
  const fl=moving?Math.sin(t*18)*3:Math.sin(t*3)*1.2,len=moving?1:.55;
  ctx.fillStyle=blueD;ctx.beginPath();ctx.moveTo(-2,-3);ctx.quadraticCurveTo(-12-9*len,1+fl,-15-7*len,15+fl*.6);
  ctx.lineTo(-9-3*len,13-fl*.4);ctx.lineTo(-4,15);ctx.quadraticCurveTo(-1,8,3,-2);ctx.closePath();ctx.fill();ctx.stroke();
+ if(col.pat){const capeP=()=>{ctx.beginPath();ctx.moveTo(-2,-3);ctx.quadraticCurveTo(-12-9*len,1+fl,-15-7*len,15+fl*.6);ctx.lineTo(-9-3*len,13-fl*.4);ctx.lineTo(-4,15);ctx.quadraticCurveTo(-1,8,3,-2);ctx.closePath()};ctx.globalAlpha=.6;diliPattern(col,capeP);ctx.globalAlpha=1;capeP();ctx.stroke()}
  // boots
  const lg=moving?Math.sin(ph)*3:0;ctx.fillStyle=white;
  rr(ctx,-8+lg,12,8,6,3);ctx.fill();ctx.stroke();rr(ctx,2-lg,12,9,6,3);ctx.fill();ctx.stroke();
  // body
- ctx.fillStyle=blue;ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7);ctx.fill();ctx.stroke();
+ ctx.fillStyle=blue;ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7);ctx.fill();diliPattern(col,()=>{ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7)});ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7);ctx.stroke();
  ctx.fillStyle=blueL;ctx.globalAlpha=.45;ctx.beginPath();ctx.ellipse(-1,2,5,3.5,0,0,7);ctx.fill();ctx.globalAlpha=1;
  ctx.save();ctx.translate(1.5,6.5);ctx.scale(face<0?-1:1,1);ctx.fillStyle=white;ctx.font=font(8,900);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('D',0,0);ctx.restore();
  // arms / package
@@ -2148,6 +2159,7 @@ function drawDili(x,y,s,face,o={}){
  ctx.fillStyle=blue;tail();ctx.fill();ctx.stroke();
  rr(ctx,hx-11.5,hy-6.5,23,13,6.5);ctx.fill();ctx.stroke();
  ctx.beginPath();ctx.moveTo(hx+1.3,hy+5.8);ctx.lineTo(hx+1.9,hy+8.6);ctx.lineTo(hx+6.2,hy+5.8);ctx.closePath();ctx.fill(); // hide the seam
+ if(col.pat){diliPattern(col,()=>rr(ctx,hx-11.5,hy-6.5,23,13,6.5));rr(ctx,hx-11.5,hy-6.5,23,13,6.5);ctx.stroke()}
  ctx.fillStyle=blueL;ctx.globalAlpha=.55;rr(ctx,hx-8,hy-5.2,14,2.6,1.3);ctx.fill();ctx.globalAlpha=1;
  const blink=(t%3.4)<.12,eye=(cx,cy,d)=>{
   if(blink){ctx.strokeStyle=ink;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(cx-d,cy);ctx.lineTo(cx+d,cy);ctx.stroke();return}
@@ -2823,7 +2835,7 @@ function drawShop(){
    text(a.name,x+54,y+18*AS,14,got?'#fff':'#aab8d5','left',900);text(a.desc,x+54,y+36*AS,11,'#8f9cbc','left',700);
    text(got?'✓':`+${a.coins} 🪙`+(it?' 🎁':''),x+322,y+27*AS,got?18:11,got?'#45e6a5':'#ffd34d','right',900)});
  }else{
-  const items=SKINS[shop.tab],cols=items.length>6?4:3,gap=14,cw=cols===4?160:214,ch=Math.min(176,Math.floor((H-120)/Math.ceil(items.length/cols))-gap),k=ch/176;
+  const items=SKINS[shop.tab],cols=items.length>12?5:items.length>6?4:3,gap=14,cw=cols===5?126:cols===4?160:214,ch=Math.min(176,Math.floor((H-120)/Math.ceil(items.length/cols))-gap),k=ch/176;
   items.forEach((it,i)=>{const x=tx+(i%cols)*(cw+gap),y=110+Math.floor(i/cols)*(ch+gap),own=meta.owned.includes(it.id),on=meta.equip[shop.tab]===it.id,hov=hit(mouse,{x,y,w:cw,h:ch});
    ctx.fillStyle=on?'rgba(69,230,165,.14)':hov?'rgba(111,163,255,.16)':'rgba(255,255,255,.06)';rr(ctx,x,y,cw,ch,18);ctx.fill();
    ctx.strokeStyle=on?'#45e6a5':hov?BRAND.sky:'rgba(255,255,255,.12)';ctx.lineWidth=2;ctx.stroke();
@@ -2834,7 +2846,7 @@ function drawShop(){
     text({t_ghost:'💨',t_spark:'✨',t_coin:'🪙',t_fire:'🔥',t_rainbow:'🌈'}[it.id],x+cw-30,y+30,20,'#fff','center')}
    if(shop.tab==='pet'){drawDili(x+cw/2-22,y+78*k+Math.sin(runT*3+i)*3,1.9*k,1,{skin:{color:cur.color,hat:cur.hat}});if(it.icon)ctx.drawImage(emojiSprite(it.icon,3),x+cw/2+18,y+70*k+Math.abs(Math.sin(runT*5+i))*-5,36*k,36*k)}
    else drawDili(x+cw/2+(shop.tab==='trail'?14:0),y+78*k+Math.sin(runT*3+i)*3,2.2*k,1,{skin:prev});ctx.restore();
-   text(it.name,x+cw/2,y+(it.perk?126:134)*k,14,'#fff','center',900);if(it.perk)text(it.perk,x+cw/2,y+143*k,10,'#bcd0ff','center',700);
+   text(it.name,x+cw/2,y+(it.perk?126:134)*k,cw<150?12:14,'#fff','center',900);if(it.perk)text(it.perk,x+cw/2,y+143*k,10,'#bcd0ff','center',700);
    const a=it.ach&&ACHS.find(q=>q.id===it.ach);
    text(on?'✓ EQUIPPED':own?'TAP TO EQUIP':it.weekly?'🔒 🏆 Weekly top 3':it.weeklyCh?(weeklyState().reward===it.id?'🎯 THIS WEEK':'🔒 🎯 Weekly'):a?`🔒 ${a.icon} ${a.name}`:`🪙 ${fmt(it.cost)}`,x+cw/2,y+156*k,12,on?'#45e6a5':own?'#aab8d5':a?'#ff8ad8':meta.coins>=it.cost?'#ffd34d':'#8f9cbc','center',900);
    buttons.push({x,y,w:cw,h:ch,act:()=>shopPick(it,shop.tab)})});
@@ -2890,33 +2902,40 @@ function drawChallengePrompt(){
 function drawBoard(){
  const bg=ctx.createLinearGradient(W,0,0,H);bg.addColorStop(0,'#2a5bd8');bg.addColorStop(.45,'#0c1d52');bg.addColorStop(1,'#02040c');ctx.fillStyle=bg;ctx.fillRect(-UX,0,SW,H);
  for(const s of menuStars){ctx.globalAlpha=.3+.5*(.5+.5*Math.sin(runT*2+s.p));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;
- const b=board,cx=W/2,lw=640,lx=cx-lw/2;
+ const b=board,cx=W/2,lw=900,lx=cx-lw/2,coopTab=b.tab==='coop';
  outlined('🏆 LEADERBOARD',cx,54,40,'#ffd34d');
  const tabs=[['all','ALL-TIME'],['week','📆 THIS WEEK'],['daily',`📅 DAILY #${today().no}`],['coop','🤝 CO-OP']];
- tabs.forEach(([id,l],i)=>{const x=cx-318+i*160,on=b.tab===id;button(l,x,86,154,40,()=>boardTab(id),on);});
+ tabs.forEach(([id,l],i)=>{const x=cx-410+i*206,on=b.tab===id;button(l,x,82,198,42,()=>boardTab(id),on);});
  if(b.tab==='coop')text('Best shift of each team · 2-4 players · the host submits it when the shift ends',cx,134,12,'#8fe3ff','center',800);
  if(b.tab==='week'){const now=new Date(),d=(now.getUTCDay()+6)%7,next=Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-d+7),left=Math.max(0,next-now.getTime());
   text(`Resets Monday 00:00 UTC · ${Math.floor(left/864e5)}d ${Math.floor(left%864e5/36e5)}h left · Top 3 win the 🏆 Champion Trophy hat`,cx,134,12,'#ffd34d','center',800)}
- ctx.fillStyle='rgba(8,12,28,.6)';rr(ctx,lx,146,lw,402,16);ctx.fill();
- text('#',lx+30,164,11,'#8f9cbc','center',900);text(b.tab==='coop'?'TEAM':'PLAYER',lx+70,164,11,'#8f9cbc','left',900);text('ZONE',lx+380,164,11,'#8f9cbc','center',900);
- text('DELIV.',lx+460,164,11,'#8f9cbc','center',900);text('SCORE',lx+lw-24,164,11,'#8f9cbc','right',900);
+ ctx.fillStyle='rgba(8,12,28,.66)';rr(ctx,lx,146,lw,430,18);ctx.fill();ctx.strokeStyle='rgba(111,163,255,.25)';ctx.lineWidth=1.5;ctx.stroke();
+ const C={rank:lx+36,ava:lx+84,name:lx+112,zone:lx+520,combo:lx+660,deliv:lx+760,score:lx+lw-28};
+ text('#',C.rank,166,12,'#8f9cbc','center',900);text(coopTab?'TEAM':'PLAYER',C.name,166,12,'#8f9cbc','left',900);text('REACHED',C.zone,166,12,'#8f9cbc','center',900);
+ text('BEST COMBO',C.combo,166,12,'#8f9cbc','center',900);text('DELIVERIES',C.deliv,166,12,'#8f9cbc','center',900);text('SCORE',C.score,166,12,'#8f9cbc','right',900);
+ if(b.rows&&b.rows.length&&b.total)text(`👥 ${fmt(b.total)} ${coopTab?'teams':'players'} ranked`,lx+lw-16,134,12,'#aab8d5','right',800);
  if(!LB_ON)text('Leaderboard is not configured yet',cx,340,16,'#aab8d5','center',800);
  else if(b.error){text('⚠️ Could not load the leaderboard',cx,320,16,'#ff6473','center',800);text(b.error,cx,346,12,'#8f9cbc','center',700);button('RETRY',cx-60,372,120,38,loadBoard,false)}
  else if(!b.rows)text('Loading'+'.'.repeat(1+Math.floor(runT*3)%3),cx,340,16,'#aab8d5','center',800);
  else if(!b.rows.length)text(b.tab==='coop'?'No team scores yet — start a 🤝 CO-OP shift with friends!':b.tab==='daily'?'No scores today yet — be the first! 📦':b.tab==='week'?'No scores this week yet — be the first! 📦':'No scores yet — be the first! 📦',cx,340,16,'#aab8d5','center',800);
- else b.rows.forEach((r,i)=>{const y=190+i*36,top=r.rank<=3;
-  if(r.is_me){ctx.fillStyle='rgba(69,230,165,.16)';rr(ctx,lx+8,y-15,lw-16,30,10);ctx.fill()}
-  else if(i%2===0){ctx.fillStyle='rgba(255,255,255,.03)';rr(ctx,lx+8,y-15,lw-16,30,10);ctx.fill()}
-  text(top?['🥇','🥈','🥉'][r.rank-1]:String(r.rank),lx+30,y+1,top?18:15,'#fff','center',900);
-  if(b.tab==='coop'){const nm=String(r.name);text('🤝'+r.players+' '+(nm.length>34?nm.slice(0,33)+'…':nm)+(r.is_me?'  (you)':''),lx+50,y+1,13,r.is_me?'#45e6a5':'#fff','left',800)}
-  else text(String(r.name).slice(0,16)+(r.is_me?'  (you)':''),lx+70,y+1,16,r.is_me?'#45e6a5':'#fff','left',800);
-  if(r.skin){const s=skinItem(r.skin);if(s&&s.body){ctx.fillStyle=s.body;ctx.beginPath();ctx.arc(lx+56,y+1,5,0,7);ctx.fill()}}
-  const z=zoneById(r.zone|0);text(z.icon+(r.loop?' '+ROMAN[Math.min(r.loop,9)]:''),lx+380,y+1,15,'#fff','center',800);
-  text(String(r.deliveries),lx+460,y+1,15,'#dfe5f0','center',800);text(fmt(r.score),lx+lw-24,y+1,17,top?'#ffd34d':'#fff','right',900)});
- if(b.me&&b.rows&&!b.rows.some(r=>r.is_me))text(`Your best: ${fmt(b.me.score)}  ·  Rank #${b.me.rank} of ${b.me.total}`,cx,530,14,'#45e6a5','center',900);
- else if(b.rows&&!b.me&&LB_ON&&b.tab!=='coop')text(b.tab==='daily'?'Play today\'s Daily Challenge to get ranked':'Finish a run to get ranked',cx,530,13,'#8f9cbc','center',800);
- button('← BACK',cx-205,572,130,42,boardBack,false);
- if(LB_ON)button(playerName?'✏️  '+playerName:'✏️  SET NAME',cx-65,572,270,42,()=>askName(()=>{if(lbSubmit&&lbSubmit.state==='needName')submitScore()}),false,true);
+ else b.rows.forEach((r,i)=>{const y=196+i*36,top=r.rank<=3;
+  if(r.is_me){ctx.fillStyle='rgba(69,230,165,.18)';rr(ctx,lx+8,y-16,lw-16,32,11);ctx.fill();ctx.strokeStyle='rgba(69,230,165,.6)';ctx.lineWidth=1.5;ctx.stroke()}
+  else if(top){ctx.fillStyle=['rgba(255,211,77,.12)','rgba(220,228,245,.08)','rgba(230,150,90,.09)'][r.rank-1];rr(ctx,lx+8,y-16,lw-16,32,11);ctx.fill()}
+  else if(i%2===0){ctx.fillStyle='rgba(255,255,255,.035)';rr(ctx,lx+8,y-16,lw-16,32,11);ctx.fill()}
+  text(top?['🥇','🥈','🥉'][r.rank-1]:String(r.rank),C.rank,y+1,top?22:17,'#fff','center',900);
+  if(!coopTab){const sk=r.skin&&skinItem(r.skin);drawDili(C.ava,y+4,.62,1,{skin:{color:sk&&sk.body?sk:SKINS.color[0],hat:'h_none'}})}
+  else text('🤝',C.ava,y+1,18,'#fff','center');
+  if(coopTab){const nm=String(r.name);text((nm.length>40?nm.slice(0,39)+'…':nm)+`  ·  ${r.players}P`+(r.is_me?'  (you)':''),C.name,y+1,15,r.is_me?'#45e6a5':'#fff','left',800)}
+  else text(String(r.name).slice(0,16)+(r.is_me?'  (you)':''),C.name,y+1,18,r.is_me?'#45e6a5':'#fff','left',900);
+  const z=zoneById(r.zone|0);text(z.icon+' '+z.name+(r.loop?' '+ROMAN[Math.min(r.loop,9)]:''),C.zone,y+1,13,'#dfe5f0','center',800);
+  text('x'+(r.combo|0),C.combo,y+1,16,(r.combo|0)>=10?'#ffb347':BRAND.sky,'center',900);text(String(r.deliveries),C.deliv,y+1,16,'#dfe5f0','center',800);
+  text(fmt(r.score),C.score,y+1,20,top?'#ffd34d':'#fff','right',900)});
+ if(b.me&&b.rows){const y=558;ctx.fillStyle='rgba(69,230,165,.16)';rr(ctx,lx+8,y-18,lw-16,36,12);ctx.fill();
+  text(`⭐ YOU  ·  RANK #${b.me.rank} of ${fmt(b.me.total)}`,lx+28,y+1,15,'#45e6a5','left',900);
+  const pb=b.tab==='daily'?dailyRec().best:best.score;text(`your best ${fmt(b.me.score)}`+(pb>b.me.score?`  ·  on this device ${fmt(pb)}`:''),lx+lw-28,y+1,15,'#fff','right',900)}
+ else if(b.rows&&!b.me&&LB_ON&&b.tab!=='coop')text(b.tab==='daily'?'Play today\'s Daily Challenge to get ranked':'Finish a run to get ranked',cx,556,14,'#8f9cbc','center',800);
+ button('← BACK',cx-205,590,130,42,boardBack,false);
+ if(LB_ON)button(playerName?'✏️  '+playerName:'✏️  SET NAME',cx-65,590,270,42,()=>askName(()=>{if(lbSubmit&&lbSubmit.state==='needName')submitScore()}),false,true);
  text(touchUI?'':'← → switch board  ·  Esc back',cx,H-18,11,'#6b7aa0','center',800);
 }
 // ---------- share card: an image of the run + a post ready for X ----------
