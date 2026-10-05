@@ -128,6 +128,14 @@ Each zone has its own traffic: sedans, 🚕 taxis, 🚌 buses (long and slow), v
 | 👑 VIP | Much longer trip | x3 |
 | 📦 2 Drops | One pickup, two doors, any order | Each door counts as a delivery |
 
+### 🤪 Funny orders (from the 4th delivery)
+Player idea: more funny things to deliver. Some normal orders turn into:
+- 🍦 **Ice cream** (x2): it melts, so there's a timer like an urgent order but a bit longer, and it drips as you run. Too slow: "IT MELTED!"
+- 🎈 **Balloons** (x2): Dili holds a bunch of balloons and runs 12% faster, but one crash pops them all.
+- 🐟 **Stinky fish** (x2): flies buzz around Dili, a little stink cloud follows you, and the customer is not thrilled ("ew 🤢 …thanks?").
+- 🎁 **Mystery box**: it shakes in Dili's hands; at the door it turns out to be socks, 15 coins, +5s, a frog (+500) or, rarely, a diamond (+1,500).
+They replace part of the plain orders using the same random draw, so pickup and drop spots of a Daily or a challenge stay the same.
+
 ### Random events (every ~25–35s)
 🚓 **Police chase** (a cop follows the shortest path to you for 10s; escape for +150) · 🌫️ **Thick fog** (visibility shrinks around Dili; not in the already-dark zones) · 🌧️ **Flash rain** (slippery roads) · ⭐ **Happy hour** (all points x2) · 🚗 **Rush hour** (more, faster traffic) · 🪙 **Coin shower** (grab coins for the wardrobe) · 🪂 **Dlicom Airdrop** (9 Dlicom crates float down on parachutes: a shadow and ring show where each one lands. Catch them for +3 🪙, or +12 🪙 for a rare golden 🎁. They blink and vanish after 5s)
 
@@ -182,7 +190,7 @@ Traffic, trains and meteors speed up within each zone as you deliver (up to +45%
 Screens no longer cut: switching between menu, wardrobe, settings, lobby, pause, upgrade and game over crossfades the last frame of the old screen over the new one (0.25s; the snapshot is taken before a resolution switch can wipe the canvas). Buttons ease in and out of their hover size instead of jumping, and a press sends a soft ring out of the button with a light tap sound (and a short buzz on phones).
 
 ### 🏆 Leaderboard
-A wide board (feedback: bigger, with more detail about each player): each row shows the rank (medals and tinted rows for the top 3), the player's Dili in their colour, name, the zone they reached (icon and name, with the loop), best combo, deliveries and score. The header counts how many players are ranked, and a card under the list shows your rank and best score even when you are outside the top 10. Tabs: All-time · This week · Daily · 🤝 Co-op.
+A wide board (feedback: bigger, with more detail about each player): each row shows the rank (medals and tinted rows for the top 3), the player's Dili in their colour, name, the zone they reached (icon and name, with the loop), best combo, deliveries and score. The header counts how many players are ranked, and a card under the list shows your rank and best score even when you are outside the top 10. Opened from the game over screen, that card shows THIS RUN next to your BEST. **🏆 LIVE #N**: during a ranked run (normal or daily) the board is loaded once at the start, and a pill above the coin counter shows where your current score would place you, popping when you pass someone. Tabs: All-time · This week · Daily · 🤝 Co-op.
 
 ## Settings
 **⚙️** on the menu (top-right) or **Settings** in Pause:
