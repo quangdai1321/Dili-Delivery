@@ -148,6 +148,8 @@ Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend
 - **Dash trails**: Sparkles, Coin rain, 🔥 Fire (combo x15), 🌈 Rainbow (beat a friend's challenge)
 - **🐾 Pets** trot behind Dili in every run, sit next to Dili on the menu, and cheer (bark, meow, squawk) on each delivery. Each has a small perk: 🐶 **Puppy** (300 🪙) starts every run with +1 🛡️ shield · 🐱 **Kitty** (450 🪙) +1 🪙 per delivery · 🦜 **Parrot** (600 🪙) +15% pickup and drop range · 🐰 **Bunny** (complete 10 daily missions) DASH recharges 20% faster
 
+Buying asks first (player feedback: avoid accidental purchases): tapping an item you don't own opens a **BUY THIS?** dialog with the price and what you'll have left, while Dili tries the item on in the preview. CANCEL / Esc spends nothing, BUY / Enter buys it. Items you own are equipped with one tap.
+
 13 achievements give coins and unlock the rare items. The equipped colour shows next to your name on the leaderboard.
 
 ### 🎯 Weekly challenge
