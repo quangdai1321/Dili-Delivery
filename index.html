@@ -245,7 +245,11 @@ const SKINS={
  // pets follow Dili around and each has a small perk
  pet:[{id:'p_none',name:'NO PET',cost:0},{id:'p_dog',name:'PUPPY',icon:'🐶',cost:300,perk:'Starts every run with +1 🛡️'},
   {id:'p_cat',name:'KITTY',icon:'🐱',cost:450,perk:'+1 🪙 on every delivery'},{id:'p_parrot',name:'PARROT',icon:'🦜',cost:600,perk:'+15% pickup & drop range'},
-  {id:'p_bunny',name:'BUNNY',icon:'🐰',ach:'missions10',perk:'DASH recharges 20% faster'}],
+  {id:'p_bunny',name:'BUNNY',icon:'🐰',ach:'missions10',perk:'DASH recharges 20% faster'},
+  {id:'p_fox',name:'FOX',icon:'🦊',cost:700,perk:'Run 8% faster',aura:'255,150,60'},
+  {id:'p_panda',name:'PANDA',icon:'🐼',cost:900,perk:'Crashes cost 1s less',aura:'220,235,255'},
+  {id:'p_unicorn',name:'UNICORN',icon:'🦄',cost:1200,perk:'+2 🪙 on every delivery',aura:'255,140,230',rainbow:true},
+  {id:'p_dragon',name:'DRAGON',icon:'🐉',cost:1800,perk:'Every run: +1 🛡️ and +5s',aura:'255,90,60',legend:true}],
 };
 const skinItem=id=>{for(const k in SKINS){const s=SKINS[k].find(x=>x.id===id);if(s)return s}return null};
 const ACHS=[
@@ -359,10 +363,17 @@ const equipped=()=>({color:skinItem(meta.equip.color)||SKINS.color[0],hat:meta.e
 if(!meta.equip.pet)meta.equip.pet='p_none';if(!meta.owned.includes('p_none'))meta.owned.push('p_none'); // older saves had no pet slot
 const petId=()=>meta.equip.pet&&meta.equip.pet!=='p_none'?meta.equip.pet:null;
 let pet=null; // {x,y,face,ph}
+const RAINBOW6=['255,110,150','255,180,80','255,240,110','120,240,150','110,190,255','200,140,255'];
+function petAura(it,x,y,r){
+ if(!it||!it.aura)return;const p=.75+.25*Math.sin(runT*4);ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=it.legend?.9:.7;
+ ctx.drawImage(glowSprite(it.rainbow?RAINBOW6[Math.floor(runT*3)%6]:it.aura,.8),x-r*p,y-r*p,r*2*p,r*2*p);ctx.restore();
+ for(let i=0;i<(it.legend?4:3);i++){const a=runT*(it.legend?2.4:1.8)+i*2.1,d=r*.75;drawStar(x+Math.cos(a)*d,y+Math.sin(a)*d*.7,r*.11*(1+.4*Math.sin(runT*6+i)),it.rainbow?`hsl(${(runT*200+i*90)%360},100%,70%)`:'#fff3b0')}
+}
 function drawPet(){
  const id=petId();if(!id||!player)return;const it=skinItem(id);if(!it)return;
  if(!pet)pet={x:player.x-20,y:player.y+6,face:1,ph:0};
  const b=Math.abs(Math.sin(pet.ph))*4;ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(pet.x,pet.y+10,9,3.5,0,0,7);ctx.fill();
+ petAura(it,pet.x,pet.y-b-2,22);
  ctx.save();ctx.translate(pet.x,pet.y-b);if(pet.face>0)ctx.scale(-1,1);ctx.drawImage(emojiSprite(it.icon,SPR()),-12,-14,24,24);ctx.restore();
 }
 function updatePet(dt){
@@ -578,7 +589,11 @@ const SFX={
  pet(id){if(id==='p_dog'){tone(520,.07,'square',.05,.6);noise(.05,.05,1200,0,'bandpass');tone(560,.08,'square',.05,.6,.13);noise(.05,.05,1200,.13,'bandpass')}
   else if(id==='p_cat'){tone(700,.32,'sawtooth',.03,1.35);tone(950,.25,'sine',.02,.8,.12)}
   else if(id==='p_parrot'){for(let i=0;i<3;i++)tone(1700+i*250,.06,'square',.03,1.3,i*.07)}
-  else if(id==='p_bunny'){tone(1400,.05,'sine',.03,1.4);tone(1900,.05,'sine',.025,1.3,.09)}},
+  else if(id==='p_bunny'){tone(1400,.05,'sine',.03,1.4);tone(1900,.05,'sine',.025,1.3,.09)}
+  else if(id==='p_fox'){tone(900,.09,'triangle',.04,1.5);tone(1200,.08,'triangle',.03,.8,.1)}
+  else if(id==='p_panda'){tone(330,.12,'sine',.06,.8);tone(260,.14,'sine',.05,.8,.12)}
+  else if(id==='p_unicorn'){[1319,1568,1976,2637].forEach((f,i)=>tone(f,.18,'sine',.03,1,i*.06))}
+  else if(id==='p_dragon'){tone(110,.4,'sawtooth',.06,.6);noise(.35,.12,700,.02,'bandpass');tone(880,.2,'triangle',.04,1.3,.25)}},
  honk(){tone(415,.12,'square',.06);tone(349,.18,'square',.06,1,.14)},
  close(){noise(.22,.08,1100,0,'bandpass');tone(1200,.08,'triangle',.06,1.5);tone(600,.1,'sine',.05,1.5)}, // whoosh past + a bright ding
  jump(){tone(520,.12,'square',.07,1.8);tone(880,.1,'triangle',.06,1.4,.06)},
@@ -824,7 +839,7 @@ const toScreen=p=>({x:(p.x-cam.x)*cam.z+W/2,y:(p.y-cam.y)*cam.z+HUD+ROWS*T/2});
 
 const isRoad=(c,r)=>inb(c,r)&&grid[r][c]>0;
 const walkable=(c,r)=>isRoad(c,r)&&!barriers.has(key(c,r));
-const playerSpeed=()=>185*(1+.12*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1)*(order&&order.type==='balloons'&&iCarry()?1.12:1);
+const playerSpeed=()=>185*(1+.12*upg.speed)*(zone.lowgrav?1.08:1)*(buffs.turbo>0?1.35:1)*(order&&order.type==='balloons'&&iCarry()?1.12:1)*(meta.equip.pet==='p_fox'?1.08:1);
 const diff=()=>(best.runs>0?1.08:1)+.15*loop+.045*Math.min(zoneDeliveries,10); // a bit harder after your first run (player feedback)
 const dashCooldown=()=>2*Math.pow(.85,upg.dash)*(meta.equip.pet==='p_bunny'?.8:1);
 const pickRadius=()=>24*(1+.4*upg.magnet)*(buffs.magnet>0?1.8:1)*(meta.equip.pet==='p_parrot'?1.15:1);
@@ -1330,7 +1345,7 @@ function doDeliver(di=0,by='host'){
  combo++;runBestCombo=Math.max(runBestCombo,combo);comboPulse=.4;deliveries++;cleanStreak=clean?cleanStreak+1:0;
  const team=coopRun()&&order.passed,happy=evOn('happy')?2:1,base=50+drop.len*10,bonus=(base*(fast?2:1)*(clean?3:1)*om.mult+combo*50)*happy*(team?1.5:1);
  score+=bonus;if(team)floats.push({x:dx,y:dy-78,text:'🤝 TEAM DELIVERY x1.5',color:'#8fe3ff',t:1.4,max:1.4,size:18});
- const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5)+(meta.equip.pet==='p_cat'?1:0);addCoins(cg);if(petId())setTimeout(()=>SFX.pet(petId()),180); // shown on the result card
+ const cg=3+(fast?2:0)+(clean?2:0)+(ot==='vip'?10:ot!=='normal'?4:0)+Math.floor(combo/5)+(meta.equip.pet==='p_cat'?1:meta.equip.pet==='p_unicorn'?2:0);addCoins(cg);if(petId())setTimeout(()=>SFX.pet(petId()),180); // shown on the result card
  unlockAch('first');if(combo>=10)unlockAch('combo10');if(combo>=15)unlockAch('combo15');if(cleanStreak>=10)unlockAch('clean10');
  if(ot==='vip'){unlockAch('vip');queueMoment(1,'👑 VIP delivery')}if(ot==='fragile')unlockAch('fragile');
  if(clean)goalTrack('clean');if(fast)goalTrack('fast');if(!order.sandTouched)goalTrack('nosand');if(!order.bumped)goalTrack('nobump');
@@ -1416,9 +1431,10 @@ function startRun(kind=runKind){
  powerups=[];powT=10;powN=0;buffs={turbo:0,magnet:0,ghost:0};hurdleHint=false;moment=null;momentPend=null;boss=null;bossEnt=null;runCoins=0;cleanStreak=0;failedOrders=0;event=null;evT=seeded(hashSeed(runSeed+5),()=>rand(22,30));evCount=0;cop=null;pickups=[];chaseCaught=false;achPops=[];
  hitStop=0;camPunch=0;crashFx=0;comboGlow=0;crashes=0;crashLost=0;orderCrashes=0;lastCrashBy=null;nearMisses=0;nearCd=0;slowmo=0;runClock=0;paceLog=[];rage=null;shareFile=null;toast=null;
  score=0;dispScore=0;dispShift=60;combo=0;runBestCombo=0;deliveries=0;shiftTime=60;fastest=null;totalDist=0;newBest=false;lastTickSec=99;
- upg={speed:0,dash:0,shield:meta.equip.pet==='p_dog'?1:0,magnet:0};pet=null;respawnQ=[];hudPulseShield=0;particles=[];floats=[];bubbles=[];tut=null;if(!rush&&kind!=='coop'&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
+ upg={speed:0,dash:0,shield:meta.equip.pet==='p_dog'||meta.equip.pet==='p_dragon'?1:0,magnet:0};pet=null;respawnQ=[];hudPulseShield=0;particles=[];floats=[];bubbles=[];tut=null;if(!rush&&kind!=='coop'&&(forceTut||/tutorial/i.test(location.search)&&!tutFromUrl||!store.get('diliDelivery.tutDone',false)&&best.runs===0)){if(/tutorial/i.test(location.search))tutFromUrl=true;forceTut=false;startTutorial()}diliCd=0;saidLow=false;saidStart=false;crates=[];rings=[];coins=[];resultCard=null;hype=null;joy=null;pendingZone=null;pendingUpgrade=false;stageInfo=null;
  player={x:0,y:0,r:13,vx:0,vy:0,face:1,dash:0,dashCd:0,dashDir:{x:1,y:0},inv:0,pop:0,dizzy:0,moving:false,dustT:0,touching:false,trail:[],faceS:1,step:0,land:0,lean:0,wasMoving:false};
  loadLiveBoard();
+ if(meta.equip.pet==='p_dragon'&&!rush){shiftTime+=5;dispShift=65}
  enterZone(0,true);if(rush){newOrder('boss');mode='play';rush.breakT=RUSH_BREAK}else{newOrder();mode='play'}SFX.go();irisT=.75;
  if(runKind==='coop'){coopOnStart();if(coop.role==='guest'){const q=center(tileOf(player).c,tileOf(player).r);player.x=q.x+6;player.y=q.y}}
 }
@@ -1510,7 +1526,7 @@ function crash(sx,sy,by='car'){
  const mine=!coopRun()||order.holder===coop.id;
  // repeated crashes on the same order hurt more: -3s, -4s, -5s, -6s
  crashCauses[by]=(crashCauses[by]||0)+1;
- const pen=Math.min(6,3+orderCrashes),had=combo;orderCrashes++;crashes++;crashLost+=pen;lastCrashBy=by;cleanStreak=0;
+ const pen=Math.min(6,3+orderCrashes)-(meta.equip.pet==='p_panda'?1:0),had=combo;orderCrashes++;crashes++;crashLost+=pen;lastCrashBy=by;cleanStreak=0;
  meta.crashes=(meta.crashes||0)+1;saveMeta();if(meta.crashes>=25)unlockAch('grumpy');if(by==='police')chaseCaught=true;
  combo=0;order.clean=false;shiftTime=Math.max(0,shiftTime-pen);player.inv=1.2;player.dizzy=1.2;flash=.35;flashColor='#ff4d5e';
  floats.push({x:player.x,y:player.y-30,text:had>=2?`COMBO x${had} BROKEN`:'CRASH!',color:'#ff6473',t:1.1,max:1.1,size:22});
@@ -2679,7 +2695,7 @@ function drawMenu(){
  if(heroCanvas&&meta.equip.color==='c_blue'&&meta.equip.hat==='h_none'){const hh=560,hw=hh*heroCanvas.width/heroCanvas.height;ctx.imageSmoothingQuality='high';ctx.drawImage(heroCanvas,40,H-hh-8+bob,hw,hh);ctx.imageSmoothingQuality='low'}
  else drawDili(290,380+bob,6.5,1,{carrying:true});
  orbit(true); // in front of the hero
- {const it=petId()&&skinItem(petId());if(it){const b=Math.abs(Math.sin(runT*3))*8;ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(470,H-46,34,9,0,0,7);ctx.fill();ctx.drawImage(emojiSprite(it.icon,3),436,H-118-b,70,70)}}
+ {const it=petId()&&skinItem(petId());if(it){const b=Math.abs(Math.sin(runT*3))*8;ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(470,H-46,34,9,0,0,7);ctx.fill();petAura(it,471,H-83-b,62);ctx.drawImage(emojiSprite(it.icon,3),436,H-118-b,70,70)}}
  const cx=815;
  drawLogoFancy(cx-62,76,56);text('DLICOM',cx-22,68,26,'#fff','left',900);text('PRESENTS',cx-21,92,11,'#bcd0ff','left',800);
  buttons.push({x:cx-95,y:44,w:210,h:64,act:openDlicom,up:true}); // the official logo opens @DlicomApp
@@ -2776,7 +2792,7 @@ function drawOver(){
 }
 // ---------- wardrobe: spend coins on Dili colours, hats and dash trails; achievements unlock the rare ones ----------
 const shop={tab:'color',msg:null};
-function openShop(){shop.tab='color';shop.msg=null;shop.confirm=null;mode='shop';joy=null}
+function openShop(){shop.tab='color';shop.msg=null;shop.confirm=null;shop.preview=null;shop.hovItem=null;mode='shop';joy=null}
 function canBuySomething(){for(const k in SKINS)for(const it of SKINS[k])if(!meta.owned.includes(it.id)&&it.cost!=null&&it.cost<=meta.coins)return true;return false}
 function shopBuy(){
  const c=shop.confirm;shop.confirm=null;if(!c)return;const{it,kind}=c;
@@ -2785,7 +2801,8 @@ function shopBuy(){
  for(let i=0;i<3;i++)burst(rand(120,320),rand(200,400),20,CONFETTI,true);
 }
 function shopPick(it,kind){
- if(meta.owned.includes(it.id)){meta.equip[kind]=it.id;saveMeta();SFX.pickup();return}
+ if(meta.owned.includes(it.id)){meta.equip[kind]=it.id;shop.preview=null;saveMeta();SFX.pickup();return}
+ shop.preview={it,kind,t:4}; // try it on, even when it is locked
  if(it.weeklyCh){const w=weeklyState();shop.msg={text:w.reward===it.id?`🎯 This week's challenge reward: ${w.ch.text} (📋 MISSIONS)`:'🎯 A weekly challenge reward. It comes back in a future week!',t:3.4,bad:true};SFX.nope();return}
  if(it.weekly){shop.msg={text:'🏆 Finish a week in the leaderboard top 3 to win it',t:3.2,bad:true};SFX.nope();return}
  if(it.ach){const a=ACHS.find(x=>x.id===it.ach);shop.msg={text:`🔒 Unlock with ${a.icon} ${a.name}: ${a.desc}`,t:3.2,bad:true};SFX.nope();return}
@@ -2862,12 +2879,14 @@ function drawShop(){
  // left: live preview on a pedestal
  const px=210,py=360;
  ctx.fillStyle='rgba(111,163,255,.12)';ctx.beginPath();ctx.ellipse(px,py+92,130,30,0,0,7);ctx.fill();ctx.strokeStyle='rgba(111,163,255,.5)';ctx.lineWidth=2;ctx.stroke();
- const cf=shop.confirm,sv={...meta.equip};if(cf)meta.equip[cf.kind]=cf.it.id; // try it on while deciding
+ if(shop.preview&&(shop.preview.t-=1/60)<=0)shop.preview=null;
+ const cf=shop.confirm,pv=cf||shop.preview||shop.hovItem,sv={...meta.equip};if(pv&&pv.kind!=='ach'&&!(meta.equip[pv.kind]===pv.it.id))meta.equip[pv.kind]=pv.it.id;else if(pv)pv.same=true; // try it on
  if(shop.tab==='trail'){const gc=trailColor();for(let i=3;i>=1;i--){ctx.globalAlpha=.12*(4-i);drawDili(px-i*38,py+Math.sin(runT*4+i)*4,4,1,{ghost:true,ghostColor:gc})}ctx.globalAlpha=1;
   if(Math.random()<.5){const P0={x:px-60,y:py+20};dashFx(P0)}}
  drawDili(px,py+Math.sin(runT*2)*6,4.6,1,{carrying:true,moving:shop.tab==='trail'});
- {const it=petId()&&skinItem(petId());if(it)ctx.drawImage(emojiSprite(it.icon,3),px+70,py+28-Math.abs(Math.sin(runT*4))*8,64,64)}
+ {const it=petId()&&skinItem(petId());if(it){const by=py+28-Math.abs(Math.sin(runT*4))*8;petAura(it,px+102,by+32,58);ctx.drawImage(emojiSprite(it.icon,3),px+70,by,64,64)}}
  Object.assign(meta.equip,sv);
+ if(pv&&!pv.same&&!cf){const p=.6+.4*Math.sin(runT*5);ctx.fillStyle='rgba(8,12,28,.75)';rr(ctx,px-62,py+96,124,24,12);ctx.fill();text('👀 PREVIEW · '+pv.it.name,px,py+108,11,`rgba(255,211,77,${p})`,'center',900)}
  outlined('🎨 DILI STYLE',px,64,34,'#fff');
  ctx.fillStyle='rgba(255,211,77,.14)';rr(ctx,px-95,96,190,40,20);ctx.fill();text(`🪙 ${fmt(meta.coins)}`,px,117,20,'#ffd34d','center',900);
  ctx.fillStyle='rgba(8,12,28,.6)';rr(ctx,px-160,482,320,118,14);ctx.fill();text('HOW TO EARN 🪙',px,499,12,'#ffd34d','center',900);
@@ -2875,7 +2894,7 @@ function drawShop(){
   .forEach(([a,b],i)=>{text(a,px-146,518+i*17,12,'#dfe5f0','left',700);text(b,px+146,518+i*17,12,'#ffd34d','right',900)});
  // right: tabs + cards
  const tabs=[['color','COLORS'],['hat','HATS'],['trail','DASH TRAILS'],['pet','🐾 PETS'],['ach','🏆 AWARDS']],tx=440;
- tabs.forEach(([id,l],i)=>button(l,tx+i*140,40,132,40,()=>{shop.tab=id},shop.tab===id));
+ tabs.forEach(([id,l],i)=>button(l,tx+i*140,40,132,40,()=>{shop.tab=id;shop.preview=null;shop.hovItem=null},shop.tab===id));
  if(shop.tab==='ach'){
   const done=ACHS.filter(a=>meta.ach[a.id]).length;text(`${done} / ${ACHS.length} unlocked`,tx+340,104,13,'#aab8d5','center',800);
   const AR=Math.min(62,Math.floor((H-136)/Math.ceil(ACHS.length/2))),AS=(AR-8)/54; // rows shrink to fit as awards are added
@@ -2886,6 +2905,7 @@ function drawShop(){
    text(got?'✓':`+${a.coins} 🪙`+(it?' 🎁':''),x+322,y+27*AS,got?18:11,got?'#45e6a5':'#ffd34d','right',900)});
  }else{
   const items=SKINS[shop.tab],cols=items.length>12?5:items.length>6?4:3,gap=14,cw=cols===5?126:cols===4?160:214,ch=Math.min(176,Math.floor((H-120)/Math.ceil(items.length/cols))-gap),k=ch/176;
+  let hovNow=null;
   items.forEach((it,i)=>{const x=tx+(i%cols)*(cw+gap),y=110+Math.floor(i/cols)*(ch+gap),own=meta.owned.includes(it.id),on=meta.equip[shop.tab]===it.id,hov=hit(mouse,{x,y,w:cw,h:ch});
    ctx.fillStyle=on?'rgba(69,230,165,.14)':hov?'rgba(111,163,255,.16)':'rgba(255,255,255,.06)';rr(ctx,x,y,cw,ch,18);ctx.fill();
    ctx.strokeStyle=on?'#45e6a5':hov?BRAND.sky:'rgba(255,255,255,.12)';ctx.lineWidth=2;ctx.stroke();
@@ -2894,12 +2914,15 @@ function drawShop(){
    if(shop.tab==='trail'){const sv=meta.equip.trail;meta.equip.trail=it.id;const gc=trailColor();meta.equip.trail=sv;
     for(let j=3;j>=1;j--){ctx.globalAlpha=(own?1:.55)*.2*(4-j);drawDili(x+cw/2-j*22,y+74*k,1.9*k,1,{ghost:true,ghostColor:gc})}ctx.globalAlpha=own?1:.55;
     text({t_ghost:'💨',t_spark:'✨',t_coin:'🪙',t_fire:'🔥',t_rainbow:'🌈'}[it.id],x+cw-30,y+30,20,'#fff','center')}
-   if(shop.tab==='pet'){drawDili(x+cw/2-22,y+78*k+Math.sin(runT*3+i)*3,1.9*k,1,{skin:{color:cur.color,hat:cur.hat}});if(it.icon)ctx.drawImage(emojiSprite(it.icon,3),x+cw/2+18,y+70*k+Math.abs(Math.sin(runT*5+i))*-5,36*k,36*k)}
+   if(shop.tab==='pet'){drawDili(x+cw/2-22,y+78*k+Math.sin(runT*3+i)*3,1.9*k,1,{skin:{color:cur.color,hat:cur.hat}});if(it.icon){const py2=y+70*k+Math.abs(Math.sin(runT*5+i))*-5;petAura(it,x+cw/2+18+18*k,py2+18*k,30*k);ctx.drawImage(emojiSprite(it.icon,3),x+cw/2+18,py2,36*k,36*k)}
+    if(it.legend||it.aura)text(it.legend?'👑 LEGENDARY':'✨ RARE',x+cw-10,y+16,10,it.legend?'#ffd34d':'#ff9ee6','right',900)}
    else drawDili(x+cw/2+(shop.tab==='trail'?14:0),y+78*k+Math.sin(runT*3+i)*3,2.2*k,1,{skin:prev});ctx.restore();
    text(it.name,x+cw/2,y+(it.perk?126:134)*k,cw<150?12:14,'#fff','center',900);if(it.perk)text(it.perk,x+cw/2,y+143*k,10,'#bcd0ff','center',700);
    const a=it.ach&&ACHS.find(q=>q.id===it.ach);
    text(on?'✓ EQUIPPED':own?'TAP TO EQUIP':it.weekly?'🔒 🏆 Weekly top 3':it.weeklyCh?(weeklyState().reward===it.id?'🎯 THIS WEEK':'🔒 🎯 Weekly'):a?`🔒 ${a.icon} ${a.name}`:`🪙 ${fmt(it.cost)}`,x+cw/2,y+156*k,12,on?'#45e6a5':own?'#aab8d5':a?'#ff8ad8':meta.coins>=it.cost?'#ffd34d':'#8f9cbc','center',900);
+   if(hov&&!touchUI&&!meta.owned.includes(it.id))hovNow={it,kind:shop.tab};
    buttons.push({x,y,w:cw,h:ch,act:()=>shopPick(it,shop.tab)})});
+  shop.hovItem=hovNow;
  }
  button('← BACK',40,H-64,130,42,()=>{mode='menu'},false);
  if(shop.msg){const m=shop.msg;ctx.globalAlpha=Math.min(1,m.t*2);ctx.font=font(14,800);const w=mt(m.text)+36;
