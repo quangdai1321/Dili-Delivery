@@ -152,7 +152,7 @@ The official account is one tap away (player feedback: highlight the official Dl
 ### Dili Style (wardrobe) and achievements
 Deliveries, close calls, zone clears and coin showers earn **🪙 coins**. Spend them in **🎨 Skins** on the menu (or press **K**):
 - **Colors**: Classic blue, Sunny, Mint, Lime, Coral, Sky, Sakura, Midnight, and 😠 Grumpy Rose (frowns; unlocked by crashing 25 times)
-- **Patterns** (player feedback: more ways to make Dili your own): 🐯 Tiger stripes, 🐶 Dalmatian spots and 🌌 Starry Night, painted on the body, head and cape (600-800 🪙)
+- **Patterns** (player feedback: more ways to make Dili your own): 🐯 Tiger stripes, 🐶 Dalmatian spots and 🌌 Starry Night, painted on the body, head and cape (600-800 🪙), and ⚽ **Number 7** (777 🪙): a red football shirt with green shoulders, gold trim and a 7 on the chest
 - **Hats**: Delivery cap, Headphones, Party hat, 👑 Crown (reach Moon Base), 😇 Halo (10 clean deliveries in a row)
 - **Dash trails**: Sparkles, Coin rain, 🔥 Fire (combo x15), 🌈 Rainbow (beat a friend's challenge)
 - **🐾 Pets** trot behind Dili in every run, sit next to Dili on the menu, and cheer (bark, meow, squawk) on each delivery. Each has a small perk: 🐶 **Puppy** (300 🪙) starts every run with +1 🛡️ shield · 🐱 **Kitty** (450 🪙) +1 🪙 per delivery · 🦜 **Parrot** (600 🪙) +15% pickup and drop range · 🐰 **Bunny** (complete 10 daily missions) DASH recharges 20% faster

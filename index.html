@@ -236,6 +236,7 @@ const SKINS={
   {id:'c_sakura',name:'SAKURA',body:'#ff9ecf',cost:350},{id:'c_night',name:'MIDNIGHT',body:'#3b428f',cost:400},
   {id:'c_tiger',name:'TIGER',body:'#ff9f1c',pat:'stripes',patCol:'#3a2410',cost:600},{id:'c_dalma',name:'DALMATIAN',body:'#eef0f6',pat:'spots',patCol:'#222838',cost:600},
   {id:'c_starry',name:'STARRY NIGHT',body:'#27306e',pat:'stars',patCol:'#ffe066',cost:800},
+  {id:'c_seven',name:'NUMBER 7',body:'#d7262e',pat:'jersey',patCol:'#0f8a45',letter:'7',cost:777},
   {id:'c_galaxy',name:'GALAXY',body:'#7b5cff',weeklyCh:true},{id:'c_gold',name:'GOLDEN',body:'#e8b830',weeklyCh:true},{id:'c_rose',name:'GRUMPY ROSE',body:'#ff3d8b',frown:true,ach:'grumpy'}],
  hat:[{id:'h_none',name:'NO HAT',cost:0},{id:'h_cap',name:'DELIVERY CAP',cost:120},{id:'h_phones',name:'HEADPHONES',cost:250},
   {id:'h_party',name:'PARTY HAT',cost:350},{id:'h_crown',name:'CROWN',ach:'moon'},{id:'h_halo',name:'HALO',ach:'clean10'},{id:'h_horns',name:'BOSS HORNS',ach:'bosses'},{id:'h_trophy',name:'CHAMPION TROPHY',weekly:true},{id:'h_wizard',name:'WIZARD HAT',weeklyCh:true}],
@@ -2164,6 +2165,7 @@ function diliPattern(col,clipPath){
  if(!col.pat)return;ctx.save();clipPath();ctx.clip();ctx.fillStyle=col.patCol;ctx.strokeStyle=col.patCol;
  if(col.pat==='stripes'){ctx.lineWidth=2.2;for(let i=-24;i<=24;i+=6){ctx.beginPath();ctx.moveTo(i-4,-30);ctx.quadraticCurveTo(i+3,-5,i-2,22);ctx.stroke()}}
  else if(col.pat==='spots'){for(const[a,b,r]of[[-6,1,2.4],[4,8,2],[6,-1,1.6],[-3,10,1.5],[9,5,1.3],[-1,-17,2],[8,-12,1.6],[-6,-11,1.3],[11,-17,1.2],[-12,6,1.6]]){ctx.beginPath();ctx.ellipse(a,b,r*1.2,r,0,0,7);ctx.fill()}}
+ else if(col.pat==='jersey'){ctx.fillRect(-14,-5,30,4);ctx.fillStyle='#ffd34d';ctx.fillRect(-14,-1.2,30,1.1)} // football shirt: green shoulders, gold trim
  else if(col.pat==='stars'){for(const[a,b,r]of[[-5,2,2.2],[5,9,1.6],[6,0,1.4],[-2,-16,1.8],[9,-10,1.4],[-7,-9,1.2],[-11,8,1.5],[2,13,1.1]])drawStar(a,b,r,col.patCol)}
  ctx.restore();ctx.strokeStyle=BRAND.ink;ctx.lineWidth=1.6}
 function drawDili(x,y,s,face,o={}){
@@ -2189,7 +2191,7 @@ function drawDili(x,y,s,face,o={}){
  // body
  ctx.fillStyle=blue;ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7);ctx.fill();diliPattern(col,()=>{ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7)});ctx.beginPath();ctx.ellipse(1,5,10,9,0,0,7);ctx.stroke();
  ctx.fillStyle=blueL;ctx.globalAlpha=.45;ctx.beginPath();ctx.ellipse(-1,2,5,3.5,0,0,7);ctx.fill();ctx.globalAlpha=1;
- ctx.save();ctx.translate(1.5,6.5);ctx.scale(face<0?-1:1,1);ctx.fillStyle=white;ctx.font=font(8,900);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('D',0,0);ctx.restore();
+ ctx.save();ctx.translate(1.5,6.5);ctx.scale(face<0?-1:1,1);ctx.fillStyle=white;ctx.font=font(8,900);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(col.letter||'D',0,col.letter?.5:0);ctx.restore();
  // arms / package
  if(o.carrying){drawPackage(15,0,.6);ctx.fillStyle=blue;ctx.beginPath();ctx.arc(9,4,3,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.arc(21,4,3,0,7);ctx.fill();ctx.stroke()}
  else{ctx.fillStyle=blue;ctx.beginPath();ctx.arc(10+(moving?Math.sin(ph)*1.5:0),6,3.2,0,7);ctx.fill();ctx.stroke()}
